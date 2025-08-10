@@ -336,8 +336,8 @@ WEB_INTERFACE = """
         <h1>🖨️ Phomemo M110 - Protokoll-Fix</h1>
         
         <div class="protocol-info">
-            <h3>🔬 Protokoll-Analyse</h3>
-            <p>Basierend auf btmon-Daten wurde das proprietäre Phomemo-Protokoll analysiert:</p>
+            <h3>Protokoll-Analyse</h3>
+            <p>Basierend auf btmon-Daten wurde das proprietaere Phomemo-Protokoll analysiert:</p>
             <ul>
                 <li><strong>Header:</strong> 0x0b 0xef</li>
                 <li><strong>Response:</strong> 0x09 0xff 0x01 0x01 0x5c</li>
@@ -346,34 +346,34 @@ WEB_INTERFACE = """
         </div>
         
         <div class="card">
-            <h2>🔗 Verbindung & Init</h2>
-            <button class="btn btn-success" onclick="checkConnection()">🔍 Status prüfen</button>
-            <button class="btn btn-warning" onclick="reconnect()">🔄 Reconnect</button>
-            <button class="btn" onclick="initPrinter()">🚀 Drucker initialisieren</button>
+            <h2>Verbindung &amp; Init</h2>
+            <button class="btn btn-success" onclick="checkConnection()">Status pruefen</button>
+            <button class="btn btn-warning" onclick="reconnect()">Reconnect</button>
+            <button class="btn" onclick="initPrinter()">Drucker initialisieren</button>
             <div id="connectionStatus"></div>
         </div>
         
         <div class="grid">
             <div class="card">
-                <h2>📝 Text drucken (Phomemo-Protokoll)</h2>
+                <h2>Text drucken (Phomemo-Protokoll)</h2>
                 <textarea id="textInput" rows="3" placeholder="Text eingeben...">PHOMEMO TEST
 Protokoll Fix
-✓ Funktioniert!</textarea>
+Funktioniert!</textarea>
                 <select id="fontSize">
                     <option value="16">Klein (16px)</option>
                     <option value="20" selected>Normal (20px)</option>
-                    <option value="24">Groß (24px)</option>
-                    <option value="28">Extra Groß (28px)</option>
+                    <option value="24">Gross (24px)</option>
+                    <option value="28">Extra Gross (28px)</option>
                 </select>
                 <br>
-                <button class="btn" onclick="printText()">🖨️ Text drucken</button>
-                <button class="btn btn-success" onclick="testProtocol()">🧪 Protokoll-Test</button>
+                <button class="btn" onclick="printText()">Text drucken</button>
+                <button class="btn btn-success" onclick="testProtocol()">Protokoll-Test</button>
             </div>
             
             <div class="card">
-                <h2>🛠️ Debug & Protokoll</h2>
-                <button class="btn btn-danger" onclick="rawCommand()">⚡ Raw Command Test</button>
-                <button class="btn" onclick="clearDebug()">🗑️ Clear Debug</button>
+                <h2>Debug &amp; Protokoll</h2>
+                <button class="btn btn-danger" onclick="rawCommand()">Raw Command Test</button>
+                <button class="btn" onclick="clearDebug()">Clear Debug</button>
                 <div id="debugInfo" class="debug">Debug-Ausgabe erscheint hier...</div>
             </div>
         </div>
@@ -383,49 +383,49 @@ Protokoll Fix
 
     <script>
         function checkConnection() {
-            showStatus('🔍 Prüfe Verbindung...', 'info');
+            showStatus('Pruefe Verbindung...', 'info');
             fetch('/api/status')
                 .then(response => response.json())
                 .then(data => {
                     const status = data.connected ? 
-                        '<div class="success">✅ Drucker verbunden</div>' : 
-                        '<div class="error">❌ Drucker nicht verbunden</div>';
+                        '<div class="success">Drucker verbunden</div>' : 
+                        '<div class="error">Drucker nicht verbunden</div>';
                     document.getElementById('connectionStatus').innerHTML = status;
                     
-                    addDebug(`Status: Connected=${data.connected}, MAC=${data.mac}`);
+                    addDebug('Status: Connected=' + data.connected + ', MAC=' + data.mac);
                 })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+                .catch(error => showStatus('Fehler: ' + error, 'error'));
         }
         
         function reconnect() {
-            showStatus('🔄 Verbinde neu...', 'info');
+            showStatus('Verbinde neu...', 'info');
             fetch('/api/reconnect', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showStatus('✅ Reconnect erfolgreich!', 'success');
+                        showStatus('Reconnect erfolgreich!', 'success');
                         checkConnection();
                     } else {
-                        showStatus('❌ Reconnect fehlgeschlagen', 'error');
+                        showStatus('Reconnect fehlgeschlagen', 'error');
                     }
-                    addDebug(`Reconnect: Success=${data.success}, Error=${data.error || 'None'}`);
+                    addDebug('Reconnect: Success=' + data.success + ', Error=' + (data.error || 'None'));
                 })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+                .catch(error => showStatus('Fehler: ' + error, 'error'));
         }
         
         function initPrinter() {
-            showStatus('🚀 Initialisiere Drucker...', 'info');
+            showStatus('Initialisiere Drucker...', 'info');
             fetch('/api/init-printer', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showStatus('✅ Drucker initialisiert!', 'success');
+                        showStatus('Drucker initialisiert!', 'success');
                     } else {
-                        showStatus('❌ Init fehlgeschlagen', 'error');
+                        showStatus('Init fehlgeschlagen', 'error');
                     }
-                    addDebug(`Init: Success=${data.success}, Response=${data.response || 'None'}`);
+                    addDebug('Init: Success=' + data.success + ', Response=' + (data.response || 'None'));
                 })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+                .catch(error => showStatus('Fehler: ' + error, 'error'));
         }
         
         function printText() {
@@ -433,7 +433,7 @@ Protokoll Fix
             const fontSize = document.getElementById('fontSize').value;
             
             if (!text.trim()) {
-                showStatus('❌ Bitte Text eingeben!', 'error');
+                showStatus('Bitte Text eingeben!', 'error');
                 return;
             }
             
@@ -441,23 +441,23 @@ Protokoll Fix
             formData.append('text', text.replace(/\\n/g, '\n'));
             formData.append('font_size', fontSize);
             
-            showStatus('🖨️ Drucke mit Phomemo-Protokoll...', 'info');
+            showStatus('Drucke mit Phomemo-Protokoll...', 'info');
             
             fetch('/api/print-text', { method: 'POST', body: formData })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showStatus('✅ Text gedruckt!', 'success');
+                        showStatus('Text gedruckt!', 'success');
                     } else {
-                        showStatus('❌ Druckfehler: ' + (data.error || ''), 'error');
+                        showStatus('Druckfehler: ' + (data.error || ''), 'error');
                     }
-                    addDebug(`Print: Success=${data.success}, Method=${data.method || 'Unknown'}`);
+                    addDebug('Print: Success=' + data.success + ', Method=' + (data.method || 'Unknown'));
                 })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+                .catch(error => showStatus('Fehler: ' + error, 'error'));
         }
         
         function testProtocol() {
-            showStatus('🧪 Teste Phomemo-Protokoll...', 'info');
+            showStatus('Teste Phomemo-Protokoll...', 'info');
             
             const testText = 'PROTOCOL TEST\\n' + new Date().toLocaleTimeString();
             document.getElementById('textInput').value = testText;
@@ -466,18 +466,18 @@ Protokoll Fix
         }
         
         function rawCommand() {
-            showStatus('⚡ Teste Raw Command...', 'info');
+            showStatus('Teste Raw Command...', 'info');
             fetch('/api/raw-test', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showStatus('✅ Raw Command erfolgreich!', 'success');
+                        showStatus('Raw Command erfolgreich!', 'success');
                     } else {
-                        showStatus('❌ Raw Command fehlgeschlagen', 'error');
+                        showStatus('Raw Command fehlgeschlagen', 'error');
                     }
-                    addDebug(`Raw Test: Success=${data.success}, Response=${data.response || 'None'}`);
+                    addDebug('Raw Test: Success=' + data.success + ', Response=' + (data.response || 'None'));
                 })
-                .catch(error => showStatus('❌ Raw Fehler: ' + error, 'error'));
+                .catch(error => showStatus('Raw Fehler: ' + error, 'error'));
         }
         
         function clearDebug() {
@@ -487,14 +487,14 @@ Protokoll Fix
         function addDebug(message) {
             const debugDiv = document.getElementById('debugInfo');
             const timestamp = new Date().toLocaleTimeString();
-            debugDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            debugDiv.innerHTML += '[' + timestamp + '] ' + message + '<br>';
             debugDiv.scrollTop = debugDiv.scrollHeight;
         }
         
         function showStatus(message, type) {
             const statusDiv = document.getElementById('status');
             statusDiv.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
-            setTimeout(() => statusDiv.innerHTML = '', 8000);
+            setTimeout(function() { statusDiv.innerHTML = ''; }, 8000);
         }
         
         // Auto-check connection on load
