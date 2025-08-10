@@ -1,0 +1,32 @@
+# GitHub Pages Konfiguration
+title: "Phomemo M110 Drucker Dokumentation"
+description: "Web-Interface für Phomemo M110 Label-Drucker mit präziser Kalibrierung"
+
+# Theme (optional)
+theme: minima
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# Einstellungen
+markdown: kramdown
+highlighter: rouge
+
+# Navigation
+header_pages:
+  - index.html
+
+# Repository Info
+repository: "L0rz/phomemo-m110-printer"
+
+# Author
+author:
+  name: "L0rz"
+  
+# Build settings
+safe: true
+source: .
+destination: ./_site
+incremental: false
