@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Phomemo M110 Printer - WORKING VERSION für Raspberry Pi
-Einfache, funktionierende Version ohne Einrückungsfehler
+Phomemo M110 Printer - KORRIGIERTE VERSION für Raspberry Pi
+Fixes für korrekten Text-Druck
 """
 
 from flask import Flask, request, jsonify, render_template_string
@@ -23,9 +23,8 @@ class PhomemoM110:
     def __init__(self, mac_address):
         self.mac_address = mac_address
         self.rfcomm_device = "/dev/rfcomm0"
-        self.width_pixels = 384
-        self.label_width_pixels = 320
-        self.label_offset_x = 72
+        self.width_pixels = 384  # Phomemo M110 Standard
+        self.bytes_per_line = 48  # 384 / 8
         
     def is_connected(self):
         return os.path.exists(self.rfcomm_device)
@@ -57,6 +56,7 @@ class PhomemoM110:
             with open(self.rfcomm_device, 'wb') as printer:
                 printer.write(command_bytes)
                 printer.flush()
+                time.sleep(0.1)  # Kurze Pause zwischen Befehlen
             return True
         except Exception as e:
             logger.error(f"Send error: {e}")
@@ -64,91 +64,161 @@ class PhomemoM110:
     
     def print_text(self, text, font_size=24):
         try:
-            # Initialize printer
-            self.send_command(b'\x1b\x40')  # Reset
+            logger.info(f"Printing text: {text[:50]}...")
+            
+            # Drucker initialisieren
+            if not self.send_command(b'\x1b\x40'):  # ESC @
+                return False
             time.sleep(0.5)
             
-            # Create image
+            # Bild erstellen
             img = self.create_text_image(text, font_size)
-            image_bytes, height = self.image_to_bytes(img)
+            if img is None:
+                return False
             
-            # Send image
-            return self.send_image_data(image_bytes, height)
+            # Bild zu Bytes konvertieren
+            image_data = self.image_to_printer_format(img)
+            if not image_data:
+                return False
+            
+            # Bild senden
+            success = self.send_bitmap(image_data, img.height)
+            
+            if success:
+                # Papier vorschub
+                self.send_command(b'\x1b\x64\x03')  # ESC d 3 - Feed 3 lines
+                time.sleep(0.5)
+            
+            return success
+            
         except Exception as e:
             logger.error(f"Print error: {e}")
             return False
     
     def create_text_image(self, text, font_size):
         try:
-            # Load font
+            # Font laden
             try:
                 font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
             except:
-                font = ImageFont.load_default()
+                try:
+                    font = ImageFont.truetype("/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", font_size)
+                except:
+                    font = ImageFont.load_default()
             
-            # Calculate size
+            # Text vorbereiten
             lines = text.replace('\\n', '\n').split('\n')
-            img_height = max(80, len(lines) * (font_size + 10))
             
-            # Create image
-            img = Image.new('RGB', (self.width_pixels, img_height), 'white')
+            # Bildgröße berechnen
+            temp_img = Image.new('RGB', (1, 1), 'white')
+            temp_draw = ImageDraw.Draw(temp_img)
+            
+            line_heights = []
+            max_width = 0
+            
+            for line in lines:
+                bbox = temp_draw.textbbox((0, 0), line, font=font)
+                line_width = bbox[2] - bbox[0]
+                line_height = bbox[3] - bbox[1]
+                max_width = max(max_width, line_width)
+                line_heights.append(line_height)
+            
+            # Bild erstellen
+            total_height = sum(line_heights) + (len(lines) - 1) * 5 + 40  # Padding
+            img = Image.new('RGB', (self.width_pixels, total_height), 'white')
             draw = ImageDraw.Draw(img)
             
-            # Draw text
+            # Text zeichnen
             y_pos = 20
-            for line in lines:
-                bbox = draw.textbbox((0, 0), line, font=font)
-                line_width = bbox[2] - bbox[0]
-                x_pos = self.label_offset_x + (self.label_width_pixels - line_width) // 2
+            for i, line in enumerate(lines):
+                if line.strip():  # Nur nicht-leere Zeilen
+                    bbox = draw.textbbox((0, 0), line, font=font)
+                    line_width = bbox[2] - bbox[0]
+                    x_pos = (self.width_pixels - line_width) // 2  # Zentriert
+                    
+                    draw.text((x_pos, y_pos), line, fill='black', font=font)
                 
-                draw.text((x_pos, y_pos), line, fill='black', font=font)
-                y_pos += font_size + 5
+                y_pos += line_heights[i] + 5
             
+            # Zu schwarz-weiß konvertieren
             return img.convert('1')
+            
         except Exception as e:
             logger.error(f"Image creation error: {e}")
-            return Image.new('1', (self.width_pixels, 80), 'white')
+            return None
     
-    def image_to_bytes(self, img):
-        width, height = img.size
-        pixels = list(img.getdata())
-        image_bytes = bytearray()
-        
-        for y in range(height):
-            for x in range(0, width, 8):
-                byte_value = 0
-                for bit in range(8):
-                    if x + bit < width:
-                        pixel_idx = y * width + x + bit
-                        if pixel_idx < len(pixels) and pixels[pixel_idx] == 0:
-                            byte_value |= (1 << (7 - bit))
-                image_bytes.append(byte_value)
-        
-        return bytes(image_bytes), height
-    
-    def send_image_data(self, image_bytes, height):
+    def image_to_printer_format(self, img):
         try:
-            bytes_per_line = self.width_pixels // 8
+            width, height = img.size
+            pixels = list(img.getdata())
             
-            # Send image command
-            header = bytes([0x1b, 0x2a, 0x00, bytes_per_line & 0xFF, (bytes_per_line >> 8) & 0xFF])
+            # Bild-Daten für Drucker vorbereiten
+            image_bytes = []
             
-            if not self.send_command(header + image_bytes):
+            for y in range(height):
+                line_bytes = []
+                for x in range(0, self.width_pixels, 8):
+                    byte_value = 0
+                    for bit in range(8):
+                        pixel_x = x + bit
+                        if pixel_x < width:
+                            pixel_idx = y * width + pixel_x
+                            if pixel_idx < len(pixels):
+                                # Schwarz = 1 bit, Weiß = 0 bit
+                                if pixels[pixel_idx] == 0:  # Schwarz
+                                    byte_value |= (1 << (7 - bit))
+                    line_bytes.append(byte_value)
+                
+                # Padding auf bytes_per_line
+                while len(line_bytes) < self.bytes_per_line:
+                    line_bytes.append(0)
+                
+                image_bytes.extend(line_bytes[:self.bytes_per_line])
+            
+            return bytes(image_bytes)
+            
+        except Exception as e:
+            logger.error(f"Image conversion error: {e}")
+            return None
+    
+    def send_bitmap(self, image_data, height):
+        try:
+            logger.info(f"Sending bitmap: {len(image_data)} bytes, height: {height}")
+            
+            # Bitmap-Modus aktivieren
+            if not self.send_command(b'\x1d\x76\x30\x00'):  # GS v 0 0
                 return False
             
-            # Feed paper
-            self.send_command(b'\x1b\x64\x02')
+            # Bitmap-Header senden
+            width_bytes = self.bytes_per_line
+            header = bytes([
+                0x1b, 0x2a, 0x21,  # ESC * !
+                width_bytes & 0xFF, (width_bytes >> 8) & 0xFF
+            ])
+            
+            if not self.send_command(header):
+                return False
+            
+            # Bilddaten in Chunks senden
+            chunk_size = 1024
+            for i in range(0, len(image_data), chunk_size):
+                chunk = image_data[i:i + chunk_size]
+                if not self.send_command(chunk):
+                    return False
+                time.sleep(0.05)  # Kleine Pause zwischen Chunks
+            
             return True
+            
         except Exception as e:
-            logger.error(f"Image send error: {e}")
+            logger.error(f"Bitmap send error: {e}")
             return False
 
-# Web Interface
+# Web Interface (gleich wie vorher)
 WEB_INTERFACE = """
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Phomemo M110 Drucker</title>
+    <title>Phomemo M110 Drucker - Fixed</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
@@ -169,11 +239,12 @@ WEB_INTERFACE = """
         .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        .debug { background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🖨️ Phomemo M110 Drucker</h1>
+        <h1>🖨️ Phomemo M110 Drucker (Fixed)</h1>
         
         <div class="card">
             <h2>🔗 Verbindung</h2>
@@ -185,25 +256,27 @@ WEB_INTERFACE = """
         <div class="grid">
             <div class="card">
                 <h2>📝 Text drucken</h2>
-                <textarea id="textInput" rows="4" placeholder="Text eingeben...">Test Label
-40×30mm
-✓ Funktioniert</textarea>
+                <textarea id="textInput" rows="4" placeholder="Text eingeben...">PHOMEMO TEST
+40×30mm Label
+✓ Funktioniert!
+Zeit: $TIME$</textarea>
                 <select id="fontSize">
-                    <option value="16">Klein (16px)</option>
-                    <option value="20" selected>Normal (20px)</option>
-                    <option value="24">Groß (24px)</option>
-                    <option value="28">Extra Groß (28px)</option>
+                    <option value="14">Sehr Klein (14px)</option>
+                    <option value="18">Klein (18px)</option>
+                    <option value="22" selected>Normal (22px)</option>
+                    <option value="26">Groß (26px)</option>
+                    <option value="30">Extra Groß (30px)</option>
                 </select>
                 <br>
                 <button class="btn" onclick="printText()">🖨️ Text drucken</button>
-                <button class="btn btn-success" onclick="testText()">🧪 Test</button>
+                <button class="btn btn-success" onclick="testLabel()">🧪 Test Label</button>
             </div>
             
             <div class="card">
-                <h2>🖼️ Bild drucken</h2>
-                <input type="file" id="imageFile" accept="image/*">
-                <br>
-                <button class="btn" onclick="printImage()">🖨️ Bild drucken</button>
+                <h2>🛠️ Debug</h2>
+                <button class="btn" onclick="testConnection()">🔧 Test Bluetooth</button>
+                <button class="btn" onclick="initPrinter()">🔄 Init Drucker</button>
+                <div id="debugInfo" class="debug"></div>
             </div>
         </div>
         
@@ -220,6 +293,9 @@ WEB_INTERFACE = """
                         '<div class="success">✅ Drucker verbunden</div>' : 
                         '<div class="error">❌ Drucker nicht verbunden</div>';
                     document.getElementById('connectionStatus').innerHTML = status;
+                    
+                    document.getElementById('debugInfo').innerHTML = 
+                        `MAC: ${data.mac}<br>Device: ${data.device}<br>Connected: ${data.connected}`;
                 })
                 .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
         }
@@ -233,7 +309,7 @@ WEB_INTERFACE = """
                         showStatus('✅ Reconnect erfolgreich!', 'success');
                         checkConnection();
                     } else {
-                        showStatus('❌ Reconnect fehlgeschlagen', 'error');
+                        showStatus('❌ Reconnect fehlgeschlagen: ' + (data.error || ''), 'error');
                     }
                 })
                 .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
@@ -248,8 +324,11 @@ WEB_INTERFACE = """
                 return;
             }
             
+            // Replace $TIME$ placeholder
+            const finalText = text.replace('$TIME$', new Date().toLocaleTimeString());
+            
             const formData = new FormData();
-            formData.append('text', text);
+            formData.append('text', finalText);
             formData.append('font_size', fontSize);
             
             showStatus('🖨️ Drucke Text...', 'info');
@@ -260,46 +339,58 @@ WEB_INTERFACE = """
                     if (data.success) {
                         showStatus('✅ Text gedruckt!', 'success');
                     } else {
-                        showStatus('❌ Druckfehler: ' + data.error, 'error');
+                        showStatus('❌ Druckfehler: ' + (data.error || 'Unbekannter Fehler'), 'error');
                     }
                 })
                 .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
         }
         
-        function printImage() {
-            const fileInput = document.getElementById('imageFile');
-            
-            if (!fileInput.files[0]) {
-                showStatus('❌ Bitte Bild auswählen!', 'error');
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('image', fileInput.files[0]);
-            
-            showStatus('🖨️ Drucke Bild...', 'info');
-            
-            fetch('/api/print-image', { method: 'POST', body: formData })
+        function testLabel() {
+            document.getElementById('textInput').value = 
+                'PHOMEMO M110\\nRaspberry Pi\\n' + 
+                new Date().toLocaleDateString() + '\\n' +
+                new Date().toLocaleTimeString() + '\\n' +
+                '✓ Test erfolgreich';
+            printText();
+        }
+        
+        function testConnection() {
+            showStatus('🔧 Teste Bluetooth-Verbindung...', 'info');
+            fetch('/api/test-connection', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('debugInfo').innerHTML = 
+                        `Test Result: ${data.success}<br>` +
+                        `Message: ${data.message || ''}<br>` +
+                        `Error: ${data.error || 'None'}`;
+                    
+                    if (data.success) {
+                        showStatus('✅ Bluetooth-Test erfolgreich!', 'success');
+                    } else {
+                        showStatus('❌ Bluetooth-Test fehlgeschlagen', 'error');
+                    }
+                })
+                .catch(error => showStatus('❌ Test-Fehler: ' + error, 'error'));
+        }
+        
+        function initPrinter() {
+            showStatus('🔄 Initialisiere Drucker...', 'info');
+            fetch('/api/init-printer', { method: 'POST' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showStatus('✅ Bild gedruckt!', 'success');
+                        showStatus('✅ Drucker initialisiert!', 'success');
                     } else {
-                        showStatus('❌ Druckfehler: ' + data.error, 'error');
+                        showStatus('❌ Init fehlgeschlagen: ' + (data.error || ''), 'error');
                     }
                 })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
-        }
-        
-        function testText() {
-            document.getElementById('textInput').value = 'Test Label\\n' + new Date().toLocaleTimeString() + '\\n✓ Raspberry Pi';
-            printText();
+                .catch(error => showStatus('❌ Init-Fehler: ' + error, 'error'));
         }
         
         function showStatus(message, type) {
             const statusDiv = document.getElementById('status');
             statusDiv.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
-            setTimeout(() => statusDiv.innerHTML = '', 5000);
+            setTimeout(() => statusDiv.innerHTML = '', 8000);
         }
         
         // Auto-check connection on load
@@ -338,7 +429,7 @@ def api_reconnect():
 def api_print_text():
     try:
         text = request.form.get('text', '')
-        font_size = int(request.form.get('font_size', 20))
+        font_size = int(request.form.get('font_size', 22))
         
         if not text.strip():
             return jsonify({'success': False, 'error': 'Kein Text'})
@@ -346,16 +437,49 @@ def api_print_text():
         success = printer.print_text(text, font_size)
         return jsonify({'success': success})
     except Exception as e:
+        logger.error(f"API print error: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/print-image', methods=['POST'])
-def api_print_image():
+@app.route('/api/test-connection', methods=['POST'])
+def api_test_connection():
     try:
-        if 'image' not in request.files:
-            return jsonify({'success': False, 'error': 'Kein Bild'})
+        # Test basic connectivity
+        connected = printer.is_connected()
+        if not connected:
+            reconnect_success = printer.connect_bluetooth()
+            return jsonify({
+                'success': reconnect_success,
+                'message': 'Reconnected' if reconnect_success else 'Failed to connect'
+            })
         
-        # Simplified image printing
-        return jsonify({'success': True, 'message': 'Bild-Feature in Entwicklung'})
+        # Test sending a simple command
+        test_success = printer.send_command(b'\x1b\x40')  # Reset command
+        return jsonify({
+            'success': test_success,
+            'message': 'Command sent successfully' if test_success else 'Failed to send command'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/init-printer', methods=['POST'])
+def api_init_printer():
+    try:
+        # Initialize printer with multiple commands
+        commands = [
+            b'\x1b\x40',      # ESC @ - Reset
+            b'\x1b\x33\x00',  # ESC 3 0 - Set line spacing
+            b'\x1b\x61\x01'   # ESC a 1 - Center align
+        ]
+        
+        success = True
+        for cmd in commands:
+            if not printer.send_command(cmd):
+                success = False
+                break
+            time.sleep(0.2)
+        
+        return jsonify({'success': success})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
@@ -364,10 +488,11 @@ PRINTER_MAC = "12:7E:5A:E9:E5:22"  # ÄNDERN SIE DIESE MAC-ADRESSE!
 printer = PhomemoM110(PRINTER_MAC)
 
 if __name__ == '__main__':
-    print("🍓 Phomemo M110 für Raspberry Pi")
+    print("🍓 Phomemo M110 für Raspberry Pi (FIXED VERSION)")
     print(f"🔵 Drucker MAC: {PRINTER_MAC}")
     print(f"📡 Device: {printer.rfcomm_device}")
     print("🌐 Web-Interface: http://RASPBERRY_IP:8080")
     print("💡 WICHTIG: MAC-Adresse in Code anpassen!")
+    print("🔧 Neue Features: Debug-Tools, verbesserte Bitmap-Übertragung")
     
     app.run(host='0.0.0.0', port=8080, debug=False)
