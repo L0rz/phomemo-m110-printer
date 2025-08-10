@@ -1,6 +1,7 @@
 # Phomemo M110 Label Drucker
 
 Ein Web-Interface für den Phomemo M110 Label-Drucker mit präziser Kalibrierung und optimierter Label-Positionierung.
+Der kommplette code wurde von mir mit Claude IA erstellt und enthält noch fehler!
 
 ## 🎯 Features
 
