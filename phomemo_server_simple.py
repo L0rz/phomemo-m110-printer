@@ -183,7 +183,7 @@ class PhomemoM110:
             return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
-    """Druckt Raster-Bitmap mit GS v 0 m xL xH yL yH (ohne ESC *)."""
+    
     try:
         width_bytes = self.bytes_per_line  # 48 (384px / 8)
         m = 0  # 0=normal, 1=dunkler
