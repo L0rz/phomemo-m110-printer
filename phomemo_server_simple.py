@@ -182,31 +182,37 @@ class PhomemoM110:
             return None
     
     def send_bitmap(self, image_data, height):
+        """
+        Sends a raster bitmap to the M110 using the ESC/POS GS v 0 command.
+        This implementation correctly constructs the raster header (width in bytes and height in dots) and sends the
+        image data in small chunks. A small feed is applied afterwards to avoid clipping.
+        """
         try:
-            logger.info(f"Sending bitmap: {len(image_data)} bytes, height: {height}")
+            logger.info(f"Sending raster bitmap: {len(image_data)} bytes, height: {height}")
             
-            # Bitmap-Modus aktivieren
-            if not self.send_command(b'\x1d\x76\x30\x00'):  # GS v 0 0
-                return False
-            
-            # Bitmap-Header senden
+            # Prepare ESC/POS raster header: GS v 0 m xL xH yL yH
+            # m = 0 (normal density). Width (in bytes) and height (in dots).
             width_bytes = self.bytes_per_line
-            header = bytes([
-                0x1b, 0x2a, 0x21,  # ESC * !
-                width_bytes & 0xFF, (width_bytes >> 8) & 0xFF
-            ])
+            xL = width_bytes & 0xFF
+            xH = (width_bytes >> 8) & 0xFF
+            yL = height & 0xFF
+            yH = (height >> 8) & 0xFF
+            header = bytes([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH])
             
+            # Send header
             if not self.send_command(header):
                 return False
             
-            # Bilddaten in Chunks senden
+            # Send image data in manageable chunks
             chunk_size = 1024
             for i in range(0, len(image_data), chunk_size):
-                chunk = image_data[i:i + chunk_size]
+                chunk = image_data[i : i + chunk_size]
                 if not self.send_command(chunk):
                     return False
-                time.sleep(0.05)  # Kleine Pause zwischen Chunks
+                time.sleep(0.01)  # Brief pause between chunks
             
+            # Add a small feed after printing to ensure the last line is clear
+            self.send_command(b'\x1b\x64\x03')  # ESC d 3
             return True
             
         except Exception as e:
@@ -215,13 +221,13 @@ class PhomemoM110:
 
 # Web Interface (gleich wie vorher)
 WEB_INTERFACE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Phomemo M110 Drucker - Fixed</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
+
+
+
+ Phomemo M110 Drucker - Fixed 
+ 
+ 
+ 
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         .container { max-width: 800px; margin: 0 auto; }
         .card { background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -240,50 +246,50 @@ WEB_INTERFACE = """
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
         .debug { background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🖨️ Phomemo M110 Drucker (Fixed)</h1>
+ 
+
+
+ 
+ 🖨️ Phomemo M110 Drucker (Fixed) 
         
-        <div class="card">
-            <h2>🔗 Verbindung</h2>
-            <button class="btn btn-success" onclick="checkConnection()">🔍 Status prüfen</button>
-            <button class="btn btn-warning" onclick="reconnect()">🔄 Reconnect</button>
-            <div id="connectionStatus"></div>
-        </div>
+ 
+ 🔗 Verbindung 
+ 🔍 Status prüfen 
+ 🔄 Reconnect 
+ 
+ 
         
-        <div class="grid">
-            <div class="card">
-                <h2>📝 Text drucken</h2>
-                <textarea id="textInput" rows="4" placeholder="Text eingeben...">PHOMEMO TEST
+ 
+ 
+ 📝 Text drucken 
+ PHOMEMO TEST
 40×30mm Label
 ✓ Funktioniert!
-Zeit: $TIME$</textarea>
-                <select id="fontSize">
-                    <option value="14">Sehr Klein (14px)</option>
-                    <option value="18">Klein (18px)</option>
-                    <option value="22" selected>Normal (22px)</option>
-                    <option value="26">Groß (26px)</option>
-                    <option value="30">Extra Groß (30px)</option>
-                </select>
-                <br>
-                <button class="btn" onclick="printText()">🖨️ Text drucken</button>
-                <button class="btn btn-success" onclick="testLabel()">🧪 Test Label</button>
-            </div>
+Zeit: $TIME$ 
+ 
+ Sehr Klein (14px) 
+ Klein (18px) 
+ Normal (22px) 
+ Groß (26px) 
+ Extra Groß (30px) 
+ 
+ 
+ 🖨️ Text drucken 
+ 🧪 Test Label 
+ 
             
-            <div class="card">
-                <h2>🛠️ Debug</h2>
-                <button class="btn" onclick="testConnection()">🔧 Test Bluetooth</button>
-                <button class="btn" onclick="initPrinter()">🔄 Init Drucker</button>
-                <div id="debugInfo" class="debug"></div>
-            </div>
-        </div>
+ 
+ 🛠️ Debug 
+ 🔧 Test Bluetooth 
+ 🔄 Init Drucker 
+ 
+ 
+ 
         
-        <div id="status"></div>
-    </div>
+ 
+ 
 
-    <script>
+ 
         function checkConnection() {
             showStatus('🔍 Prüfe Verbindung...', 'info');
             fetch('/api/status')
@@ -347,9 +353,9 @@ Zeit: $TIME$</textarea>
         
         function testLabel() {
             document.getElementById('textInput').value = 
-                'PHOMEMO M110\\nRaspberry Pi\\n' + 
-                new Date().toLocaleDateString() + '\\n' +
-                new Date().toLocaleTimeString() + '\\n' +
+                'PHOMEMO M110\nRaspberry Pi\n' + 
+                new Date().toLocaleDateString() + '\n' +
+                new Date().toLocaleTimeString() + '\n' +
                 '✓ Test erfolgreich';
             printText();
         }
@@ -395,9 +401,9 @@ Zeit: $TIME$</textarea>
         
         // Auto-check connection on load
         window.onload = checkConnection;
-    </script>
-</body>
-</html>
+ 
+
+
 """
 
 # API Routes
