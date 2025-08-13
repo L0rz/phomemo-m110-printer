@@ -86,7 +86,8 @@ class PhomemoM110:
             
             if success:
                 # Papier vorschub
-                self.send_command(b'\x1b\x64\x03')  # ESC d 3 - Feed 3 lines
+                # self.send_command(b'\x1b\x64\x03')  # ESC d 3 - Feed 3 lines
+                pass
                 time.sleep(0.5)
             
             return success
