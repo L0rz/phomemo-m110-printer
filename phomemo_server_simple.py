@@ -181,43 +181,40 @@ class PhomemoM110:
             logger.error(f"Image conversion error: {e}")
             return None
     
-    def send_bitmap(self, image_data, height):
-        """
-        Sends a raster bitmap to the M110 using the ESC/POS GS v 0 command.
-        This implementation correctly constructs the raster header (width in bytes and height in dots) and sends the
-        image data in small chunks. A small feed is applied afterwards to avoid clipping.
-        """
-        try:
-            logger.info(f"Sending raster bitmap: {len(image_data)} bytes, height: {height}")
-            
-            # Prepare ESC/POS raster header: GS v 0 m xL xH yL yH
-            # m = 0 (normal density). Width (in bytes) and height (in dots).
-            width_bytes = self.bytes_per_line
-            xL = width_bytes & 0xFF
-            xH = (width_bytes >> 8) & 0xFF
-            yL = height & 0xFF
-            yH = (height >> 8) & 0xFF
-            header = bytes([0x1D, 0x76, 0x30, 0x00, xL, xH, yL, yH])
-            
-            # Send header
-            if not self.send_command(header):
-                return False
-            
-            # Send image data in manageable chunks
-            chunk_size = 1024
-            for i in range(0, len(image_data), chunk_size):
-                chunk = image_data[i : i + chunk_size]
-                if not self.send_command(chunk):
-                    return False
-                time.sleep(0.01)  # Brief pause between chunks
-            
-            # Add a small feed after printing to ensure the last line is clear
-            self.send_command(b'\x1b\x64\x03')  # ESC d 3
-            return True
-            
-        except Exception as e:
-            logger.error(f"Bitmap send error: {e}")
+    def send_bitmap(self, image_data: bytes, height: int) -> bool:
+    """Druckt Raster-Bitmap mit GS v 0 m xL xH yL yH (ohne ESC *)."""
+    try:
+        width_bytes = self.bytes_per_line  # 48 (384px / 8)
+        m = 0  # 0=normal, 1=dunkler
+
+        # Drucker resetten (optional, aber hilft gegen „hängende“ Zustände)
+        if not self.send_command(b'\x1b\x40'):  # ESC @
             return False
+        time.sleep(0.05)
+
+        # GS v 0 m xL xH yL yH
+        xL = width_bytes & 0xFF
+        xH = (width_bytes >> 8) & 0xFF
+        yL = height & 0xFF
+        yH = (height >> 8) & 0xFF
+        header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
+
+        if not self.send_command(header):
+            return False
+
+        # In Chunks senden
+        CHUNK = 1024
+        for i in range(0, len(image_data), CHUNK):
+            if not self.send_command(image_data[i:i+CHUNK]):
+                return False
+            time.sleep(0.005)
+
+        # Kein großer Feed hier – siehe Punkt 2
+        return True
+    except Exception as e:
+        logger.error(f"Bitmap send error: {e}")
+        return False
+
 
 # Web Interface (gleich wie vorher)
 WEB_INTERFACE = """
