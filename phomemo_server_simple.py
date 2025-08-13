@@ -221,13 +221,13 @@ class PhomemoM110:
 
 # Web Interface (gleich wie vorher)
 WEB_INTERFACE = """
-
-
-
- Phomemo M110 Drucker - Fixed 
- 
- 
- 
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Phomemo M110 Drucker - Fixed</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
         body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
         .container { max-width: 800px; margin: 0 auto; }
         .card { background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
@@ -246,50 +246,50 @@ WEB_INTERFACE = """
         .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
         .debug { background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px; }
- 
-
-
- 
- 🖨️ Phomemo M110 Drucker (Fixed) 
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🖨️ Phomemo M110 Drucker (Fixed)</h1>
         
- 
- 🔗 Verbindung 
- 🔍 Status prüfen 
- 🔄 Reconnect 
- 
- 
+        <div class="card">
+            <h2>🔗 Verbindung</h2>
+            <button class="btn btn-success" onclick="checkConnection()">🔍 Status prüfen</button>
+            <button class="btn btn-warning" onclick="reconnect()">🔄 Reconnect</button>
+            <div id="connectionStatus"></div>
+        </div>
         
- 
- 
- 📝 Text drucken 
- PHOMEMO TEST
+        <div class="grid">
+            <div class="card">
+                <h2>📝 Text drucken</h2>
+                <textarea id="textInput" rows="4" placeholder="Text eingeben...">PHOMEMO TEST
 40×30mm Label
 ✓ Funktioniert!
-Zeit: $TIME$ 
- 
- Sehr Klein (14px) 
- Klein (18px) 
- Normal (22px) 
- Groß (26px) 
- Extra Groß (30px) 
- 
- 
- 🖨️ Text drucken 
- 🧪 Test Label 
- 
+Zeit: $TIME$</textarea>
+                <select id="fontSize">
+                    <option value="14">Sehr Klein (14px)</option>
+                    <option value="18">Klein (18px)</option>
+                    <option value="22" selected>Normal (22px)</option>
+                    <option value="26">Groß (26px)</option>
+                    <option value="30">Extra Groß (30px)</option>
+                </select>
+                <br>
+                <button class="btn" onclick="printText()">🖨️ Text drucken</button>
+                <button class="btn btn-success" onclick="testLabel()">🧪 Test Label</button>
+            </div>
             
- 
- 🛠️ Debug 
- 🔧 Test Bluetooth 
- 🔄 Init Drucker 
- 
- 
- 
+            <div class="card">
+                <h2>🛠️ Debug</h2>
+                <button class="btn" onclick="testConnection()">🔧 Test Bluetooth</button>
+                <button class="btn" onclick="initPrinter()">🔄 Init Drucker</button>
+                <div id="debugInfo" class="debug"></div>
+            </div>
+        </div>
         
- 
- 
+        <div id="status"></div>
+    </div>
 
- 
+    <script>
         function checkConnection() {
             showStatus('🔍 Prüfe Verbindung...', 'info');
             fetch('/api/status')
@@ -353,9 +353,9 @@ Zeit: $TIME$
         
         function testLabel() {
             document.getElementById('textInput').value = 
-                'PHOMEMO M110\nRaspberry Pi\n' + 
-                new Date().toLocaleDateString() + '\n' +
-                new Date().toLocaleTimeString() + '\n' +
+                'PHOMEMO M110\\nRaspberry Pi\\n' + 
+                new Date().toLocaleDateString() + '\\n' +
+                new Date().toLocaleTimeString() + '\\n' +
                 '✓ Test erfolgreich';
             printText();
         }
@@ -401,10 +401,11 @@ Zeit: $TIME$
         
         // Auto-check connection on load
         window.onload = checkConnection;
- 
-
-
+    </script>
+</body>
+</html>
 """
+
 
 # API Routes
 @app.route('/')
