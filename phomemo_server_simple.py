@@ -183,38 +183,37 @@ class PhomemoM110:
             return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
+        try:
+            width_bytes = self.bytes_per_line  # 48 (384px / 8)
+            m = 0  # 0=normal, 1=dunkler
     
-    try:
-        width_bytes = self.bytes_per_line  # 48 (384px / 8)
-        m = 0  # 0=normal, 1=dunkler
-
-        # Drucker resetten (optional, aber hilft gegen „hängende“ Zustände)
-        if not self.send_command(b'\x1b\x40'):  # ESC @
-            return False
-        time.sleep(0.05)
-
-        # GS v 0 m xL xH yL yH
-        xL = width_bytes & 0xFF
-        xH = (width_bytes >> 8) & 0xFF
-        yL = height & 0xFF
-        yH = (height >> 8) & 0xFF
-        header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
-
-        if not self.send_command(header):
-            return False
-
-        # In Chunks senden
-        CHUNK = 1024
-        for i in range(0, len(image_data), CHUNK):
-            if not self.send_command(image_data[i:i+CHUNK]):
+            # Drucker resetten (optional, aber hilft gegen „hängende“ Zustände)
+            if not self.send_command(b'\x1b\x40'):  # ESC @
                 return False
-            time.sleep(0.005)
-
-        # Kein großer Feed hier – siehe Punkt 2
-        return True
-    except Exception as e:
-        logger.error(f"Bitmap send error: {e}")
-        return False
+            time.sleep(0.05)
+    
+            # GS v 0 m xL xH yL yH
+            xL = width_bytes & 0xFF
+            xH = (width_bytes >> 8) & 0xFF
+            yL = height & 0xFF
+            yH = (height >> 8) & 0xFF
+            header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
+    
+            if not self.send_command(header):
+                return False
+    
+            # In Chunks senden
+            CHUNK = 1024
+            for i in range(0, len(image_data), CHUNK):
+                if not self.send_command(image_data[i:i+CHUNK]):
+                    return False
+                time.sleep(0.005)
+    
+            # Kein großer Feed hier – siehe Punkt 2
+            return True
+        except Exception as e:
+            logger.error(f"Bitmap send error: {e}")
+            return False
 
 
 # Web Interface (gleich wie vorher)
