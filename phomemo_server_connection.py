@@ -65,6 +65,7 @@ class RobustPhomemoM110:
         self.max_connection_attempts = 5
         self.base_retry_delay = 2  # Seconds
         self.max_retry_delay = 30  # Seconds
+        self.rfcomm_process = None  # Process für rfcomm connect
         
         # Print Queue
         self.print_queue = queue.Queue()
@@ -107,9 +108,12 @@ class RobustPhomemoM110:
             logger.error(f"Failed to start services: {e}")
     
     def stop_services(self):
-        """Stoppt Background-Services"""
+        """Stoppt Background-Services und cleanup"""
         self.queue_processor_running = False
         self.monitor_running = False
+        
+        # Cleanup rfcomm process
+        self._cleanup_rfcomm_process()
         
         if self.queue_thread and self.queue_thread.is_alive():
             self.queue_thread.join(timeout=5)
@@ -130,6 +134,7 @@ class RobustPhomemoM110:
                 'last_successful': self.last_successful_connection.isoformat() if self.last_successful_connection else None,
                 'connection_attempts': self.connection_attempts,
                 'last_heartbeat': self.last_heartbeat.isoformat() if self.last_heartbeat else None,
+                'rfcomm_process_running': self.rfcomm_process is not None and self.rfcomm_process.poll() is None,
                 'queue_size': self.print_queue.qsize(),
                 'stats': self.stats.copy()
             }
@@ -142,7 +147,7 @@ class RobustPhomemoM110:
             return False
     
     def connect_bluetooth(self, force_reconnect: bool = False) -> bool:
-        """Verbindet mit dem Bluetooth-Drucker mit Retry-Logic"""
+        """Verbindet mit dem Bluetooth-Drucker mit korrekter rfcomm connect Methode"""
         with self._lock:
             if self.connection_status == ConnectionStatus.CONNECTING and not force_reconnect:
                 return False
@@ -154,36 +159,50 @@ class RobustPhomemoM110:
             
             # Release existing connection
             self._release_rfcomm()
-            time.sleep(1)
+            time.sleep(2)
             
-            # Create new connection
-            result = subprocess.run(
-                ['sudo', 'rfcomm', 'bind', '0', self.mac_address], 
-                capture_output=True, text=True, timeout=20
+            # Ensure pairing first (non-blocking)
+            self._ensure_pairing()
+            
+            # Create new connection using rfcomm connect (wie in deinen Befehlen)
+            # Verwende Popen um es im Hintergrund laufen zu lassen
+            cmd = ['sudo', 'rfcomm', 'connect', '0', self.mac_address, '1']
+            logger.info(f"Starting rfcomm connect: {' '.join(cmd)}")
+            
+            self.rfcomm_process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
             )
             
-            if result.returncode == 0:
-                time.sleep(2)
+            # Warte kurz und prüfe ob Verbindung erfolgreich
+            time.sleep(3)
+            
+            if self.is_connected():
+                with self._lock:
+                    self.connection_status = ConnectionStatus.CONNECTED
+                    self.last_successful_connection = datetime.now()
+                    self.connection_attempts = 0
+                    self.stats['reconnections'] += 1
                 
-                if self.is_connected():
-                    with self._lock:
-                        self.connection_status = ConnectionStatus.CONNECTED
-                        self.last_successful_connection = datetime.now()
-                        self.connection_attempts = 0
-                        self.stats['reconnections'] += 1
-                    
-                    logger.info("Bluetooth connection established successfully")
-                    
-                    # Test connection mit Heartbeat
-                    if self._send_heartbeat():
-                        return True
-                    else:
-                        logger.warning("Connection established but heartbeat failed")
-                        return False
+                logger.info("Bluetooth connection established successfully")
+                
+                # Test connection mit Heartbeat
+                if self._send_heartbeat():
+                    return True
                 else:
-                    raise Exception("Device file not accessible after binding")
+                    logger.warning("Connection established but heartbeat failed")
+                    return False
             else:
-                raise Exception(f"rfcomm bind failed: {result.stderr}")
+                # Prüfe rfcomm Process
+                if self.rfcomm_process.poll() is not None:
+                    # Process ist beendet, hole stderr
+                    _, stderr = self.rfcomm_process.communicate()
+                    raise Exception(f"rfcomm connect failed: {stderr}")
+                else:
+                    # Process läuft noch, aber Device ist nicht da
+                    raise Exception("rfcomm connect running but device not accessible")
                 
         except Exception as e:
             with self._lock:
@@ -193,16 +212,61 @@ class RobustPhomemoM110:
                 else:
                     self.connection_status = ConnectionStatus.DISCONNECTED
             
+            # Cleanup bei Fehler
+            self._cleanup_rfcomm_process()
             logger.error(f"Bluetooth connection failed: {e}")
             return False
     
     def _release_rfcomm(self):
-        """Gibt rfcomm-Verbindung frei"""
+        """Gibt rfcomm-Verbindung frei und beendet rfcomm connect process"""
         try:
+            # Beende laufenden rfcomm connect process
+            self._cleanup_rfcomm_process()
+            
+            # Release rfcomm device
             subprocess.run(['sudo', 'rfcomm', 'release', '0'], 
                          capture_output=True, timeout=10)
+            time.sleep(1)
         except Exception as e:
             logger.debug(f"rfcomm release failed (expected): {e}")
+    
+    def _cleanup_rfcomm_process(self):
+        """Beendet den rfcomm connect Process"""
+        if self.rfcomm_process:
+            try:
+                if self.rfcomm_process.poll() is None:  # Process läuft noch
+                    self.rfcomm_process.terminate()
+                    try:
+                        self.rfcomm_process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        self.rfcomm_process.kill()
+                        self.rfcomm_process.wait()
+                self.rfcomm_process = None
+            except Exception as e:
+                logger.debug(f"rfcomm process cleanup failed: {e}")
+    
+    def _ensure_pairing(self):
+        """Stellt sicher, dass der Drucker gepairt und trusted ist"""
+        try:
+            # Prüfe ob bereits gepairt
+            result = subprocess.run(
+                ['bluetoothctl', 'info', self.mac_address],
+                capture_output=True, text=True, timeout=10
+            )
+            
+            if 'Device' not in result.stdout:
+                logger.info("Drucker nicht gefunden, versuche pairing...")
+                # Versuche zu pairen
+                subprocess.run(['bluetoothctl', 'pair', self.mac_address], 
+                             capture_output=True, timeout=15)
+            
+            # Trust setzen
+            subprocess.run(['bluetoothctl', 'trust', self.mac_address], 
+                         capture_output=True, timeout=10)
+            
+        except Exception as e:
+            logger.warning(f"Pairing check/setup failed: {e}")
+            # Nicht kritisch, da es eventuell schon gepairt ist
     
     def _auto_reconnect(self) -> bool:
         """Automatische Wiederverbindung mit exponential backoff"""
@@ -595,6 +659,7 @@ WEB_INTERFACE = """
                     <button class="btn btn-success" onclick="checkConnection()">🔍 Status prüfen</button>
                     <button class="btn btn-warning" onclick="forceReconnect()">🔄 Force Reconnect</button>
                     <button class="btn btn-danger" onclick="clearQueue()">🗑️ Queue leeren</button>
+                    <button class="btn" onclick="manualConnect()">🔧 Manual Connect</button>
                 </div>
                 <div>
                     <h3>📊 Statistiken</h3>
@@ -686,9 +751,10 @@ WEB_INTERFACE = """
                     <strong>${status.icon} ${status.text}</strong><br>
                     MAC: ${data.mac}<br>
                     Device: ${data.device}<br>
-                    Attempts: ${data.connection_attempts}<br>
+                    Connection Attempts: ${data.connection_attempts}<br>
                     Last Success: ${data.last_successful ? new Date(data.last_successful).toLocaleString() : 'Never'}<br>
-                    Last Heartbeat: ${data.last_heartbeat ? new Date(data.last_heartbeat).toLocaleString() : 'Never'}
+                    Last Heartbeat: ${data.last_heartbeat ? new Date(data.last_heartbeat).toLocaleString() : 'Never'}<br>
+                    RFCOMM Process: ${data.rfcomm_process_running ? '✅ Running' : '❌ Stopped'}
                 </div>
             `;
             
@@ -729,6 +795,33 @@ WEB_INTERFACE = """
                     })
                     .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
             }
+        }
+        
+        function manualConnect() {
+            showStatus('🔧 Manual Bluetooth Connect...', 'info');
+            fetch('/api/manual-connect', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('✅ Manual connect erfolgreich!', 'success');
+                        document.getElementById('debugInfo').innerHTML = 
+                            `Manual Connect: SUCCESS<br>` +
+                            `Heartbeat: ${data.heartbeat_ok ? 'OK' : 'FAILED'}<br>` +
+                            `Device Exists: ${data.device_exists}<br>` +
+                            `Process Running: ${data.process_running}<br>` +
+                            `Timestamp: ${new Date().toLocaleTimeString()}`;
+                        setTimeout(checkConnection, 1000);
+                    } else {
+                        showStatus('❌ Manual connect fehlgeschlagen: ' + (data.error || ''), 'error');
+                        document.getElementById('debugInfo').innerHTML = 
+                            `Manual Connect: FAILED<br>` +
+                            `Error: ${data.error}<br>` +
+                            `Device Exists: ${data.device_exists || 'unknown'}<br>` +
+                            `Process Running: ${data.process_running || 'unknown'}<br>` +
+                            `Timestamp: ${new Date().toLocaleTimeString()}`;
+                    }
+                })
+                .catch(error => showStatus('❌ Manual connect error: ' + error, 'error'));
         }
         
         function printText(useQueue = false) {
@@ -1003,8 +1096,79 @@ def api_heartbeat():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
-@app.route('/api/queue-status')
-def api_queue_status():
+@app.route('/api/manual-connect', methods=['POST'])
+def api_manual_connect():
+    """Manuelle Verbindung mit exakten Bluetooth-Befehlen"""
+    try:
+        logger.info("Starting manual Bluetooth connection sequence...")
+        
+        # 1. Alte rfcomm-Verbindung beenden
+        logger.info("Step 1: Releasing old rfcomm connection...")
+        subprocess.run(['sudo', 'rfcomm', 'release', '0'], capture_output=True, timeout=10)
+        time.sleep(1)
+        
+        # 2. Pairing und Trust (non-interactive)
+        logger.info("Step 2: Ensuring pairing and trust...")
+        
+        # Trust setzen (wichtiger als pair, da pair eventuell schon gemacht wurde)
+        trust_result = subprocess.run(
+            ['bluetoothctl', 'trust', printer.mac_address],
+            capture_output=True, text=True, timeout=15
+        )
+        logger.info(f"Trust result: {trust_result.returncode}")
+        
+        # 3. rfcomm connect im Hintergrund starten
+        logger.info("Step 3: Starting rfcomm connect...")
+        cmd = ['sudo', 'rfcomm', 'connect', '0', printer.mac_address, '1']
+        
+        # Cleanup old process
+        printer._cleanup_rfcomm_process()
+        
+        # Start new process
+        printer.rfcomm_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        # Wait and check
+        time.sleep(4)
+        
+        if printer.is_connected():
+            with printer._lock:
+                printer.connection_status = ConnectionStatus.CONNECTED
+                printer.last_successful_connection = datetime.now()
+                printer.connection_attempts = 0
+                printer.stats['reconnections'] += 1
+            
+            # Test with heartbeat
+            heartbeat_success = printer._send_heartbeat()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Manual connection successful',
+                'heartbeat_ok': heartbeat_success,
+                'device_exists': os.path.exists(printer.rfcomm_device),
+                'process_running': printer.rfcomm_process.poll() is None
+            })
+        else:
+            # Get error from process
+            error_msg = "Device not accessible"
+            if printer.rfcomm_process.poll() is not None:
+                _, stderr = printer.rfcomm_process.communicate()
+                error_msg = f"rfcomm failed: {stderr}"
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'device_exists': os.path.exists(printer.rfcomm_device),
+                'process_running': printer.rfcomm_process is not None and printer.rfcomm_process.poll() is None
+            })
+        
+    except Exception as e:
+        logger.error(f"Manual connect error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
     try:
         # Vereinfachter Queue-Status (da wir nicht alle Jobs tracken)
         return jsonify({
