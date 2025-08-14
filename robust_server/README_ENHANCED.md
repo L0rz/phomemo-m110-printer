@@ -267,6 +267,8 @@ sudo systemctl restart phomemo-enhanced
 ## 📈 Roadmap
 
 Geplante Features:
+- [ ] Dark Mode
+- [ ] Bildskalierung
 - [ ] QR-Code Generation
 - [ ] Batch-Druck von Bildern
 - [ ] Template-System für Labels
