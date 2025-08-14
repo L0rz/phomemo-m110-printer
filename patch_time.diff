@@ -1,0 +1,27 @@
+diff --git a/robust_server/main_enhanced.py b/robust_server/main_enhanced.py
+--- a/robust_server/main_enhanced.py
++++ b/robust_server/main_enhanced.py
+@@ -1,15 +1,16 @@
+ #!/usr/bin/env python3
+ """
+ Phomemo M110 Enhanced Server - Hauptdatei
+ Mit Bildvorschau, X-Offset-Konfiguration und erweiterten Features
+ """
+ 
+-import sys
+-import signal
+-import logging
+-import os
+-from flask import Flask, render_template_string
++import sys
++import signal
++import logging
++import os
++import time
++from flask import Flask, render_template_string
+ 
+ # Erweiterte Module importieren
+ from printer_controller_enhanced import EnhancedPhomemoM110
+ from api_routes_enhanced import setup_enhanced_api_routes
+ from web_template_enhanced import WEB_INTERFACE_ENHANCED
+ from config_enhanced import *

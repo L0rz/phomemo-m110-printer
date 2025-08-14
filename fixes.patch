@@ -1,0 +1,73 @@
+diff --git a/robust_server/main_enhanced.py b/robust_server/main_enhanced.py
+index e69de29..abcd123 100644
+--- a/robust_server/main_enhanced.py
++++ b/robust_server/main_enhanced.py
+@@
+ import sys
+ import signal
+ import logging
+ import os
++import time
+ from flask import Flask, render_template_string
+diff --git a/robust_server/api_routes_enhanced.py b/robust_server/api_routes_enhanced.py
+index e69de29..abcd124 100644
+--- a/robust_server/api_routes_enhanced.py
++++ b/robust_server/api_routes_enhanced.py
+@@ def api_preview_image():
+-    if 'image' not in request.files:
+-        return jsonify({'success': False, 'error': 'Kein Bild hochgeladen'})
++    img_bytes = None
++    if 'image' in request.files:
++        file = request.files['image']
++        if file.filename == '':
++            return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'})
++        filename = secure_filename(file.filename)
++        file_ext = filename.rsplit('.', 1)[1].upper() if '.' in filename else ''
++        if file_ext not in SUPPORTED_IMAGE_FORMATS:
++            return jsonify({'success': False, 'error': f'Nicht unterstütztes Format. Erlaubt: {", ".join(SUPPORTED_IMAGE_FORMATS)}'})
++        file.seek(0, 2); file_size = file.tell(); file.seek(0)
++        if file_size > MAX_UPLOAD_SIZE:
++            return jsonify({'success': False, 'error': f'Datei zu groß. Maximum: {MAX_UPLOAD_SIZE // (1024*1024)}MB'})
++        img_bytes = file.read()
++    else:
++        data = request.get_json(silent=True) or {}
++        b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
++        if not b64:
++            return jsonify({'success': False, 'error': 'Kein Bild hochgeladen (weder Datei noch Base64)'})
++        import base64
++        try:
++            img_bytes = base64.b64decode(b64 + '===')
++        except Exception as e:
++            return jsonify({'success': False, 'error': f'Base64 ungültig: {e}'})
+@@
+-    image_data = file.read()
++    image_data = img_bytes
+@@ def api_print_image():
+-    if 'image' not in request.files:
+-        return jsonify({'success': False, 'error': 'Kein Bild hochgeladen'})
++    img_bytes = None
++    if 'image' in request.files:
++        file = request.files['image']
++        if file.filename == '':
++            return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'})
++        filename = secure_filename(file.filename)
++        file_ext = filename.rsplit('.', 1)[1].upper() if '.' in filename else ''
++        if file_ext not in SUPPORTED_IMAGE_FORMATS:
++            return jsonify({'success': False, 'error': f'Nicht unterstütztes Format. Erlaubt: {", ".join(SUPPORTED_IMAGE_FORMATS)}'})
++        file.seek(0, 2); file_size = file.tell(); file.seek(0)
++        if file_size > MAX_UPLOAD_SIZE:
++            return jsonify({'success': False, 'error': f'Datei zu groß. Maximum: {MAX_UPLOAD_SIZE // (1024*1024)}MB'})
++        img_bytes = file.read()
++    else:
++        data = request.get_json(silent=True) or {}
++        b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
++        if not b64:
++            return jsonify({'success': False, 'error': 'Kein Bild hochgeladen (weder Datei noch Base64)'})
++        import base64
++        try:
++            img_bytes = base64.b64decode(b64 + '===')
++        except Exception as e:
++            return jsonify({'success': False, 'error': f'Base64 ungültig: {e}'})
+@@
+-    image_data = file.read()
++    image_data = img_bytes
