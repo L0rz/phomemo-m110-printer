@@ -82,6 +82,7 @@ class EnhancedPhomemoM110:
         self.max_connection_attempts = MAX_CONNECTION_ATTEMPTS
         self.base_retry_delay = BASE_RETRY_DELAY
         self.max_retry_delay = MAX_RETRY_DELAY
+        self.rfcomm_process = None  # Process für rfcomm connect
         
         # Print Queue
         self.print_queue = queue.Queue()
@@ -183,45 +184,98 @@ class EnhancedPhomemoM110:
             self.queue_thread.join(timeout=5)
         if self.monitor_thread and self.monitor_thread.is_alive():
             self.monitor_thread.join(timeout=5)
+        
+        # rfcomm-Prozess beenden
+        self._cleanup_rfcomm_process()
     
     def is_connected(self):
         """Prüft ob Drucker verbunden ist"""
         return os.path.exists(self.rfcomm_device)
     
     def connect_bluetooth(self, force_reconnect=False):
-        """Stellt Bluetooth-Verbindung her"""
+        """Stellt Bluetooth-Verbindung her mit der stabilen Manual Connect Methode"""
+        return self.manual_connect_bluetooth()
+    
+    def manual_connect_bluetooth(self):
+        """Manuelle Bluetooth-Verbindung mit der bewährten rfcomm connect Methode"""
         try:
             with self._lock:
-                if self.is_connected() and not force_reconnect:
-                    self.connection_status = ConnectionStatus.CONNECTED
-                    return True
+                logger.info("Starting manual Bluetooth connection sequence...")
                 
-                self.connection_status = ConnectionStatus.CONNECTING
-                
-                # Release existing connection
-                subprocess.run(['sudo', 'rfcomm', 'release', '0'], capture_output=True)
+                # 1. Alte rfcomm-Verbindung beenden
+                logger.info("Step 1: Releasing old rfcomm connection...")
+                subprocess.run(['sudo', 'rfcomm', 'release', '0'], capture_output=True, timeout=10)
                 time.sleep(1)
                 
-                # Create new connection
-                result = subprocess.run(['sudo', 'rfcomm', 'bind', '0', self.mac_address], 
-                                      capture_output=True, text=True, timeout=15)
+                # 2. Trust setzen
+                logger.info("Step 2: Ensuring pairing and trust...")
+                trust_result = subprocess.run(
+                    ['bluetoothctl', 'trust', self.mac_address],
+                    capture_output=True, text=True, timeout=15
+                )
+                logger.info(f"Trust result: {trust_result.returncode}")
                 
-                if result.returncode == 0:
-                    time.sleep(2)
-                    if self.is_connected():
-                        self.connection_status = ConnectionStatus.CONNECTED
-                        self.last_successful_connection = time.time()
-                        self.connection_attempts = 0
-                        logger.info("Bluetooth connection established successfully")
-                        return True
+                # 3. rfcomm connect im Hintergrund starten
+                logger.info("Step 3: Starting rfcomm connect...")
+                cmd = ['sudo', 'rfcomm', 'connect', '0', self.mac_address, '1']
                 
-                self.connection_status = ConnectionStatus.FAILED
-                self.connection_attempts += 1
-                return False
+                # Cleanup old process
+                self._cleanup_rfcomm_process()
                 
+                # Start new process
+                self.rfcomm_process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                
+                # Wait and check
+                time.sleep(4)
+                
+                if self.is_connected():
+                    self.connection_status = ConnectionStatus.CONNECTED
+                    self.last_successful_connection = time.time()
+                    self.connection_attempts = 0
+                    self.stats['reconnections'] += 1
+                    
+                    # Test with heartbeat
+                    heartbeat_success = self._send_heartbeat()
+                    logger.info(f"Manual connection successful, heartbeat: {heartbeat_success}")
+                    return True
+                else:
+                    # Get error from process
+                    error_msg = "Device not accessible"
+                    if self.rfcomm_process and self.rfcomm_process.poll() is not None:
+                        _, stderr = self.rfcomm_process.communicate()
+                        error_msg = f"rfcomm failed: {stderr}"
+                    
+                    logger.error(f"Manual connect failed: {error_msg}")
+                    self.connection_status = ConnectionStatus.FAILED
+                    return False
+                    
         except Exception as e:
-            logger.error(f"Connection error: {e}")
+            logger.error(f"Manual connect error: {e}")
             self.connection_status = ConnectionStatus.FAILED
+            return False
+    
+    def _cleanup_rfcomm_process(self):
+        """Bereinigt alte rfcomm-Prozesse"""
+        try:
+            if hasattr(self, 'rfcomm_process') and self.rfcomm_process:
+                if self.rfcomm_process.poll() is None:  # Still running
+                    self.rfcomm_process.terminate()
+                    time.sleep(1)
+                    if self.rfcomm_process.poll() is None:
+                        self.rfcomm_process.kill()
+        except Exception as e:
+            logger.warning(f"Error cleaning up rfcomm process: {e}")
+    
+    def _send_heartbeat(self):
+        """Sendet einen Heartbeat-Test an den Drucker"""
+        try:
+            return self.send_command(b'\x1b\x40')  # ESC @ Reset command
+        except Exception:
             return False
     
     def send_command(self, command_bytes):
@@ -451,6 +505,7 @@ class EnhancedPhomemoM110:
             'last_heartbeat': self.last_heartbeat,
             'connection_attempts': self.connection_attempts,
             'queue_size': self.print_queue.qsize(),
+            'rfcomm_process_running': self.rfcomm_process.poll() is None if self.rfcomm_process else False,
             'settings': self.get_settings(),
             'stats': self.stats.copy()
         }
@@ -494,12 +549,29 @@ class EnhancedPhomemoM110:
                 logger.error(f"Queue processor error: {e}")
     
     def _connection_monitor(self):
-        """Background Thread für Connection Monitoring - Placeholder"""
+        """Background Thread für Connection Monitoring mit stabiler Verbindungsmethode"""
         while self.monitor_running:
             try:
-                time.sleep(30)  # Simplified for now
+                if self.connection_status == ConnectionStatus.CONNECTED:
+                    if not self.is_connected():
+                        logger.warning("Connection lost, attempting reconnect with manual method...")
+                        self.connection_status = ConnectionStatus.RECONNECTING
+                        self.stats['reconnections'] += 1
+                        
+                        if self.manual_connect_bluetooth():
+                            logger.info("Automatic reconnection successful")
+                        else:
+                            logger.error("Automatic reconnection failed")
+                
+                # Heartbeat senden wenn verbunden
+                if self.connection_status == ConnectionStatus.CONNECTED:
+                    self.last_heartbeat = time.time()
+                
+                time.sleep(self.heartbeat_interval)
+                
             except Exception as e:
                 logger.error(f"Connection monitor error: {e}")
+                time.sleep(10)
     
     def image_to_printer_format(self, img):
         """Konvertiert PIL Image zu Drucker-Format - Simplified"""

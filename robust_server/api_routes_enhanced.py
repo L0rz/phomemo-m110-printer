@@ -215,70 +215,45 @@ def setup_enhanced_api_routes(app, printer):
 
     @app.route('/api/force-reconnect', methods=['POST'])
     def api_force_reconnect():
-        """Erzwingt Bluetooth-Reconnect"""
+        """Erzwingt Bluetooth-Reconnect mit der stabilen Manual Connect Methode"""
         try:
-            success = printer.connect_bluetooth(force_reconnect=True)
+            success = printer.manual_connect_bluetooth()
             return jsonify({'success': success})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/manual-connect', methods=['POST'])
     def api_manual_connect():
-        """Manuelle Verbindung mit exakten Bluetooth-Befehlen"""
+        """Manuelle Verbindung mit der bewährten rfcomm connect Methode"""
         try:
-            logger.info("Starting manual Bluetooth connection sequence...")
+            success = printer.manual_connect_bluetooth()
             
-            # 1. Alte rfcomm-Verbindung beenden
-            logger.info("Step 1: Releasing old rfcomm connection...")
-            subprocess.run(['sudo', 'rfcomm', 'release', '0'], capture_output=True, timeout=10)
-            time.sleep(1)
-            
-            # 2. Trust setzen
-            logger.info("Step 2: Ensuring pairing and trust...")
-            trust_result = subprocess.run(
-                ['bluetoothctl', 'trust', printer.mac_address],
-                capture_output=True, text=True, timeout=15
-            )
-            
-            # 3. Neue rfcomm-Verbindung erstellen
-            logger.info("Step 3: Creating new rfcomm connection...")
-            connect_result = subprocess.run(
-                ['sudo', 'rfcomm', 'bind', '0', printer.mac_address],
-                capture_output=True, text=True, timeout=20
-            )
-            
-            time.sleep(3)
-            
-            # 4. Verbindung testen
-            connected = printer.is_connected()
-            
-            if connected:
-                printer.connection_status = ConnectionStatus.CONNECTED
-                printer.last_successful_connection = time.time()
-                logger.info("Manual connection successful")
+            if success:
+                # Test connection mit Heartbeat
+                heartbeat_success = printer._send_heartbeat()
                 
                 return jsonify({
                     'success': True,
-                    'message': 'Manual connection established',
-                    'steps': {
-                        'trust': trust_result.returncode == 0,
-                        'rfcomm': connect_result.returncode == 0,
-                        'connected': connected
-                    }
+                    'message': 'Manual connection successful',
+                    'heartbeat_ok': heartbeat_success,
+                    'device_exists': os.path.exists(printer.rfcomm_device),
+                    'process_running': printer.rfcomm_process.poll() is None if printer.rfcomm_process else False
                 })
             else:
+                # Get error details
+                error_msg = "Connection failed"
+                if printer.rfcomm_process and printer.rfcomm_process.poll() is not None:
+                    try:
+                        _, stderr = printer.rfcomm_process.communicate(timeout=1)
+                        error_msg = f"rfcomm failed: {stderr}"
+                    except:
+                        error_msg = "rfcomm process failed"
+                
                 return jsonify({
                     'success': False,
-                    'message': 'Manual connection failed',
-                    'steps': {
-                        'trust': trust_result.returncode == 0,
-                        'rfcomm': connect_result.returncode == 0,
-                        'connected': connected
-                    },
-                    'errors': {
-                        'trust_error': trust_result.stderr if trust_result.returncode != 0 else None,
-                        'rfcomm_error': connect_result.stderr if connect_result.returncode != 0 else None
-                    }
+                    'message': error_msg,
+                    'device_exists': os.path.exists(printer.rfcomm_device),
+                    'process_running': printer.rfcomm_process is not None and printer.rfcomm_process.poll() is None
                 })
                 
         except Exception as e:

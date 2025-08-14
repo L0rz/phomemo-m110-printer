@@ -323,12 +323,52 @@ WEB_INTERFACE_ENHANCED = '''
             fetch('/api/status')
                 .then(response => response.json())
                 .then(data => {
-                    const status = data.connected ? 
-                        '<div class="success">✅ Drucker verbunden</div>' : 
-                        '<div class="error">❌ Drucker nicht verbunden</div>';
-                    document.getElementById('connectionStatus').innerHTML = status;
+                    updateConnectionStatus(data);
+                    updateSettings(data.settings || {});
+                    updateStats(data.stats || {});
                 })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+                .catch(error => showStatus('❌ Verbindungsfehler: ' + error, 'error'));
+        }
+        
+        function updateConnectionStatus(data) {
+            const statusClass = data.connected ? 'status-connected' : 'status-disconnected';
+            const statusText = data.connected ? '✅ Drucker verbunden' : '❌ Drucker nicht verbunden';
+            
+            let statusDetails = '';
+            if (data.connected) {
+                statusDetails = `RFCOMM Prozess: ${data.rfcomm_process_running ? '✅ Läuft' : '❌ Gestoppt'}<br>`;
+                statusDetails += `Letzter Heartbeat: ${data.last_heartbeat ? new Date(data.last_heartbeat * 1000).toLocaleTimeString() : 'Nie'}`;
+            } else {
+                statusDetails = `Verbindungsversuche: ${data.connection_attempts || 0}<br>`;
+                statusDetails += `Status: ${data.status || 'unbekannt'}`;
+            }
+                
+            document.getElementById('connectionStatus').innerHTML = `
+                <div class="${data.connected ? 'success' : 'error'}">
+                    <span class="status-indicator ${statusClass}"></span>
+                    ${statusText}<br>
+                    <small>${statusDetails}</small>
+                </div>
+            `;
+        }
+        
+        function updateSettings(settings) {
+            document.getElementById('xOffset').value = settings.x_offset || 40;
+            document.getElementById('yOffset').value = settings.y_offset || 0;
+            document.getElementById('ditherThreshold').value = settings.dither_threshold || 128;
+            document.getElementById('enableDitherGlobal').checked = settings.dither_enabled !== false;
+            
+            // Update slider values
+            updateDitherValue();
+            updateDitherStrengthValue();
+            updateContrastValue();
+        }
+        
+        function updateStats(stats) {
+            // Diese Funktion kann erweitert werden wenn Stats angezeigt werden sollen
+            if (stats) {
+                console.log('Stats updated:', stats);
+            }
         }
         
         function saveSettings() {
