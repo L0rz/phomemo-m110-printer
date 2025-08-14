@@ -351,41 +351,7 @@ def setup_enhanced_api_routes(app, printer):
         except Exception as e:
             logger.error(f"Test offsets error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
-    
-    @bp.route('/api/preview-image-json', methods=['POST'])
-    def api_preview_image_json():
-        """JSON-Version von Preview Image"""
-        try:
-            data = request.get_json(silent=True) or {}
-            b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
-            if not b64:
-                return jsonify({'success': False, 'error': 'Kein Bild (image_base64)'}), 400
 
-            # Dynamically pad base64 string to length multiple of 4
-            missing_padding = len(b64) % 4
-            if missing_padding:
-                b64 += '=' * (4 - missing_padding)
-            img_bytes = base64.b64decode(b64)
-
-            fit_to_label     = str(data.get('fit_to_label', 'true')).lower() == 'true'
-            maintain_aspect  = str(data.get('maintain_aspect', 'true')).lower() == 'true'
-            enable_dither    = str(data.get('enable_dither', 'true')).lower() == 'true'
-            dither_threshold = int(data.get('dither_threshold', 128))
-            dither_strength  = float(data.get('dither_strength', 1.0))
-            scaling_mode     = data.get('scaling_mode', 'fit_aspect')
-
-            result = printer.process_image_for_preview(
-                img_bytes, fit_to_label, maintain_aspect, enable_dither,
-                dither_threshold=dither_threshold, dither_strength=dither_strength,
-                scaling_mode=scaling_mode
-            )
-            if not result:
-                return jsonify({'success': False, 'error': 'Bildverarbeitung fehlgeschlagen'}), 500
-
-            return jsonify({'success': True,
-                            'preview_base64': result.preview_base64})
-        except Exception as e:
-            return jsonify({'success': False, 'error': str(e)}), 500
     @bp.route('/api/print-image-json', methods=['POST'])
     def api_print_image_json():
         """
