@@ -253,13 +253,32 @@ WEB_INTERFACE_ENHANCED = '''
             <!-- Text Printing -->
             <div class="card">
                 <h2>📝 Text drucken</h2>
-                <textarea id="textInput" rows="4" placeholder="Text eingeben...">PHOMEMO M110\\nEnhanced Edition\\nX-Offset: 40px\\n✓ Bildvorschau\\nZeit: $TIME$</textarea>
-                <select id="fontSize">
-                    <option value="18">Klein (18px)</option>
-                    <option value="22" selected>Normal (22px)</option>
-                    <option value="26">Groß (26px)</option>
-                </select>
-                <br>
+                <textarea id="textInput" rows="4" placeholder="Text eingeben...">PHOMEMO M110
+Enhanced Edition
+X-Offset: 0px
+✓ Bildvorschau
+Zeit: $TIME$</textarea>
+                
+                <div class="grid" style="gap: 10px; margin: 10px 0;">
+                    <div>
+                        <label>Schriftgröße:</label>
+                        <select id="fontSize">
+                            <option value="18">Klein (18px)</option>
+                            <option value="22" selected>Normal (22px)</option>
+                            <option value="26">Groß (26px)</option>
+                            <option value="30">Extra Groß (30px)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Textausrichtung:</label>
+                        <select id="textAlignment">
+                            <option value="left">📍 Linksbündig</option>
+                            <option value="center" selected>📄 Zentriert</option>
+                            <option value="right">📍 Rechtsbündig</option>
+                        </select>
+                    </div>
+                </div>
+                
                 <button class="btn" onclick="printText(false)">🖨️ Sofort drucken</button>
                 <button class="btn btn-success" onclick="printText(true)">📤 In Queue</button>
             </div>
@@ -541,6 +560,7 @@ WEB_INTERFACE_ENHANCED = '''
         function printText(useQueue) {
             const text = document.getElementById('textInput').value;
             const fontSize = document.getElementById('fontSize').value;
+            const alignment = document.getElementById('textAlignment').value;
             
             if (!text.trim()) {
                 showStatus('❌ Bitte Text eingeben!', 'error');
@@ -552,9 +572,10 @@ WEB_INTERFACE_ENHANCED = '''
             const formData = new FormData();
             formData.append('text', finalText);
             formData.append('font_size', fontSize);
+            formData.append('alignment', alignment);
             formData.append('immediate', useQueue ? 'false' : 'true');
             
-            showStatus('🖨️ Drucke Text...', 'info');
+            showStatus(`🖨️ Drucke Text (${alignment})...`, 'info');
             
             fetch('/api/print-text', { method: 'POST', body: formData })
                 .then(response => response.json())
