@@ -1204,4 +1204,499 @@ if __name__ == '__main__':
     try:
         app.run(host='0.0.0.0', port=8080, debug=False)
     finally:
+        printer.stop_services()" class="debug"></div>
+                <button class="btn" onclick="getQueueStatus()">🔄 Queue Status</button>
+            </div>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        let statusUpdateInterval;
+        
+        function checkConnection() {
+            showStatus('🔍 Prüfe Verbindung...', 'info');
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    updateConnectionDisplay(data);
+                    updateStats(data.stats);
+                })
+                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+        }
+        
+        function updateConnectionDisplay(data) {
+            const statusMap = {
+                'connected': { icon: '✅', text: 'Verbunden', class: 'status-connected' },
+                'connecting': { icon: '🔄', text: 'Verbinde...', class: 'status-connecting' },
+                'reconnecting': { icon: '🔃', text: 'Reconnecting...', class: 'status-connecting' },
+                'disconnected': { icon: '❌', text: 'Getrennt', class: 'status-disconnected' },
+                'failed': { icon: '💀', text: 'Fehlgeschlagen', class: 'status-failed' }
+            };
+            
+            const status = statusMap[data.status] || statusMap['disconnected'];
+            
+            const html = `
+                <div class="status ${data.connected ? 'success' : 'error'}">
+                    <span class="status-indicator ${status.class}"></span>
+                    <strong>${status.icon} ${status.text}</strong><br>
+                    MAC: ${data.mac}<br>
+                    Device: ${data.device}<br>
+                    Connection Attempts: ${data.connection_attempts}<br>
+                    Last Success: ${data.last_successful ? new Date(data.last_successful).toLocaleString() : 'Never'}<br>
+                    Last Heartbeat: ${data.last_heartbeat ? new Date(data.last_heartbeat).toLocaleString() : 'Never'}<br>
+                    RFCOMM Process: ${data.rfcomm_process_running ? '✅ Running' : '❌ Stopped'}
+                </div>
+            `;
+            
+            document.getElementById('connectionStatus').innerHTML = html;
+            document.getElementById('queueSize').textContent = data.queue_size;
+        }
+        
+        function updateStats(stats) {
+            if (stats) {
+                document.getElementById('totalJobs').textContent = stats.total_jobs;
+                document.getElementById('successJobs').textContent = stats.successful_jobs;
+                document.getElementById('failedJobs').textContent = stats.failed_jobs;
+            }
+        }
+        
+        function forceReconnect() {
+            showStatus('🔄 Force Reconnect...', 'info');
+            fetch('/api/force-reconnect', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('✅ Reconnect erfolgreich!', 'success');
+                        setTimeout(checkConnection, 1000);
+                    } else {
+                        showStatus('❌ Reconnect fehlgeschlagen: ' + (data.error || ''), 'error');
+                    }
+                })
+                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+        }
+        
+        function clearQueue() {
+            if (confirm('Alle Jobs in der Queue löschen?')) {
+                fetch('/api/clear-queue', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        showStatus('🗑️ Queue geleert', 'info');
+                        checkConnection();
+                    })
+                    .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+            }
+        }
+        
+        function manualConnect() {
+            showStatus('🔧 Manual Bluetooth Connect...', 'info');
+            fetch('/api/manual-connect', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('✅ Manual connect erfolgreich!', 'success');
+                        document.getElementById('debugInfo').innerHTML = 
+                            `Manual Connect: SUCCESS<br>` +
+                            `Heartbeat: ${data.heartbeat_ok ? 'OK' : 'FAILED'}<br>` +
+                            `Device Exists: ${data.device_exists}<br>` +
+                            `Process Running: ${data.process_running}<br>` +
+                            `Timestamp: ${new Date().toLocaleTimeString()}`;
+                        setTimeout(checkConnection, 1000);
+                    } else {
+                        showStatus('❌ Manual connect fehlgeschlagen: ' + (data.error || ''), 'error');
+                        document.getElementById('debugInfo').innerHTML = 
+                            `Manual Connect: FAILED<br>` +
+                            `Error: ${data.error}<br>` +
+                            `Device Exists: ${data.device_exists || 'unknown'}<br>` +
+                            `Process Running: ${data.process_running || 'unknown'}<br>` +
+                            `Timestamp: ${new Date().toLocaleTimeString()}`;
+                    }
+                })
+                .catch(error => showStatus('❌ Manual connect error: ' + error, 'error'));
+        }
+        
+        function printText(useQueue = false) {
+            const text = document.getElementById('textInput').value;
+            const fontSize = document.getElementById('fontSize').value;
+            
+            if (!text.trim()) {
+                showStatus('❌ Bitte Text eingeben!', 'error');
+                return;
+            }
+            
+            // Replace $TIME$ placeholder
+            const finalText = text.replace('$TIME$', new Date().toLocaleTimeString());
+            
+            const formData = new FormData();
+            formData.append('text', finalText);
+            formData.append('font_size', fontSize);
+            formData.append('use_queue', useQueue);
+            
+            const action = useQueue ? 'zur Queue hinzufügen' : 'drucken';
+            showStatus(`🖨️ ${action}...`, 'info');
+            
+            fetch('/api/print-text', { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const msg = useQueue ? 
+                            `✅ Job ${data.job_id} zur Queue hinzugefügt!` : 
+                            '✅ Text gedruckt!';
+                        showStatus(msg, 'success');
+                        setTimeout(checkConnection, 500);
+                    } else {
+                        showStatus('❌ Fehler: ' + (data.error || 'Unbekannter Fehler'), 'error');
+                    }
+                })
+                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
+        }
+        
+        function testLabel() {
+            document.getElementById('textInput').value = 
+                'PHOMEMO M110\\nRobust Server\\n' + 
+                new Date().toLocaleDateString() + '\\n' +
+                new Date().toLocaleTimeString() + '\\n' +
+                '✓ Test erfolgreich';
+            printText(false);
+        }
+        
+        function testConnection() {
+            showStatus('🔧 Teste Bluetooth-Verbindung...', 'info');
+            fetch('/api/test-connection', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('debugInfo').innerHTML = 
+                        `Test Result: ${data.success}<br>` +
+                        `Message: ${data.message || ''}<br>` +
+                        `Error: ${data.error || 'None'}<br>` +
+                        `Timestamp: ${new Date().toLocaleTimeString()}`;
+                    
+                    if (data.success) {
+                        showStatus('✅ Bluetooth-Test erfolgreich!', 'success');
+                    } else {
+                        showStatus('❌ Bluetooth-Test fehlgeschlagen', 'error');
+                    }
+                })
+                .catch(error => showStatus('❌ Test-Fehler: ' + error, 'error'));
+        }
+        
+        function initPrinter() {
+            showStatus('🔄 Initialisiere Drucker...', 'info');
+            fetch('/api/init-printer', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('✅ Drucker initialisiert!', 'success');
+                    } else {
+                        showStatus('❌ Init fehlgeschlagen: ' + (data.error || ''), 'error');
+                    }
+                })
+                .catch(error => showStatus('❌ Init-Fehler: ' + error, 'error'));
+        }
+        
+        function sendHeartbeat() {
+            showStatus('💓 Sende Heartbeat...', 'info');
+            fetch('/api/heartbeat', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showStatus('✅ Heartbeat OK!', 'success');
+                        document.getElementById('debugInfo').innerHTML = 
+                            `Heartbeat: OK<br>Response Time: ${data.response_time}ms<br>Timestamp: ${new Date().toLocaleTimeString()}`;
+                    } else {
+                        showStatus('❌ Heartbeat fehlgeschlagen', 'error');
+                    }
+                })
+                .catch(error => showStatus('❌ Heartbeat-Fehler: ' + error, 'error'));
+        }
+        
+        function getQueueStatus() {
+            fetch('/api/queue-status')
+                .then(response => response.json())
+                .then(data => {
+                    let html = `Queue Size: ${data.size}<br>Processor Running: ${data.running}<br><br>`;
+                    
+                    if (data.recent_jobs && data.recent_jobs.length > 0) {
+                        html += 'Recent Jobs:<br>';
+                        data.recent_jobs.forEach(job => {
+                            const time = new Date(job.timestamp * 1000).toLocaleTimeString();
+                            html += `${time} - ${job.job_type} (${job.status})<br>`;
+                        });
+                    } else {
+                        html += 'No recent jobs';
+                    }
+                    
+                    document.getElementById('queueInfo').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('queueInfo').innerHTML = 'Error loading queue status';
+                });
+        }
+        
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
+            setTimeout(() => statusDiv.innerHTML = '', 8000);
+        }
+        
+        function startStatusUpdates() {
+            // Auto-update every 10 seconds
+            statusUpdateInterval = setInterval(checkConnection, 10000);
+        }
+        
+        function stopStatusUpdates() {
+            if (statusUpdateInterval) {
+                clearInterval(statusUpdateInterval);
+            }
+        }
+        
+        // Auto-check connection on load and start updates
+        window.onload = function() {
+            checkConnection();
+            getQueueStatus();
+            startStatusUpdates();
+        };
+        
+        // Stop updates when page is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopStatusUpdates();
+            } else {
+                startStatusUpdates();
+            }
+        });
+    </script>
+</body>
+</html>
+'''
+
+# API Routes
+@app.route('/')
+def index():
+    return render_template_string(WEB_INTERFACE)
+
+@app.route('/api/status')
+def api_status():
+    try:
+        return jsonify(printer.get_connection_status())
+    except Exception as e:
+        return jsonify({'connected': False, 'error': str(e)})
+
+@app.route('/api/force-reconnect', methods=['POST'])
+def api_force_reconnect():
+    try:
+        success = printer.connect_bluetooth(force_reconnect=True)
+        return jsonify({'success': success})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/manual-connect', methods=['POST'])
+def api_manual_connect():
+    """Manuelle Verbindung mit exakten Bluetooth-Befehlen"""
+    try:
+        logger.info("Starting manual Bluetooth connection sequence...")
+        
+        # 1. Alte rfcomm-Verbindung beenden
+        logger.info("Step 1: Releasing old rfcomm connection...")
+        subprocess.run(['sudo', 'rfcomm', 'release', '0'], capture_output=True, timeout=10)
+        time.sleep(1)
+        
+        # 2. Pairing und Trust (non-interactive)
+        logger.info("Step 2: Ensuring pairing and trust...")
+        
+        # Trust setzen (wichtiger als pair, da pair eventuell schon gemacht wurde)
+        trust_result = subprocess.run(
+            ['bluetoothctl', 'trust', printer.mac_address],
+            capture_output=True, text=True, timeout=15
+        )
+        logger.info(f"Trust result: {trust_result.returncode}")
+        
+        # 3. rfcomm connect im Hintergrund starten
+        logger.info("Step 3: Starting rfcomm connect...")
+        cmd = ['sudo', 'rfcomm', 'connect', '0', printer.mac_address, '1']
+        
+        # Cleanup old process
+        printer._cleanup_rfcomm_process()
+        
+        # Start new process
+        printer.rfcomm_process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        
+        # Wait and check
+        time.sleep(4)
+        
+        if printer.is_connected():
+            with printer._lock:
+                printer.connection_status = ConnectionStatus.CONNECTED
+                printer.last_successful_connection = datetime.now()
+                printer.connection_attempts = 0
+                printer.stats['reconnections'] += 1
+            
+            # Test with heartbeat
+            heartbeat_success = printer._send_heartbeat()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Manual connection successful',
+                'heartbeat_ok': heartbeat_success,
+                'device_exists': os.path.exists(printer.rfcomm_device),
+                'process_running': printer.rfcomm_process.poll() is None
+            })
+        else:
+            # Get error from process
+            error_msg = "Device not accessible"
+            if printer.rfcomm_process.poll() is not None:
+                _, stderr = printer.rfcomm_process.communicate()
+                error_msg = f"rfcomm failed: {stderr}"
+            
+            return jsonify({
+                'success': False,
+                'error': error_msg,
+                'device_exists': os.path.exists(printer.rfcomm_device),
+                'process_running': printer.rfcomm_process is not None and printer.rfcomm_process.poll() is None
+            })
+        
+    except Exception as e:
+        logger.error(f"Manual connect error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/clear-queue', methods=['POST'])
+def api_clear_queue():
+    try:
+        # Queue leeren
+        while not printer.print_queue.empty():
+            try:
+                printer.print_queue.get_nowait()
+                printer.print_queue.task_done()
+            except queue.Empty:
+                break
+        
+        return jsonify({'success': True, 'message': 'Queue cleared'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/print-text', methods=['POST'])
+def api_print_text():
+    try:
+        text = request.form.get('text', '')
+        font_size = int(request.form.get('font_size', 22))
+        use_queue = request.form.get('use_queue', 'false').lower() == 'true'
+        
+        if not text.strip():
+            return jsonify({'success': False, 'error': 'Kein Text'})
+        
+        if use_queue:
+            # Asynchron über Queue
+            job_id = printer.print_text_async(text, font_size)
+            return jsonify({'success': True, 'job_id': job_id, 'message': 'Job queued'})
+        else:
+            # Synchron
+            success = printer.print_text(text, font_size)
+            return jsonify({'success': success})
+            
+    except Exception as e:
+        logger.error(f"API print error: {e}")
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/test-connection', methods=['POST'])
+def api_test_connection():
+    try:
+        start_time = time.time()
+        
+        # Test basic connectivity
+        connected = printer.is_connected()
+        if not connected:
+            reconnect_success = printer.connect_bluetooth()
+            response_time = int((time.time() - start_time) * 1000)
+            return jsonify({
+                'success': reconnect_success,
+                'message': 'Reconnected' if reconnect_success else 'Failed to connect',
+                'response_time': response_time
+            })
+        
+        # Test sending a simple command
+        test_success = printer._send_command_direct(b'\x1b\x40')  # Reset command
+        response_time = int((time.time() - start_time) * 1000)
+        
+        return jsonify({
+            'success': test_success,
+            'message': 'Command sent successfully' if test_success else 'Failed to send command',
+            'response_time': response_time
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/init-printer', methods=['POST'])
+def api_init_printer():
+    try:
+        job_id = f"init_{int(time.time() * 1000)}"
+        job = PrintJob(
+            job_id=job_id,
+            job_type='init',
+            data={},
+            timestamp=time.time()
+        )
+        printer.queue_print_job(job)
+        return jsonify({'success': True, 'job_id': job_id})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/heartbeat', methods=['POST'])
+def api_heartbeat():
+    try:
+        start_time = time.time()
+        success = printer._send_heartbeat()
+        response_time = int((time.time() - start_time) * 1000)
+        
+        return jsonify({
+            'success': success,
+            'response_time': response_time,
+            'timestamp': time.time()
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/queue-status')
+def api_queue_status():
+    try:
+        # Vereinfachter Queue-Status (da wir nicht alle Jobs tracken)
+        return jsonify({
+            'size': printer.print_queue.qsize(),
+            'running': printer.queue_processor_running,
+            'recent_jobs': []  # Könnte erweitert werden mit Job-History
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+# Graceful Shutdown
+def signal_handler(signum, frame):
+    logger.info("Received shutdown signal, stopping services...")
+    printer.stop_services()
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+# Configuration
+PRINTER_MAC = "12:7E:5A:E9:E5:22"  # ÄNDERN SIE DIESE MAC-ADRESSE!
+printer = RobustPhomemoM110(PRINTER_MAC)
+
+if __name__ == '__main__':
+    print("🍓 Phomemo M110 ROBUST Server")
+    print(f"🔵 Drucker MAC: {PRINTER_MAC}")
+    print(f"📡 Device: {printer.rfcomm_device}")
+    print("🌐 Web-Interface: http://RASPBERRY_IP:8080")
+    print("💡 WICHTIG: MAC-Adresse in Code anpassen!")
+    print("🔧 Features: Auto-Reconnect, Print Queue, Connection Monitoring")
+    print("📊 Background Services: Queue Processor, Connection Monitor")
+    
+    try:
+        app.run(host='0.0.0.0', port=8080, debug=False)
+    finally:
         printer.stop_services()
