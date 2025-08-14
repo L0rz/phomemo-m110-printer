@@ -354,10 +354,7 @@ def setup_enhanced_api_routes(app, printer):
     
     @bp.route('/api/preview-image-json', methods=['POST'])
     def api_preview_image_json():
-        """
-        JSON: { image_base64, fit_to_label?, maintain_aspect?, enable_dither?,
-                dither_threshold?, dither_strength?, scaling_mode? }
-        """
+        """JSON-Version von Preview Image"""
         try:
             data = request.get_json(silent=True) or {}
             b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
@@ -389,10 +386,7 @@ def setup_enhanced_api_routes(app, printer):
 
     @bp.route('/api/print-image-json', methods=['POST'])
     def api_print_image_json():
-        """
-        JSON: { image_base64, immediate?, fit_to_label?, maintain_aspect?, enable_dither?,
-                dither_threshold?, dither_strength?, scaling_mode? }
-        """
+        """JSON-Version von Print Image"""
         try:
             data = request.get_json(silent=True) or {}
             b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
