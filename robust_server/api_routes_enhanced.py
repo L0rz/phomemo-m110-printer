@@ -326,6 +326,28 @@ def setup_enhanced_api_routes(app, printer):
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)})
 
+    @app.route('/api/reset-offsets', methods=['POST'])
+    def api_reset_offsets():
+        """Setzt Offsets auf Standard-Werte zurück"""
+        try:
+            # Offsets zurücksetzen
+            printer.settings['x_offset'] = 0
+            printer.settings['y_offset'] = 0
+            
+            # Settings speichern
+            printer.save_settings()
+            
+            return jsonify({
+                'success': True,
+                'message': 'Offsets auf 0 zurückgesetzt',
+                'settings': {
+                    'x_offset': 0,
+                    'y_offset': 0
+                }
+            })
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)})
+
     @app.route('/api/test-offsets', methods=['POST'])
     def api_test_offsets():
         """Testet aktuelle Offset-Einstellungen mit Testmuster"""

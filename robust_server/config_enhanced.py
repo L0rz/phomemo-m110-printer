@@ -18,7 +18,7 @@ PRINTER_WIDTH_PIXELS = 384
 PRINTER_BYTES_PER_LINE = 48  # 384 / 8
 
 # Neue Features: Offset-Konfiguration
-DEFAULT_X_OFFSET = 40  # Standard X-Offset 40 Pixel
+DEFAULT_X_OFFSET = 0   # Standard X-Offset (kein Offset)
 DEFAULT_Y_OFFSET = 0   # Standard Y-Offset
 MIN_X_OFFSET = 0       # Minimum X-Offset
 MAX_X_OFFSET = 100     # Maximum X-Offset
