@@ -351,7 +351,8 @@ def setup_enhanced_api_routes(app, printer):
         except Exception as e:
             logger.error(f"Test offsets error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
-        @bp.route('/api/preview-image-json', methods=['POST'])
+    
+    @bp.route('/api/preview-image-json', methods=['POST'])
     def api_preview_image_json():
         """
         JSON: { image_base64, fit_to_label?, maintain_aspect?, enable_dither?,
