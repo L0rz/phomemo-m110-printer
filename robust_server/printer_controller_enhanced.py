@@ -453,6 +453,10 @@ class EnhancedPhomemoM110:
             x_offset = self.settings.get('x_offset', DEFAULT_X_OFFSET)
             y_offset = self.settings.get('y_offset', DEFAULT_Y_OFFSET)
             
+            logger.info(f"📐 Original image size: {img.width}x{img.height}")
+            logger.info(f"⚙️ Current offset settings: X={x_offset}, Y={y_offset}")
+            logger.info(f"📏 Printer width: {self.width_pixels}px")
+            
             # Drucker-Bild erstellen (volle Breite)
             printer_height = max(img.height + abs(y_offset), img.height)
             printer_img = Image.new('1', (self.width_pixels, printer_height), 1)  # Weiß
@@ -462,6 +466,8 @@ class EnhancedPhomemoM110:
             
             # Y-Position berechnen  
             paste_y = max(0, y_offset) if y_offset >= 0 else 0
+            
+            logger.info(f"📍 Calculated paste position: X={paste_x}, Y={paste_y}")
             
             # Bild einfügen
             printer_img.paste(img, (paste_x, paste_y))
@@ -812,8 +818,68 @@ class EnhancedPhomemoM110:
             return None
     
     def _execute_calibration_job(self, data):
-        """Führt Kalibrierungs-Job aus - Simplified"""
-        return True  # Placeholder
+        """Führt Kalibrierungs-Job aus"""
+        try:
+            pattern = data.get('pattern', 'border')
+            width = data.get('width', self.label_width_px)
+            height = data.get('height', self.label_height_px)
+            
+            logger.info(f"🧪 Executing calibration job: {pattern} ({width}x{height})")
+            
+            # Erstelle Testbild
+            if pattern == 'full':
+                # Vollständiges Rechteck mit Rahmen
+                img = Image.new('1', (width, height), 1)  # Weiß
+                draw = ImageDraw.Draw(img)
+                
+                # Äußerer Rahmen
+                draw.rectangle([0, 0, width-1, height-1], outline=0, width=2)
+                
+                # Innere Kreuz-Linien
+                draw.line([width//4, 0, width//4, height], fill=0, width=1)
+                draw.line([width//2, 0, width//2, height], fill=0, width=1)
+                draw.line([3*width//4, 0, 3*width//4, height], fill=0, width=1)
+                
+                draw.line([0, height//4, width, height//4], fill=0, width=1)
+                draw.line([0, height//2, width, height//2], fill=0, width=1)
+                draw.line([0, 3*height//4, width, 3*height//4], fill=0, width=1)
+                
+                # Offset-Marker in den Ecken
+                corner_size = 10
+                draw.rectangle([5, 5, 5+corner_size, 5+corner_size], fill=0)
+                draw.rectangle([width-15, 5, width-5, 5+corner_size], fill=0)
+                draw.rectangle([5, height-15, 5+corner_size, height-5], fill=0)
+                draw.rectangle([width-15, height-15, width-5, height-5], fill=0)
+                
+            else:
+                # Einfacher Rahmen
+                img = Image.new('1', (width, height), 1)  # Weiß
+                draw = ImageDraw.Draw(img)
+                draw.rectangle([0, 0, width-1, height-1], outline=0, width=3)
+            
+            # Offsets anwenden
+            final_img = self.apply_offsets_to_image(img)
+            
+            # Zu Drucker-Format konvertieren
+            image_data = self.image_to_printer_format(final_img)
+            if not image_data:
+                logger.error("❌ Failed to convert calibration image")
+                return False
+            
+            # Drucken
+            success = self.send_bitmap(image_data, final_img.height)
+            if success:
+                logger.info("✅ Calibration pattern printed successfully!")
+            else:
+                logger.error("❌ Failed to print calibration pattern")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"❌ Calibration job error: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            return False
 
 # Alias für Kompatibilität mit bestehenden Modulen
 RobustPhomemoM110 = EnhancedPhomemoM110
