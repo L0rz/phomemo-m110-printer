@@ -40,6 +40,14 @@ DEFAULT_CONTRAST_BOOST = 1.0    # Kontrast-Verstärkung (0.5 - 2.0)
 SUPPORTED_IMAGE_FORMATS = ['PNG', 'JPEG', 'JPG', 'BMP', 'GIF', 'WEBP']
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB max Upload
 
+# Bildanpassungs-Modi
+IMAGE_SCALING_MODES = {
+    'fit_aspect': 'An Label anpassen (Seitenverhältnis beibehalten)',
+    'stretch_full': 'Volle Label-Größe (stretchen)',
+    'crop_center': 'Zentriert zuschneiden (volle Größe)',
+    'pad_center': 'Zentriert mit Rand (volle Größe)'
+}
+
 # Preview-Einstellungen
 PREVIEW_MAX_WIDTH = 400   # Max Breite für Web-Vorschau
 PREVIEW_MAX_HEIGHT = 300  # Max Höhe für Web-Vorschau

@@ -89,12 +89,14 @@ def setup_enhanced_api_routes(app, printer):
             enable_dither = request.form.get('enable_dither', 'true').lower() == 'true'
             dither_threshold = int(request.form.get('dither_threshold', '128'))
             dither_strength = float(request.form.get('dither_strength', '1.0'))
+            scaling_mode = request.form.get('scaling_mode', 'fit_aspect')
             
-            # Bild verarbeiten mit erweiterten Dithering-Parametern
+            # Bild verarbeiten mit erweiterten Parametern
             image_data = file.read()
             result = printer.process_image_for_preview(
                 image_data, fit_to_label, maintain_aspect, enable_dither,
-                dither_threshold=dither_threshold, dither_strength=dither_strength
+                dither_threshold=dither_threshold, dither_strength=dither_strength,
+                scaling_mode=scaling_mode
             )
             
             if result:
@@ -124,19 +126,22 @@ def setup_enhanced_api_routes(app, printer):
             enable_dither = request.form.get('enable_dither', 'true').lower() == 'true'
             dither_threshold = int(request.form.get('dither_threshold', '128'))
             dither_strength = float(request.form.get('dither_strength', '1.0'))
+            scaling_mode = request.form.get('scaling_mode', 'fit_aspect')
             
             image_data = file.read()
             
             if immediate:
                 success = printer.print_image_immediate(
                     image_data, fit_to_label, maintain_aspect, enable_dither,
-                    dither_threshold=dither_threshold, dither_strength=dither_strength
+                    dither_threshold=dither_threshold, dither_strength=dither_strength,
+                    scaling_mode=scaling_mode
                 )
                 return jsonify({'success': success})
             else:
                 job_id = printer.print_image_with_preview(
                     image_data, fit_to_label, maintain_aspect, enable_dither,
-                    dither_threshold=dither_threshold, dither_strength=dither_strength
+                    dither_threshold=dither_threshold, dither_strength=dither_strength,
+                    scaling_mode=scaling_mode
                 )
                 return jsonify({'success': bool(job_id), 'job_id': job_id})
                 

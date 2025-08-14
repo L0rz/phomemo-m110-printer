@@ -294,7 +294,7 @@ class EnhancedPhomemoM110:
             logger.error(f"Send command error: {e}")
             return False
     
-    def process_image_for_preview(self, image_data, fit_to_label=None, maintain_aspect=None, enable_dither=None, dither_threshold=None, dither_strength=None) -> Optional[ImageProcessingResult]:
+    def process_image_for_preview(self, image_data, fit_to_label=None, maintain_aspect=None, enable_dither=None, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> Optional[ImageProcessingResult]:
         """Verarbeitet ein Bild für die Schwarz-Weiß-Vorschau"""
         try:
             # Parameter aus Einstellungen falls nicht übergeben
@@ -321,24 +321,64 @@ class EnhancedPhomemoM110:
             
             original_size = img.size
             
-            # Größe anpassen wenn gewünscht
+            # Größe anpassen basierend auf Skalierungsmodus
             if fit_to_label:
                 target_width = self.label_width_px
                 target_height = self.label_height_px
                 
-                if maintain_aspect:
-                    # Seitenverhältnis beibehalten
-                    img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
+                if scaling_mode == 'fit_aspect':
+                    # Original-Verhalten: Seitenverhältnis beibehalten
+                    if maintain_aspect:
+                        img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
+                        # Zentrieren auf Label-Größe
+                        new_img = Image.new('RGB', (target_width, target_height), 'white')
+                        paste_x = (target_width - img.width) // 2
+                        paste_y = (target_height - img.height) // 2
+                        new_img.paste(img, (paste_x, paste_y))
+                        img = new_img
+                    else:
+                        # Direkt auf Label-Größe skalieren
+                        img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                
+                elif scaling_mode == 'stretch_full':
+                    # Volle Label-Größe (stretchen/verzerren falls nötig)
+                    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                
+                elif scaling_mode == 'crop_center':
+                    # Zentriert zuschneiden für volle Label-Größe
+                    # Berechne Skalierung um kleinste Dimension zu füllen
+                    scale_w = target_width / img.width
+                    scale_h = target_height / img.height
+                    scale = max(scale_w, scale_h)  # Größere Skalierung für vollständige Abdeckung
                     
-                    # Zentrieren auf Label-Größe
+                    # Skalieren
+                    new_width = int(img.width * scale)
+                    new_height = int(img.height * scale)
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Zentriert zuschneiden
+                    left = (new_width - target_width) // 2
+                    top = (new_height - target_height) // 2
+                    img = img.crop((left, top, left + target_width, top + target_height))
+                
+                elif scaling_mode == 'pad_center':
+                    # Zentriert mit Rand für volle Label-Größe
+                    # Berechne Skalierung um größte Dimension zu füllen
+                    scale_w = target_width / img.width
+                    scale_h = target_height / img.height
+                    scale = min(scale_w, scale_h)  # Kleinere Skalierung um vollständig sichtbar zu bleiben
+                    
+                    # Skalieren
+                    new_width = int(img.width * scale)
+                    new_height = int(img.height * scale)
+                    img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+                    
+                    # Auf Label-Größe mit Rand zentrieren
                     new_img = Image.new('RGB', (target_width, target_height), 'white')
-                    paste_x = (target_width - img.width) // 2
-                    paste_y = (target_height - img.height) // 2
+                    paste_x = (target_width - new_width) // 2
+                    paste_y = (target_height - new_height) // 2
                     new_img.paste(img, (paste_x, paste_y))
                     img = new_img
-                else:
-                    # Direkt auf Label-Größe skalieren
-                    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
             
             # Schwarz-Weiß konvertieren mit erweiterten Dithering-Optionen
             if enable_dither:
@@ -393,6 +433,7 @@ class EnhancedPhomemoM110:
                     'processed_height': bw_img.size[1],
                     'fit_to_label': fit_to_label,
                     'maintain_aspect': maintain_aspect,
+                    'scaling_mode': scaling_mode,
                     'dither_enabled': enable_dither,
                     'dither_threshold': dither_threshold,
                     'dither_strength': dither_strength,
@@ -432,13 +473,13 @@ class EnhancedPhomemoM110:
             logger.error(f"Error applying offsets: {e}")
             return img
     
-    def print_image_with_preview(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=None, dither_threshold=None, dither_strength=None):
+    def print_image_with_preview(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=None, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect'):
         """Druckt ein Bild mit den aktuellen Offset-Einstellungen"""
         try:
             logger.info("Processing image for print with offsets...")
             
             # Bild verarbeiten
-            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, enable_dither, dither_threshold, dither_strength)
+            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, enable_dither, dither_threshold, dither_strength, scaling_mode)
             if not result:
                 return False
             
@@ -477,10 +518,10 @@ class EnhancedPhomemoM110:
             logger.error(f"Immediate text print error: {e}")
             return False
     
-    def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, dither_threshold=None, dither_strength=None) -> bool:
+    def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
         """Druckt Bild sofort (bypass Queue)"""
         try:
-            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, dither_threshold=dither_threshold, dither_strength=dither_strength)
+            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, dither_threshold=dither_threshold, dither_strength=dither_strength, scaling_mode=scaling_mode)
             if result:
                 printer_img = self.apply_offsets_to_image(result.processed_image)
                 image_data = self.image_to_printer_format(printer_img)

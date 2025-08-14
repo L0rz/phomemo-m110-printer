@@ -286,6 +286,20 @@ WEB_INTERFACE_ENHANCED = '''
                         <label><input type="checkbox" id="maintainAspect" checked onchange="updatePreview()"> Seitenverhältnis beibehalten</label>
                         <label><input type="checkbox" id="enableDither" checked onchange="toggleImageDither()"> Dithering aktivieren</label>
                     </div>
+                    
+                    <div style="margin-top: 15px;">
+                        <label style="display: block; margin-bottom: 10px;"><strong>📐 Skalierungsmodus:</strong></label>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <label><input type="radio" name="scalingMode" value="fit_aspect" checked onchange="updatePreview()"> 📏 Seitenverhältnis beibehalten</label>
+                            <label><input type="radio" name="scalingMode" value="stretch_full" onchange="updatePreview()"> 🔄 Volle Größe (stretchen)</label>
+                            <label><input type="radio" name="scalingMode" value="crop_center" onchange="updatePreview()"> ✂️ Zentriert zuschneiden</label>
+                            <label><input type="radio" name="scalingMode" value="pad_center" onchange="updatePreview()"> 🖼️ Zentriert mit Rand</label>
+                        </div>
+                        <div style="margin-top: 5px; font-size: 12px; color: #666;">
+                            <div id="scalingModeHelp">📏 Behält Seitenverhältnis bei, kann Ränder hinterlassen</div>
+                        </div>
+                    </div>
+                    
                     <div id="imageDitherControls" style="margin-top: 15px;">
                         <div class="grid" style="gap: 10px;">
                             <div class="slider-control">
