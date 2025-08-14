@@ -224,6 +224,81 @@ function getQueueStatus() {
         });
 }
 
+function printCalibration(mode) {
+    const offsetX = document.getElementById('offsetX').value;
+    const offsetY = document.getElementById('offsetY').value;
+    const thickness = document.getElementById('borderThickness').value;
+    
+    const formData = new FormData();
+    formData.append('offset_x', offsetX);
+    formData.append('offset_y', offsetY);
+    
+    if (mode === 'border') {
+        formData.append('thickness', thickness);
+    } else if (mode === 'grid') {
+        formData.append('spacing', '5');
+    } else if (mode === 'corners') {
+        formData.append('corner_size', '15');
+    }
+    
+    const modeNames = {
+        'border': 'Rahmen-Test',
+        'grid': 'Gitter-Test',
+        'rulers': 'Lineal-Test',
+        'corners': 'Ecken-Test',
+        'series': 'Offset-Serie'
+    };
+    
+    showStatus(`📐 Drucke ${modeNames[mode]}...`, 'info');
+    
+    fetch(`/api/calibration/${mode}`, { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (mode === 'series') {
+                    let resultMsg = `✅ ${data.message} abgeschlossen!<br>`;
+                    data.results.forEach(result => {
+                        const status = result.success ? '✅' : '❌';
+                        resultMsg += `${status} Test ${result.test_number}: ${result.description}<br>`;
+                    });
+                    document.getElementById('calibrationInfo').innerHTML = resultMsg;
+                    showStatus(`✅ ${data.message} erfolgreich!`, 'success');
+                } else {
+                    showStatus(`✅ ${data.message} gedruckt!`, 'success');
+                    document.getElementById('calibrationInfo').innerHTML = 
+                        `Letzter Test: ${data.message}<br>Bildgröße: ${data.image_size}<br>Timestamp: ${new Date().toLocaleTimeString()}`;
+                }
+            } else {
+                showStatus(`❌ Kalibrierung fehlgeschlagen: ${data.error || 'Unbekannter Fehler'}`, 'error');
+                document.getElementById('calibrationInfo').innerHTML = 
+                    `Fehler: ${data.error}<br>Timestamp: ${new Date().toLocaleTimeString()}`;
+            }
+        })
+        .catch(error => {
+            showStatus(`❌ Kalibrierungs-Fehler: ${error}`, 'error');
+            document.getElementById('calibrationInfo').innerHTML = 
+                `Netzwerk-Fehler: ${error}<br>Timestamp: ${new Date().toLocaleTimeString()}`;
+        });
+}
+
+function loadCalibrationInfo() {
+    fetch('/api/calibration/info')
+        .then(response => response.json())
+        .then(data => {
+            if (!data.error) {
+                document.getElementById('calibrationInfo').innerHTML = 
+                    `Drucker: ${data.printer_width_pixels}px (${data.printer_width_mm}mm)<br>` +
+                    `Label: ${data.label_width_px}x${data.label_height_px}px (${data.label_width_mm}x${data.label_height_mm}mm)<br>` +
+                    `Auflösung: ${data.pixels_per_mm.toFixed(1)} Pixel/mm<br>` +
+                    `Modi: ${data.available_modes.join(', ')}`;
+            }
+        })
+        .catch(error => {
+            // Info ist optional, Fehler ignorieren
+        });
+}
+}
+
 function showStatus(message, type) {
     const statusDiv = document.getElementById('status');
     statusDiv.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
@@ -245,6 +320,7 @@ function stopStatusUpdates() {
 window.onload = function() {
     checkConnection();
     getQueueStatus();
+    loadCalibrationInfo();
     startStatusUpdates();
 };
 

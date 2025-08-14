@@ -12,6 +12,7 @@ from flask import Flask, render_template_string
 # Module importieren
 from printer_controller import RobustPhomemoM110
 from api_routes import setup_api_routes
+from calibration_api import setup_calibration_routes
 from web_template import WEB_INTERFACE
 
 # Logging konfigurieren
@@ -36,6 +37,7 @@ printer = RobustPhomemoM110(PRINTER_MAC)
 
 # API Routes registrieren
 setup_api_routes(app, printer)
+setup_calibration_routes(app, printer)
 
 # Web Interface Route
 @app.route('/')

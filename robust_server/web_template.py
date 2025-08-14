@@ -112,6 +112,34 @@ WEB_INTERFACE = '''
             </div>
         </div>
         
+        <div class="card">
+            <h2>📐 Kalibrierung & Ausrichtung</h2>
+            <div class="grid">
+                <div>
+                    <h3>⚙️ Offset-Einstellungen</h3>
+                    <label>X-Offset (Pixel):</label>
+                    <input type="number" id="offsetX" value="0" min="-20" max="20" step="1">
+                    
+                    <label>Y-Offset (Pixel):</label>
+                    <input type="number" id="offsetY" value="0" min="-20" max="20" step="1">
+                    
+                    <label>Rahmendicke (Pixel):</label>
+                    <input type="number" id="borderThickness" value="2" min="1" max="5" step="1">
+                </div>
+                <div>
+                    <h3>🎯 Kalibrierungs-Tests</h3>
+                    <div class="grid">
+                        <button class="btn" onclick="printCalibration('border')">🔲 Rahmen-Test</button>
+                        <button class="btn" onclick="printCalibration('grid')">📐 Gitter-Test</button>
+                        <button class="btn" onclick="printCalibration('rulers')">📏 Lineal-Test</button>
+                        <button class="btn" onclick="printCalibration('corners')">📍 Ecken-Test</button>
+                    </div>
+                    <button class="btn btn-warning" onclick="printCalibration('series')" style="width: 100%; margin-top: 10px;">📊 Offset-Serie</button>
+                </div>
+            </div>
+            <div id="calibrationInfo" class="debug" style="margin-top: 10px;"></div>
+        </div>
+        
         <div id="status"></div>
     </div>
 
