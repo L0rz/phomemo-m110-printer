@@ -150,6 +150,84 @@ function testLabel() {
     printText(false);
 }
 
+function previewImage() {
+    const fileInput = document.getElementById('imageFile');
+    const preview = document.getElementById('imagePreview');
+    const imageInfo = document.getElementById('imageInfo');
+    const printBtn = document.getElementById('printImageBtn');
+    const queueBtn = document.getElementById('queueImageBtn');
+    
+    if (fileInput.files && fileInput.files[0]) {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                // Vorschau anzeigen
+                preview.innerHTML = `<img src="${e.target.result}" style="max-width: 100%; max-height: 200px; border: 1px solid #ddd;">`;
+                
+                // Datei-Info anzeigen
+                const sizeKB = (file.size / 1024).toFixed(1);
+                imageInfo.innerHTML = `${img.width}×${img.height}px, ${sizeKB}KB`;
+                
+                // Buttons aktivieren
+                printBtn.disabled = false;
+                queueBtn.disabled = false;
+            };
+            img.src = e.target.result;
+        };
+        
+        reader.readAsDataURL(file);
+    } else {
+        // Vorschau leeren
+        preview.innerHTML = '';
+        imageInfo.innerHTML = '';
+        printBtn.disabled = true;
+        queueBtn.disabled = true;
+    }
+}
+
+function printImage(useQueue = false) {
+    const fileInput = document.getElementById('imageFile');
+    
+    if (!fileInput.files || !fileInput.files[0]) {
+        showStatus('❌ Bitte Bild auswählen!', 'error');
+        return;
+    }
+    
+    const file = fileInput.files[0];
+    const fitToLabel = document.getElementById('fitToLabel').checked;
+    const maintainAspect = document.getElementById('maintainAspect').checked;
+    const dither = document.getElementById('ditherImage').checked;
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    formData.append('use_queue', useQueue);
+    formData.append('fit_to_label', fitToLabel);
+    formData.append('maintain_aspect', maintainAspect);
+    formData.append('dither', dither);
+    
+    const action = useQueue ? 'zur Queue hinzufügen' : 'drucken';
+    showStatus(`🖼️ Bild ${action}...`, 'info');
+    
+    fetch('/api/print-image', { method: 'POST', body: formData })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const sizeKB = (data.size_bytes / 1024).toFixed(1);
+                const msg = useQueue ? 
+                    `✅ Bild ${data.filename} (${sizeKB}KB) zur Queue hinzugefügt!` : 
+                    `✅ Bild ${data.filename} (${sizeKB}KB) gedruckt!`;
+                showStatus(msg, 'success');
+                setTimeout(checkConnection, 500);
+            } else {
+                showStatus('❌ Bild-Fehler: ' + (data.error || 'Unbekannter Fehler'), 'error');
+            }
+        })
+        .catch(error => showStatus('❌ Upload-Fehler: ' + error, 'error'));
+}
+
 function testConnection() {
     showStatus('🔧 Teste Bluetooth-Verbindung...', 'info');
     fetch('/api/test-connection', { method: 'POST' })

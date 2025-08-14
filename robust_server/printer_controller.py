@@ -9,6 +9,7 @@ import logging
 import subprocess
 import threading
 import queue
+import io
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -40,6 +41,14 @@ class RobustPhomemoM110:
         self.rfcomm_device = "/dev/rfcomm0"
         self.width_pixels = 384  # Phomemo M110 Standard
         self.bytes_per_line = 48  # 384 / 8
+        self.width_mm = 48       # 48mm physische Breite
+        self.pixels_per_mm = self.width_pixels / self.width_mm  # ~8 Pixel/mm
+        
+        # Label-Größen (40x30mm)
+        self.label_width_mm = 40
+        self.label_height_mm = 30
+        self.label_width_px = int(self.label_width_mm * self.pixels_per_mm)
+        self.label_height_px = int(self.label_height_mm * self.pixels_per_mm)
         
         # Connection Management
         self.connection_status = ConnectionStatus.DISCONNECTED
@@ -347,6 +356,17 @@ class RobustPhomemoM110:
         )
         return self.queue_print_job(job)
     
+    def print_image_async(self, image_data: bytes, filename: str = "image") -> str:
+        """Fügt Bild-Druckauftrag zur Queue hinzu"""
+        job_id = f"image_{int(time.time() * 1000)}"
+        job = PrintJob(
+            job_id=job_id,
+            job_type='image',
+            data={'image_data': image_data, 'filename': filename},
+            timestamp=time.time()
+        )
+        return self.queue_print_job(job)
+    
     def _process_print_queue(self):
         """Background-Thread für Print-Queue-Verarbeitung"""
         logger.info("Print queue processor started")
@@ -393,6 +413,8 @@ class RobustPhomemoM110:
         try:
             if job.job_type == 'text':
                 return self.print_text(job.data['text'], job.data['font_size'])
+            elif job.job_type == 'image':
+                return self.print_image_from_data(job.data['image_data'], job.data['filename'])
             elif job.job_type == 'init':
                 return self._init_printer()
             else:
@@ -557,3 +579,100 @@ class RobustPhomemoM110:
         except Exception as e:
             logger.error(f"Bitmap send error: {e}")
             return False
+    
+    def print_image_from_data(self, image_data: bytes, filename: str = "image") -> bool:
+        """Druckt Bild aus Bytes-Daten"""
+        try:
+            logger.info(f"Printing image: {filename}")
+            
+            if not self.send_command(b'\x1b\x40'):  # ESC @
+                return False
+            time.sleep(0.5)
+            
+            # Bild aus Bytes laden
+            img = Image.open(io.BytesIO(image_data))
+            processed_img = self.process_image_for_printing(img)
+            
+            if processed_img is None:
+                return False
+            
+            # Bild zu Drucker-Format konvertieren
+            printer_data = self.image_to_printer_format(processed_img)
+            if not printer_data:
+                return False
+            
+            # Bild drucken
+            success = self.send_bitmap(printer_data, processed_img.height)
+            
+            if success:
+                logger.info(f"✅ Image printed: {filename}")
+                time.sleep(0.5)
+            else:
+                logger.error(f"❌ Image print failed: {filename}")
+            
+            return success
+            
+        except Exception as e:
+            logger.error(f"Print image error: {e}")
+            return False
+    
+    def process_image_for_printing(self, img: Image.Image, 
+                                  fit_to_label: bool = True, 
+                                  maintain_aspect: bool = True,
+                                  dither: bool = True) -> Optional[Image.Image]:
+        """
+        Verarbeitet Bild für Drucker-Ausgabe
+        
+        Args:
+            img: Input-Bild
+            fit_to_label: Bild auf Label-Größe anpassen
+            maintain_aspect: Seitenverhältnis beibehalten
+            dither: Dithering für bessere Qualität
+        """
+        try:
+            # Zu RGB konvertieren falls nötig
+            if img.mode not in ('RGB', 'L'):
+                img = img.convert('RGB')
+            
+            target_width = self.label_width_px if fit_to_label else self.width_pixels
+            target_height = self.label_height_px if fit_to_label else None
+            
+            if maintain_aspect and target_height:
+                # Aspect Ratio beibehalten
+                img.thumbnail((target_width, target_height), Image.Resampling.LANCZOS)
+                
+                # Zentrieren auf weißem Hintergrund
+                if fit_to_label:
+                    background = Image.new('RGB', (target_width, target_height), 'white')
+                    paste_x = (target_width - img.width) // 2
+                    paste_y = (target_height - img.height) // 2
+                    background.paste(img, (paste_x, paste_y))
+                    img = background
+            else:
+                # Ohne Aspect Ratio - strecken
+                if target_height:
+                    img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                else:
+                    # Nur Breite anpassen, Höhe proportional
+                    ratio = target_width / img.width
+                    new_height = int(img.height * ratio)
+                    img = img.resize((target_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Wenn nötig auf Drucker-Breite zentrieren
+            if img.width < self.width_pixels:
+                background = Image.new('RGB', (self.width_pixels, img.height), 'white')
+                paste_x = (self.width_pixels - img.width) // 2
+                background.paste(img, (paste_x, 0))
+                img = background
+            
+            # Zu schwarz-weiß konvertieren
+            if dither:
+                img = img.convert('1')  # Mit Dithering
+            else:
+                img = img.convert('L').point(lambda x: 0 if x < 128 else 255, '1')  # Ohne Dithering
+            
+            return img
+            
+        except Exception as e:
+            logger.error(f"Image processing error: {e}")
+            return None

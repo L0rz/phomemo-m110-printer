@@ -141,6 +141,69 @@ def setup_api_routes(app, printer):
             logger.error(f"API print error: {e}")
             return jsonify({'success': False, 'error': str(e)})
 
+    @app.route('/api/print-image', methods=['POST'])
+    def api_print_image():
+        """Druckt hochgeladenes Bild"""
+        try:
+            # Prüfe ob Datei hochgeladen wurde
+            if 'image' not in request.files:
+                return jsonify({'success': False, 'error': 'Keine Datei hochgeladen'})
+            
+            file = request.files['image']
+            if file.filename == '':
+                return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'})
+            
+            # Einstellungen aus Form
+            use_queue = request.form.get('use_queue', 'false').lower() == 'true'
+            fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
+            maintain_aspect = request.form.get('maintain_aspect', 'true').lower() == 'true'
+            dither = request.form.get('dither', 'true').lower() == 'true'
+            
+            # Überprüfe Dateityp
+            allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff'}
+            file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+            
+            if file_ext not in allowed_extensions:
+                return jsonify({
+                    'success': False, 
+                    'error': f'Dateityp nicht unterstützt. Erlaubt: {", ".join(allowed_extensions)}'
+                })
+            
+            # Datei lesen
+            image_data = file.read()
+            
+            if len(image_data) == 0:
+                return jsonify({'success': False, 'error': 'Datei ist leer'})
+            
+            # Größen-Check (max 10MB)
+            if len(image_data) > 10 * 1024 * 1024:
+                return jsonify({'success': False, 'error': 'Datei zu groß (max 10MB)'})
+            
+            filename = file.filename or f"image.{file_ext}"
+            
+            if use_queue:
+                # Asynchron über Queue
+                job_id = printer.print_image_async(image_data, filename)
+                return jsonify({
+                    'success': True, 
+                    'job_id': job_id, 
+                    'message': 'Image queued',
+                    'filename': filename,
+                    'size_bytes': len(image_data)
+                })
+            else:
+                # Synchron drucken
+                success = printer.print_image_from_data(image_data, filename)
+                return jsonify({
+                    'success': success,
+                    'filename': filename,
+                    'size_bytes': len(image_data)
+                })
+                
+        except Exception as e:
+            logger.error(f"API print image error: {e}")
+            return jsonify({'success': False, 'error': str(e)})
+
     @app.route('/api/test-connection', methods=['POST'])
     def api_test_connection():
         try:

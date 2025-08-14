@@ -98,18 +98,38 @@ WEB_INTERFACE = '''
             </div>
             
             <div class="card">
+                <h2>🖼️ Bild drucken</h2>
+                <input type="file" id="imageFile" accept="image/*" onchange="previewImage()">
+                <div id="imagePreview" style="margin: 10px 0; max-height: 200px; overflow: hidden;"></div>
+                
+                <div class="grid" style="margin: 10px 0;">
+                    <div>
+                        <label><input type="checkbox" id="fitToLabel" checked> An Label anpassen</label><br>
+                        <label><input type="checkbox" id="maintainAspect" checked> Seitenverhältnis</label>
+                    </div>
+                    <div>
+                        <label><input type="checkbox" id="ditherImage" checked> Dithering</label><br>
+                        <span id="imageInfo" style="font-size: 12px; color: #666;"></span>
+                    </div>
+                </div>
+                
+                <button class="btn" onclick="printImage(false)" id="printImageBtn" disabled>🖨️ Bild drucken</button>
+                <button class="btn btn-success" onclick="printImage(true)" id="queueImageBtn" disabled>📤 In Queue</button>
+            </div>
+            
+            <div class="card">
                 <h2>🛠️ Debug & Test</h2>
                 <button class="btn" onclick="testConnection()">🔧 Test Bluetooth</button>
                 <button class="btn" onclick="initPrinter()">🔄 Init Drucker</button>
                 <button class="btn" onclick="sendHeartbeat()">💓 Heartbeat</button>
                 <div id="debugInfo" class="debug"></div>
             </div>
-            
-            <div class="card">
-                <h2>📋 Print Queue</h2>
-                <div id="queueInfo" class="debug"></div>
-                <button class="btn" onclick="getQueueStatus()">🔄 Queue Status</button>
-            </div>
+        </div>
+        
+        <div class="card">
+            <h2>📋 Print Queue</h2>
+            <div id="queueInfo" class="debug"></div>
+            <button class="btn" onclick="getQueueStatus()">🔄 Queue Status</button>
         </div>
         
         <div class="card">
