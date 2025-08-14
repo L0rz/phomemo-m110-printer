@@ -311,15 +311,20 @@ class RobustPhomemoM110:
         """Sendet Befehl direkt ohne Queue"""
         try:
             if not self.is_connected():
+                logger.error("❌ _send_command_direct: Device not connected!")
                 return False
+            
+            logger.info(f"📤 Sending {len(command_bytes)} bytes to {self.rfcomm_device}")
             
             with open(self.rfcomm_device, 'wb') as printer:
                 printer.write(command_bytes)
                 printer.flush()
                 time.sleep(0.1)
+            
+            logger.info("✅ Command sent successfully")
             return True
         except Exception as e:
-            logger.debug(f"Direct command send error: {e}")
+            logger.error(f"❌ Direct command send error: {e}")
             return False
     
     def send_command(self, command_bytes: bytes) -> bool:
@@ -442,29 +447,38 @@ class RobustPhomemoM110:
     def print_text(self, text: str, font_size: int = 24) -> bool:
         """Druckt Text (synchron)"""
         try:
-            logger.info(f"Printing text: {text[:50]}...")
+            logger.info(f"🖨️ Starting text print: {text[:50]}...")
             
             if not self.send_command(b'\x1b\x40'):  # ESC @
+                logger.error("❌ Failed to send reset command")
                 return False
             time.sleep(0.5)
             
+            logger.info("📝 Creating text image...")
             img = self.create_text_image(text, font_size)
             if img is None:
+                logger.error("❌ Failed to create text image")
                 return False
             
+            logger.info(f"🖼️ Converting image to printer format (size: {img.width}x{img.height})...")
             image_data = self.image_to_printer_format(img)
             if not image_data:
+                logger.error("❌ Failed to convert image to printer format")
                 return False
             
+            logger.info(f"📤 Sending bitmap data ({len(image_data)} bytes)...")
             success = self.send_bitmap(image_data, img.height)
             
             if success:
+                logger.info("✅ Text print completed successfully!")
                 time.sleep(0.5)
+            else:
+                logger.error("❌ Failed to send bitmap")
             
             return success
             
         except Exception as e:
-            logger.error(f"Print text error: {e}")
+            logger.error(f"❌ Text print error: {e}")
             return False
     
     def create_text_image(self, text: str, font_size: int) -> Optional[Image.Image]:
@@ -583,29 +597,40 @@ class RobustPhomemoM110:
     def print_image_from_data(self, image_data: bytes, filename: str = "image") -> bool:
         """Druckt Bild aus Bytes-Daten"""
         try:
-            logger.info(f"Printing image: {filename}")
+            logger.info(f"🖼️ Starting image print: {filename}")
             
             if not self.send_command(b'\x1b\x40'):  # ESC @
+                logger.error("❌ Failed to send reset command")
                 return False
             time.sleep(0.5)
             
+            logger.info("📂 Loading image from bytes...")
             # Bild aus Bytes laden
             img = Image.open(io.BytesIO(image_data))
+            logger.info(f"📏 Original image size: {img.width}x{img.height}")
+            
+            logger.info("🔄 Processing image for printing...")
             processed_img = self.process_image_for_printing(img)
             
             if processed_img is None:
+                logger.error("❌ Failed to process image")
                 return False
             
+            logger.info(f"📐 Processed image size: {processed_img.width}x{processed_img.height}")
+            
             # Bild zu Drucker-Format konvertieren
+            logger.info("🖼️ Converting image to printer format...")
             printer_data = self.image_to_printer_format(processed_img)
             if not printer_data:
+                logger.error("❌ Failed to convert image to printer format")
                 return False
             
             # Bild drucken
+            logger.info(f"📤 Sending bitmap data ({len(printer_data)} bytes)...")
             success = self.send_bitmap(printer_data, processed_img.height)
             
             if success:
-                logger.info(f"✅ Image printed: {filename}")
+                logger.info(f"✅ Image printed successfully: {filename}")
                 time.sleep(0.5)
             else:
                 logger.error(f"❌ Image print failed: {filename}")
