@@ -120,7 +120,7 @@ function printText(useQueue = false) {
     const formData = new FormData();
     formData.append('text', finalText);
     formData.append('font_size', fontSize);
-    formData.append('use_queue', useQueue);
+    formData.append('immediate', !useQueue);
     
     const action = useQueue ? 'zur Queue hinzufügen' : 'drucken';
     showStatus(`🖨️ ${action}...`, 'info');
@@ -203,10 +203,10 @@ function printImage(useQueue = false) {
     
     const formData = new FormData();
     formData.append('image', file);
-    formData.append('use_queue', useQueue);
+    formData.append('immediate', !useQueue);
     formData.append('fit_to_label', fitToLabel);
     formData.append('maintain_aspect', maintainAspect);
-    formData.append('dither', dither);
+    formData.append('enable_dither', dither);
     
     const action = useQueue ? 'zur Queue hinzufügen' : 'drucken';
     showStatus(`🖼️ Bild ${action}...`, 'info');
@@ -215,10 +215,9 @@ function printImage(useQueue = false) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                const sizeKB = (data.size_bytes / 1024).toFixed(1);
                 const msg = useQueue ? 
-                    `✅ Bild ${data.filename} (${sizeKB}KB) zur Queue hinzugefügt!` : 
-                    `✅ Bild ${data.filename} (${sizeKB}KB) gedruckt!`;
+                    `✅ Bild zur Queue hinzugefügt! Job ID: ${data.job_id || 'N/A'}` : 
+                    `✅ Bild gedruckt!`;
                 showStatus(msg, 'success');
                 setTimeout(checkConnection, 500);
             } else {
