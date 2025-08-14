@@ -161,6 +161,11 @@ def setup_enhanced_api_routes(app, printer):
             text = request.form.get('text', '')
             font_size = int(request.form.get('font_size', 22))
             immediate = request.form.get('immediate', 'false').lower() == 'true'
+            alignment = request.form.get('alignment', 'center')  # left, center, right
+            
+            # Gültige Ausrichtungen prüfen
+            if alignment not in ['left', 'center', 'right']:
+                alignment = 'center'
             
             if not text.strip():
                 return jsonify({'success': False, 'error': 'Kein Text'})
@@ -169,10 +174,14 @@ def setup_enhanced_api_routes(app, printer):
             text = text.replace('$TIME$', datetime.now().strftime('%H:%M:%S'))
             
             if immediate:
-                result = printer.print_text_immediate(text, font_size)
+                result = printer.print_text_immediate(text, font_size, alignment)
                 return jsonify(result)
             else:
-                job_id = printer.queue_print_job('text', {'text': text, 'font_size': font_size})
+                job_id = printer.queue_print_job('text', {
+                    'text': text, 
+                    'font_size': font_size,
+                    'alignment': alignment
+                })
                 return jsonify({'success': True, 'job_id': job_id})
         except Exception as e:
             logger.error(f"Print text error: {e}", exc_info=True)

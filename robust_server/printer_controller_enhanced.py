@@ -507,12 +507,12 @@ class EnhancedPhomemoM110:
             logger.error(f"Print image error: {e}")
             return False
     
-    def print_text_immediate(self, text: str, font_size: int = 24) -> dict:
+    def print_text_immediate(self, text: str, font_size: int = 24, alignment: str = 'center') -> dict:
         """Druckt Text sofort (bypass Queue)"""
         try:
             logger.info(f"🖨️ Starting immediate text print: '{text[:50]}...'")
             
-            img = self.create_text_image_with_offsets(text, font_size)
+            img = self.create_text_image_with_offsets(text, font_size, alignment)
             if img:
                 logger.info(f"✅ Text image created, size: {img.width}x{img.height}")
                 
@@ -714,13 +714,13 @@ class EnhancedPhomemoM110:
             logger.error(f"❌ Bitmap send error: {e}")
             return False
     
-    def create_text_image_with_offsets(self, text, font_size):
-        """Erstellt Text-Bild mit Offsets"""
+    def create_text_image_with_offsets(self, text, font_size, alignment='center'):
+        """Erstellt Text-Bild mit Offsets und Ausrichtung"""
         try:
             import os
             from PIL import Image, ImageDraw, ImageFont
             
-            logger.info(f"📝 Creating text image with font size {font_size} and offsets")
+            logger.info(f"📝 Creating text image with font size {font_size}, alignment: {alignment}")
             
             # Font laden mit besserer Fehlerbehandlung
             font = None
@@ -747,10 +747,19 @@ class EnhancedPhomemoM110:
                 logger.warning("⚠️ Using default font - no TrueType font found")
                 font = ImageFont.load_default()
             
-            # Text-Verarbeitung 
-            processed_text = text.replace('\\n', '\n')
+            # Text-Verarbeitung - verbesserte Zeilumbruch-Behandlung
+            # Verschiedene Newline-Formate normalisieren
+            processed_text = text.replace('\\r\\n', '\n')  # Windows CRLF literal
+            processed_text = processed_text.replace('\\n', '\n')  # Escaped newlines
+            processed_text = processed_text.replace('\r\n', '\n')  # Windows CRLF
+            processed_text = processed_text.replace('\r', '\n')   # Mac CR
+            
             lines = processed_text.split('\n')
-            logger.info(f"📄 Processing {len(lines)} lines")
+            # Leere Zeilen am Ende entfernen
+            while lines and not lines[-1].strip():
+                lines.pop()
+            
+            logger.info(f"📄 Processing {len(lines)} lines: {[line[:20] + '...' if len(line) > 20 else line for line in lines[:3]]}")
             
             # Bildgröße berechnen
             temp_img = Image.new('RGB', (1, 1), 'white')
@@ -779,17 +788,24 @@ class EnhancedPhomemoM110:
             img = Image.new('RGB', (self.label_width_px, total_height), 'white')
             draw = ImageDraw.Draw(img)
             
-            # Text zeichnen
+            # Text zeichnen mit Ausrichtung
             y_pos = 20
             for i, line in enumerate(lines):
                 if line.strip():
                     try:
                         bbox = draw.textbbox((0, 0), line, font=font)
                         line_width = bbox[2] - bbox[0]
-                        x_pos = max(10, (self.label_width_px - line_width) // 2)
+                        
+                        # X-Position basierend auf Ausrichtung berechnen
+                        if alignment == 'left':
+                            x_pos = 10  # 10px Rand links
+                        elif alignment == 'right':
+                            x_pos = max(10, self.label_width_px - line_width - 10)  # 10px Rand rechts
+                        else:  # center (default)
+                            x_pos = max(10, (self.label_width_px - line_width) // 2)
                         
                         draw.text((x_pos, y_pos), line, fill='black', font=font)
-                        logger.debug(f"✏️ Drew line {i+1}: '{line}' at ({x_pos}, {y_pos})")
+                        logger.debug(f"✏️ Drew line {i+1} ({alignment}): '{line}' at ({x_pos}, {y_pos})")
                     except Exception as e:
                         logger.warning(f"⚠️ Could not draw line '{line}': {e}")
                 
