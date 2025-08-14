@@ -648,7 +648,7 @@ class EnhancedPhomemoM110:
             
             for y in range(height):
                 line_bytes = []
-                for x in range(0, self.printer_width_px, 8):
+                for x in range(0, self.width_pixels, 8):
                     byte_value = 0
                     for bit in range(8):
                         pixel_x = x + bit
