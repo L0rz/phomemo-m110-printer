@@ -361,13 +361,8 @@ class EnhancedPhomemoM110:
         
         # Fallback auf Standard-Font
         return ImageFont.load_default()
-                    if image_data:
-                        return self.send_bitmap(image_data, img.height)
-            
-            elif job.job_type == 'calibration':
-                return self._execute_calibration_job(job.data)
-            
-            return False
+    
+    def start_services(self):
             
         except Exception as e:
             logger.error(f"Job execution error: {e}")
@@ -564,3 +559,32 @@ class EnhancedPhomemoM110:
 
 # Alias für Kompatibilität mit bestehenden Modulen
 RobustPhomemoM110 = EnhancedPhomemoM110
+    
+    def _execute_print_job(self, job: PrintJob) -> bool:
+        """Führt einen einzelnen Print Job aus"""
+        try:
+            if job.job_type == 'text':
+                img = self.create_text_image_with_offsets(
+                    job.data['text'], 
+                    job.data.get('font_size', 24)
+                )
+                if img:
+                    image_data = self.image_to_printer_format(img)
+                    if image_data:
+                        return self.send_bitmap(image_data, img.height)
+            
+            elif job.job_type == 'image' or job.job_type == 'processed_image':
+                img = job.data.get('image')
+                if img:
+                    image_data = self.image_to_printer_format(img)
+                    if image_data:
+                        return self.send_bitmap(image_data, img.height)
+            
+            elif job.job_type == 'calibration':
+                return self._execute_calibration_job(job.data)
+            
+            return False
+            
+        except Exception as e:
+            logger.error(f"Job execution error: {e}")
+            return False

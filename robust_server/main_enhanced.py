@@ -8,6 +8,7 @@ import sys
 import signal
 import logging
 import os
+import time
 from flask import Flask, render_template_string
 
 # Erweiterte Module importieren
