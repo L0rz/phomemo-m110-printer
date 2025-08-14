@@ -484,16 +484,37 @@ class RobustPhomemoM110:
     def create_text_image(self, text: str, font_size: int) -> Optional[Image.Image]:
         """Erstellt Bild aus Text"""
         try:
-            # Font laden
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except:
-                try:
-                    font = ImageFont.truetype("/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", font_size)
-                except:
-                    font = ImageFont.load_default()
+            logger.info(f"📝 Creating text image with font size {font_size}")
             
-            lines = text.replace('\\n', '\n').split('\n')
+            # Font laden mit besserer Fehlerbehandlung
+            font = None
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", 
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/System/Library/Fonts/Arial.ttf",  # macOS
+                "C:/Windows/Fonts/arial.ttf"  # Windows
+            ]
+            
+            for font_path in font_paths:
+                try:
+                    if os.path.exists(font_path):
+                        font = ImageFont.truetype(font_path, font_size)
+                        logger.info(f"✅ Font loaded: {font_path}")
+                        break
+                except Exception as e:
+                    logger.debug(f"Font {font_path} failed: {e}")
+                    continue
+            
+            if font is None:
+                logger.warning("⚠️ Using default font - no TrueType font found")
+                font = ImageFont.load_default()
+            
+            # Text-Verarbeitung 
+            processed_text = text.replace('\\n', '\n')
+            lines = processed_text.split('\n')
+            logger.info(f"📄 Processing {len(lines)} lines")
             
             # Bildgröße berechnen
             temp_img = Image.new('RGB', (1, 1), 'white')
@@ -503,13 +524,22 @@ class RobustPhomemoM110:
             max_width = 0
             
             for line in lines:
-                bbox = temp_draw.textbbox((0, 0), line, font=font)
-                line_width = bbox[2] - bbox[0]
-                line_height = bbox[3] - bbox[1]
-                max_width = max(max_width, line_width)
-                line_heights.append(line_height)
+                try:
+                    bbox = temp_draw.textbbox((0, 0), line, font=font)
+                    line_width = bbox[2] - bbox[0]
+                    line_height = bbox[3] - bbox[1]
+                    max_width = max(max_width, line_width)
+                    line_heights.append(max(line_height, 20))  # Mindesthöhe
+                except Exception as e:
+                    logger.warning(f"⚠️ Problem with line '{line}': {e}")
+                    line_heights.append(20)
+                    max_width = max(max_width, 100)
             
+            # Bild erstellen
             total_height = sum(line_heights) + (len(lines) - 1) * 5 + 40
+            total_height = max(total_height, 50)  # Mindesthöhe
+            
+            logger.info(f"📐 Image size: {self.width_pixels}x{total_height}")
             img = Image.new('RGB', (self.width_pixels, total_height), 'white')
             draw = ImageDraw.Draw(img)
             
@@ -517,18 +547,25 @@ class RobustPhomemoM110:
             y_pos = 20
             for i, line in enumerate(lines):
                 if line.strip():
-                    bbox = draw.textbbox((0, 0), line, font=font)
-                    line_width = bbox[2] - bbox[0]
-                    x_pos = (self.width_pixels - line_width) // 2
-                    
-                    draw.text((x_pos, y_pos), line, fill='black', font=font)
+                    try:
+                        bbox = draw.textbbox((0, 0), line, font=font)
+                        line_width = bbox[2] - bbox[0]
+                        x_pos = max(10, (self.width_pixels - line_width) // 2)
+                        
+                        draw.text((x_pos, y_pos), line, fill='black', font=font)
+                        logger.debug(f"✏️ Drew line {i+1}: '{line}' at ({x_pos}, {y_pos})")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not draw line '{line}': {e}")
                 
                 y_pos += line_heights[i] + 5
             
+            logger.info("✅ Text image created successfully")
             return img.convert('1')
             
         except Exception as e:
-            logger.error(f"Image creation error: {e}")
+            logger.error(f"❌ Image creation error: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return None
     
     def image_to_printer_format(self, img: Image.Image) -> Optional[bytes]:

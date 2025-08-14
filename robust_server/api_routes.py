@@ -125,6 +125,8 @@ def setup_api_routes(app, printer):
             font_size = int(request.form.get('font_size', 22))
             use_queue = request.form.get('use_queue', 'false').lower() == 'true'
             
+            logger.info(f"📝 Print text request: use_queue={use_queue}")
+            
             if not text.strip():
                 return jsonify({'success': False, 'error': 'Kein Text'})
             

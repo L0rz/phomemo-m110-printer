@@ -624,8 +624,107 @@ class EnhancedPhomemoM110:
         return True  # Placeholder
     
     def create_text_image_with_offsets(self, text, font_size):
-        """Erstellt Text-Bild mit Offsets - Simplified"""
-        return None  # Placeholder
+        """Erstellt Text-Bild mit Offsets"""
+        try:
+            import os
+            from PIL import Image, ImageDraw, ImageFont
+            
+            logger.info(f"📝 Creating text image with font size {font_size} and offsets")
+            
+            # Font laden mit besserer Fehlerbehandlung
+            font = None
+            font_paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", 
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/System/Library/Fonts/Arial.ttf",  # macOS
+                "C:/Windows/Fonts/arial.ttf"  # Windows
+            ]
+            
+            for font_path in font_paths:
+                try:
+                    if os.path.exists(font_path):
+                        font = ImageFont.truetype(font_path, font_size)
+                        logger.info(f"✅ Font loaded: {font_path}")
+                        break
+                except Exception as e:
+                    logger.debug(f"Font {font_path} failed: {e}")
+                    continue
+            
+            if font is None:
+                logger.warning("⚠️ Using default font - no TrueType font found")
+                font = ImageFont.load_default()
+            
+            # Text-Verarbeitung 
+            processed_text = text.replace('\\n', '\n')
+            lines = processed_text.split('\n')
+            logger.info(f"📄 Processing {len(lines)} lines")
+            
+            # Bildgröße berechnen
+            temp_img = Image.new('RGB', (1, 1), 'white')
+            temp_draw = ImageDraw.Draw(temp_img)
+            
+            line_heights = []
+            max_width = 0
+            
+            for line in lines:
+                try:
+                    bbox = temp_draw.textbbox((0, 0), line, font=font)
+                    line_width = bbox[2] - bbox[0]
+                    line_height = bbox[3] - bbox[1]
+                    max_width = max(max_width, line_width)
+                    line_heights.append(max(line_height, 20))  # Mindesthöhe
+                except Exception as e:
+                    logger.warning(f"⚠️ Problem with line '{line}': {e}")
+                    line_heights.append(20)
+                    max_width = max(max_width, 100)
+            
+            # Bild erstellen
+            total_height = sum(line_heights) + (len(lines) - 1) * 5 + 40
+            total_height = max(total_height, 50)  # Mindesthöhe
+            
+            logger.info(f"📐 Base image size: {self.label_width_px}x{total_height}")
+            img = Image.new('RGB', (self.label_width_px, total_height), 'white')
+            draw = ImageDraw.Draw(img)
+            
+            # Text zeichnen
+            y_pos = 20
+            for i, line in enumerate(lines):
+                if line.strip():
+                    try:
+                        bbox = draw.textbbox((0, 0), line, font=font)
+                        line_width = bbox[2] - bbox[0]
+                        x_pos = max(10, (self.label_width_px - line_width) // 2)
+                        
+                        draw.text((x_pos, y_pos), line, fill='black', font=font)
+                        logger.debug(f"✏️ Drew line {i+1}: '{line}' at ({x_pos}, {y_pos})")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not draw line '{line}': {e}")
+                
+                y_pos += line_heights[i] + 5
+            
+            # Bild zu S/W konvertieren
+            bw_img = img.convert('1')
+            
+            # Offsets anwenden
+            x_offset = self.settings.get('x_offset', 0)
+            y_offset = self.settings.get('y_offset', 0)
+            
+            if x_offset != 0 or y_offset != 0:
+                logger.info(f"📐 Applying offsets: X={x_offset}, Y={y_offset}")
+                final_img = self.apply_offsets_to_image(bw_img)
+                logger.info(f"📐 Final image size: {final_img.width}x{final_img.height}")
+                return final_img
+            else:
+                logger.info("✅ Text image created successfully (no offsets)")
+                return bw_img
+            
+        except Exception as e:
+            logger.error(f"❌ Text image creation error: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            return None
     
     def _execute_calibration_job(self, data):
         """Führt Kalibrierungs-Job aus - Simplified"""
