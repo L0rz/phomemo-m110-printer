@@ -25,6 +25,7 @@ def setup_enhanced_api_routes(app, printer):
         try:
             return jsonify(printer.get_connection_status())
         except Exception as e:
+            logger.error(f"Status error: {e}", exc_info=True)
             return jsonify({'connected': False, 'error': str(e)})
 
     @app.route('/api/settings', methods=['GET'])
@@ -36,6 +37,7 @@ def setup_enhanced_api_routes(app, printer):
                 'settings': printer.get_settings()
             })
         except Exception as e:
+            logger.error(f"Get settings error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/settings', methods=['POST'])
@@ -50,6 +52,7 @@ def setup_enhanced_api_routes(app, printer):
                 'settings': printer.get_settings() if success else None
             })
         except Exception as e:
+            logger.error(f"Update settings error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/preview-image', methods=['POST'])
@@ -110,7 +113,7 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': False, 'error': 'Bildverarbeitung fehlgeschlagen'})
                 
         except Exception as e:
-            logger.error(f"Preview error: {e}")
+            logger.error(f"Preview error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/print-image', methods=['POST'])
@@ -147,7 +150,7 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': bool(job_id), 'job_id': job_id})
                 
         except Exception as e:
-            logger.error(f"Print image error: {e}")
+            logger.error(f"Print image error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/print-text', methods=['POST'])
@@ -172,7 +175,7 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': True, 'job_id': job_id})
                 
         except Exception as e:
-            logger.error(f"Print text error: {e}")
+            logger.error(f"Print text error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/print-calibration', methods=['POST'])
@@ -199,7 +202,7 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': True, 'job_id': job_id})
                 
         except Exception as e:
-            logger.error(f"Calibration error: {e}")
+            logger.error(f"Print calibration error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/queue-status', methods=['GET'])
@@ -208,6 +211,7 @@ def setup_enhanced_api_routes(app, printer):
         try:
             return jsonify(printer.get_queue_status())
         except Exception as e:
+            logger.error(f"Queue status error: {e}", exc_info=True)
             return jsonify({'error': str(e)})
 
     @app.route('/api/clear-queue', methods=['POST'])
@@ -217,6 +221,7 @@ def setup_enhanced_api_routes(app, printer):
             cleared_count = printer.clear_queue()
             return jsonify({'success': True, 'cleared_jobs': cleared_count})
         except Exception as e:
+            logger.error(f"Clear queue error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/force-reconnect', methods=['POST'])
@@ -226,6 +231,7 @@ def setup_enhanced_api_routes(app, printer):
             success = printer.manual_connect_bluetooth()
             return jsonify({'success': success})
         except Exception as e:
+            logger.error(f"Force reconnect error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/manual-connect', methods=['POST'])
@@ -263,7 +269,7 @@ def setup_enhanced_api_routes(app, printer):
                 })
                 
         except Exception as e:
-            logger.error(f"Manual connect error: {e}")
+            logger.error(f"Manual connect error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/test-connection', methods=['POST'])
@@ -343,6 +349,7 @@ def setup_enhanced_api_routes(app, printer):
             })
             
         except Exception as e:
+            logger.error(f"Test offsets error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
         @bp.route('/api/preview-image-json', methods=['POST'])
     def api_preview_image_json():
