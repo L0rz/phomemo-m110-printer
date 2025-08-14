@@ -168,12 +168,11 @@ def setup_enhanced_api_routes(app, printer):
             text = text.replace('$TIME$', datetime.now().strftime('%H:%M:%S'))
             
             if immediate:
-                success = printer.print_text_immediate(text, font_size)
-                return jsonify({'success': success})
+                result = printer.print_text_immediate(text, font_size)
+                return jsonify(result)
             else:
                 job_id = printer.queue_print_job('text', {'text': text, 'font_size': font_size})
                 return jsonify({'success': True, 'job_id': job_id})
-                
         except Exception as e:
             logger.error(f"Print text error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
