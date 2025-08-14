@@ -297,7 +297,6 @@ function loadCalibrationInfo() {
             // Info ist optional, Fehler ignorieren
         });
 }
-}
 
 function showStatus(message, type) {
     const statusDiv = document.getElementById('status');
