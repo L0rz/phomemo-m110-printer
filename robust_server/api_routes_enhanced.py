@@ -8,12 +8,14 @@ import time
 import logging
 import subprocess
 import queue
-from flask import request, jsonify
+import base64
+from flask import request, jsonify, Blueprint
 from datetime import datetime
 from printer_controller_enhanced import PrintJob, ConnectionStatus
 from werkzeug.utils import secure_filename
 from config_enhanced import SUPPORTED_IMAGE_FORMATS, MAX_UPLOAD_SIZE
 
+bp = Blueprint('api', __name__)
 logger = logging.getLogger(__name__)
 
 def setup_enhanced_api_routes(app, printer):
@@ -24,6 +26,7 @@ def setup_enhanced_api_routes(app, printer):
         try:
             return jsonify(printer.get_connection_status())
         except Exception as e:
+            logger.error(f"Status error: {e}", exc_info=True)
             return jsonify({'connected': False, 'error': str(e)})
 
     @app.route('/api/settings', methods=['GET'])
@@ -35,6 +38,7 @@ def setup_enhanced_api_routes(app, printer):
                 'settings': printer.get_settings()
             })
         except Exception as e:
+            logger.error(f"Get settings error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/settings', methods=['POST'])
@@ -49,6 +53,7 @@ def setup_enhanced_api_routes(app, printer):
                 'settings': printer.get_settings() if success else None
             })
         except Exception as e:
+            logger.error(f"Update settings error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/preview-image', methods=['POST'])
@@ -109,7 +114,7 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': False, 'error': 'Bildverarbeitung fehlgeschlagen'})
                 
         except Exception as e:
-            logger.error(f"Preview error: {e}")
+            logger.error(f"Preview error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/print-image', methods=['POST'])
@@ -146,7 +151,7 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': bool(job_id), 'job_id': job_id})
                 
         except Exception as e:
-            logger.error(f"Print image error: {e}")
+            logger.error(f"Print image error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/print-text', methods=['POST'])
@@ -164,14 +169,13 @@ def setup_enhanced_api_routes(app, printer):
             text = text.replace('$TIME$', datetime.now().strftime('%H:%M:%S'))
             
             if immediate:
-                success = printer.print_text_immediate(text, font_size)
-                return jsonify({'success': success})
+                result = printer.print_text_immediate(text, font_size)
+                return jsonify(result)
             else:
                 job_id = printer.queue_print_job('text', {'text': text, 'font_size': font_size})
                 return jsonify({'success': True, 'job_id': job_id})
-                
         except Exception as e:
-            logger.error(f"Print text error: {e}")
+            logger.error(f"Print text error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/print-calibration', methods=['POST'])
@@ -198,7 +202,7 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': True, 'job_id': job_id})
                 
         except Exception as e:
-            logger.error(f"Calibration error: {e}")
+            logger.error(f"Print calibration error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/queue-status', methods=['GET'])
@@ -207,6 +211,7 @@ def setup_enhanced_api_routes(app, printer):
         try:
             return jsonify(printer.get_queue_status())
         except Exception as e:
+            logger.error(f"Queue status error: {e}", exc_info=True)
             return jsonify({'error': str(e)})
 
     @app.route('/api/clear-queue', methods=['POST'])
@@ -216,6 +221,7 @@ def setup_enhanced_api_routes(app, printer):
             cleared_count = printer.clear_queue()
             return jsonify({'success': True, 'cleared_jobs': cleared_count})
         except Exception as e:
+            logger.error(f"Clear queue error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/force-reconnect', methods=['POST'])
@@ -225,6 +231,7 @@ def setup_enhanced_api_routes(app, printer):
             success = printer.manual_connect_bluetooth()
             return jsonify({'success': success})
         except Exception as e:
+            logger.error(f"Force reconnect error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/manual-connect', methods=['POST'])
@@ -262,7 +269,7 @@ def setup_enhanced_api_routes(app, printer):
                 })
                 
         except Exception as e:
-            logger.error(f"Manual connect error: {e}")
+            logger.error(f"Manual connect error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/test-connection', methods=['POST'])
@@ -342,6 +349,80 @@ def setup_enhanced_api_routes(app, printer):
             })
             
         except Exception as e:
+            logger.error(f"Test offsets error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
+        @bp.route('/api/preview-image-json', methods=['POST'])
+    def api_preview_image_json():
+        """
+        JSON: { image_base64, fit_to_label?, maintain_aspect?, enable_dither?,
+                dither_threshold?, dither_strength?, scaling_mode? }
+        """
+        try:
+            data = request.get_json(silent=True) or {}
+            b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
+            if not b64:
+                return jsonify({'success': False, 'error': 'Kein Bild (image_base64)'}), 400
+
+            img_bytes = base64.b64decode(b64 + '===')
+
+            fit_to_label     = bool(data.get('fit_to_label', True))
+            maintain_aspect  = bool(data.get('maintain_aspect', True))
+            enable_dither    = data.get('enable_dither', True)
+            dither_threshold = int(data.get('dither_threshold', 128))
+            dither_strength  = float(data.get('dither_strength', 1.0))
+            scaling_mode     = data.get('scaling_mode', 'fit_aspect')
+
+            result = printer.process_image_for_preview(
+                img_bytes, fit_to_label, maintain_aspect, enable_dither,
+                dither_threshold=dither_threshold, dither_strength=dither_strength,
+                scaling_mode=scaling_mode
+            )
+            if not result:
+                return jsonify({'success': False, 'error': 'Bildverarbeitung fehlgeschlagen'}), 500
+
+            return jsonify({'success': True,
+                            'preview_base64': result.preview_base64,
+                            'meta': result.meta})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    @bp.route('/api/print-image-json', methods=['POST'])
+    def api_print_image_json():
+        """
+        JSON: { image_base64, immediate?, fit_to_label?, maintain_aspect?, enable_dither?,
+                dither_threshold?, dither_strength?, scaling_mode? }
+        """
+        try:
+            data = request.get_json(silent=True) or {}
+            b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
+            if not b64:
+                return jsonify({'success': False, 'error': 'Kein Bild (image_base64)'}), 400
+
+            img_bytes = base64.b64decode(b64 + '===')
+
+            immediate        = str(data.get('immediate', 'true')).lower() == 'true'
+            fit_to_label     = bool(data.get('fit_to_label', True))
+            maintain_aspect  = bool(data.get('maintain_aspect', True))
+            enable_dither    = data.get('enable_dither', True)
+            dither_threshold = int(data.get('dither_threshold', 128))
+            dither_strength  = float(data.get('dither_strength', 1.0))
+            scaling_mode     = data.get('scaling_mode', 'fit_aspect')
+
+            if immediate:
+                ok = printer.print_image_immediate(
+                    img_bytes, fit_to_label, maintain_aspect,
+                    dither_threshold=dither_threshold, dither_strength=dither_strength,
+                    scaling_mode=scaling_mode
+                )
+                return jsonify({'success': ok})
+            else:
+                job_id = printer.print_image_with_preview(
+                    img_bytes, fit_to_label, maintain_aspect, enable_dither,
+                    dither_threshold=dither_threshold, dither_strength=dither_strength,
+                    scaling_mode=scaling_mode
+                )
+                return jsonify({'success': bool(job_id), 'job_id': job_id})
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
 
     return app

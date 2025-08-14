@@ -501,7 +501,7 @@ class EnhancedPhomemoM110:
             logger.error(f"Print image error: {e}")
             return False
     
-    def print_text_immediate(self, text: str, font_size: int = 24) -> bool:
+    def print_text_immediate(self, text: str, font_size: int = 24) -> dict:
         """Druckt Text sofort (bypass Queue)"""
         try:
             img = self.create_text_image_with_offsets(text, font_size)
@@ -512,11 +512,12 @@ class EnhancedPhomemoM110:
                     if success:
                         self.stats['successful_jobs'] += 1
                         self.stats['text_jobs'] += 1
-                    return success
-            return False
+                        return {'success': True}
+                    return {'success': False, 'error': 'Bitmap senden fehlgeschlagen'}
+            return {'success': False, 'error': 'Bild konnte nicht erstellt werden'}
         except Exception as e:
             logger.error(f"Immediate text print error: {e}")
-            return False
+            return {'success': False, 'error': str(e)}
     
     def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
         """Druckt Bild sofort (bypass Queue)"""
