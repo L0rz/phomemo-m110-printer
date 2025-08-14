@@ -504,19 +504,38 @@ class EnhancedPhomemoM110:
     def print_text_immediate(self, text: str, font_size: int = 24) -> dict:
         """Druckt Text sofort (bypass Queue)"""
         try:
+            logger.info(f"🖨️ Starting immediate text print: '{text[:50]}...'")
+            
             img = self.create_text_image_with_offsets(text, font_size)
             if img:
+                logger.info(f"✅ Text image created, size: {img.width}x{img.height}")
+                
+                logger.info("🔄 Converting image to printer format...")
                 image_data = self.image_to_printer_format(img)
                 if image_data:
+                    logger.info(f"✅ Image converted to printer format ({len(image_data)} bytes)")
+                    
+                    logger.info("📤 Sending bitmap to printer...")
                     success = self.send_bitmap(image_data, img.height)
                     if success:
+                        logger.info("✅ Text printed successfully!")
                         self.stats['successful_jobs'] += 1
                         self.stats['text_jobs'] += 1
                         return {'success': True}
-                    return {'success': False, 'error': 'Bitmap senden fehlgeschlagen'}
-            return {'success': False, 'error': 'Bild konnte nicht erstellt werden'}
+                    else:
+                        logger.error("❌ Failed to send bitmap to printer")
+                        return {'success': False, 'error': 'Bitmap senden fehlgeschlagen'}
+                else:
+                    logger.error("❌ Failed to convert image to printer format")
+                    return {'success': False, 'error': 'Bildkonvertierung fehlgeschlagen'}
+            else:
+                logger.error("❌ Failed to create text image")
+                return {'success': False, 'error': 'Bild konnte nicht erstellt werden'}
         except Exception as e:
-            logger.error(f"Immediate text print error: {e}")
+            logger.error(f"❌ Immediate text print error: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            return {'success': False, 'error': str(e)}
             return {'success': False, 'error': str(e)}
     
     def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
@@ -616,12 +635,78 @@ class EnhancedPhomemoM110:
                 time.sleep(10)
     
     def image_to_printer_format(self, img):
-        """Konvertiert PIL Image zu Drucker-Format - Simplified"""
-        return b''  # Placeholder
+        """Konvertiert PIL Image zu Drucker-Format"""
+        try:
+            # Bild zu Schwarz-Weiß konvertieren
+            if img.mode != '1':
+                img = img.convert('1')
+            
+            width, height = img.size
+            pixels = list(img.getdata())
+            
+            image_bytes = []
+            
+            for y in range(height):
+                line_bytes = []
+                for x in range(0, self.printer_width_px, 8):
+                    byte_value = 0
+                    for bit in range(8):
+                        pixel_x = x + bit
+                        if pixel_x < width:
+                            pixel_idx = y * width + pixel_x
+                            if pixel_idx < len(pixels):
+                                if pixels[pixel_idx] == 0:  # Schwarz
+                                    byte_value |= (1 << (7 - bit))
+                    line_bytes.append(byte_value)
+                
+                while len(line_bytes) < self.bytes_per_line:
+                    line_bytes.append(0)
+                
+                image_bytes.extend(line_bytes[:self.bytes_per_line])
+            
+            return bytes(image_bytes)
+            
+        except Exception as e:
+            logger.error(f"❌ Image conversion error: {e}")
+            return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
-        """Sendet Bitmap an Drucker - Simplified"""
-        return True  # Placeholder
+        """Sendet Bitmap an Drucker"""
+        try:
+            width_bytes = self.bytes_per_line
+            m = 0
+    
+            if not self.send_command(b'\x1b\x40'):  # ESC @
+                logger.error("❌ Failed to send reset command")
+                return False
+            time.sleep(0.05)
+    
+            xL = width_bytes & 0xFF
+            xH = (width_bytes >> 8) & 0xFF
+            yL = height & 0xFF
+            yH = (height >> 8) & 0xFF
+            header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
+    
+            logger.info(f"📤 Sending bitmap header: {len(header)} bytes")
+            if not self.send_command(header):
+                logger.error("❌ Failed to send bitmap header")
+                return False
+    
+            # In Chunks senden
+            CHUNK = 1024
+            chunks_sent = 0
+            for i in range(0, len(image_data), CHUNK):
+                if not self.send_command(image_data[i:i+CHUNK]):
+                    logger.error(f"❌ Failed to send chunk {chunks_sent}")
+                    return False
+                chunks_sent += 1
+                time.sleep(0.005)
+    
+            logger.info(f"✅ Bitmap sent successfully: {chunks_sent} chunks, {len(image_data)} bytes total")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Bitmap send error: {e}")
+            return False
     
     def create_text_image_with_offsets(self, text, font_size):
         """Erstellt Text-Bild mit Offsets"""
