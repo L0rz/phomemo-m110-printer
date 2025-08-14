@@ -361,11 +361,15 @@ def setup_enhanced_api_routes(app, printer):
             if not b64:
                 return jsonify({'success': False, 'error': 'Kein Bild (image_base64)'}), 400
 
-            img_bytes = base64.b64decode(b64 + '===')
+            # Dynamically pad base64 string to length multiple of 4
+            missing_padding = len(b64) % 4
+            if missing_padding:
+                b64 += '=' * (4 - missing_padding)
+            img_bytes = base64.b64decode(b64)
 
-            fit_to_label     = bool(data.get('fit_to_label', True))
-            maintain_aspect  = bool(data.get('maintain_aspect', True))
-            enable_dither    = data.get('enable_dither', True)
+            fit_to_label     = str(data.get('fit_to_label', 'true')).lower() == 'true'
+            maintain_aspect  = str(data.get('maintain_aspect', 'true')).lower() == 'true'
+            enable_dither    = str(data.get('enable_dither', 'true')).lower() == 'true'
             dither_threshold = int(data.get('dither_threshold', 128))
             dither_strength  = float(data.get('dither_strength', 1.0))
             scaling_mode     = data.get('scaling_mode', 'fit_aspect')
@@ -379,14 +383,32 @@ def setup_enhanced_api_routes(app, printer):
                 return jsonify({'success': False, 'error': 'Bildverarbeitung fehlgeschlagen'}), 500
 
             return jsonify({'success': True,
-                            'preview_base64': result.preview_base64,
-                            'meta': result.meta})
+                            'preview_base64': result.preview_base64})
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
-
     @bp.route('/api/print-image-json', methods=['POST'])
     def api_print_image_json():
-        """JSON-Version von Print Image"""
+        """
+        JSON-Version von Print Image
+
+        Erwartetes Input-Format (JSON):
+        {
+            "image_base64": "<base64 kodiertes Bild>",
+            "immediate": true/false,
+            "fit_to_label": true/false,
+            "maintain_aspect": true/false,
+            "enable_dither": true/false,
+            "dither_threshold": int,
+            "dither_strength": float,
+            "scaling_mode": "fit_aspect" | "stretch" | ...
+        }
+
+        Output-Format:
+        {
+            "success": true/false,
+            "job_id": <optional, wenn nicht immediate>
+        }
+        """
         try:
             data = request.get_json(silent=True) or {}
             b64 = (data.get('image_base64') or '').split(',', 1)[-1].strip()
@@ -405,7 +427,7 @@ def setup_enhanced_api_routes(app, printer):
 
             if immediate:
                 ok = printer.print_image_immediate(
-                    img_bytes, fit_to_label, maintain_aspect,
+                    img_bytes, fit_to_label, maintain_aspect, enable_dither,
                     dither_threshold=dither_threshold, dither_strength=dither_strength,
                     scaling_mode=scaling_mode
                 )
@@ -420,4 +442,5 @@ def setup_enhanced_api_routes(app, printer):
         except Exception as e:
             return jsonify({'success': False, 'error': str(e)}), 500
 
+    app.register_blueprint(bp)
     return app
