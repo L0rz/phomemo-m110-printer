@@ -129,6 +129,55 @@ WEB_INTERFACE_ENHANCED = '''
             text-align: center;
         }
         
+        /* Slider Controls */
+        .slider-control {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 150px;
+        }
+        .slider-control input[type="range"] {
+            width: 120px;
+            margin: 5px 0;
+        }
+        .slider-value {
+            font-weight: bold;
+            color: #007bff;
+            font-size: 14px;
+        }
+        
+        /* Custom slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: none;
+        }
+        
         /* Image Options */
         .image-options {
             display: flex;
@@ -172,13 +221,26 @@ WEB_INTERFACE_ENHANCED = '''
                             <label>Y-Offset (px)</label>
                             <input type="number" id="yOffset" value="0" min="-50" max="50" step="1">
                         </div>
-                        <div class="offset-control">
+                        <div class="slider-control">
                             <label>Dither Threshold</label>
-                            <input type="number" id="ditherThreshold" value="128" min="0" max="255" step="1">
+                            <input type="range" id="ditherThreshold" value="128" min="0" max="255" step="1" oninput="updateDitherValue()">
+                            <div class="slider-value" id="ditherValue">128</div>
                         </div>
                     </div>
                     <div style="margin-top: 15px;">
-                        <label><input type="checkbox" id="enableDitherGlobal" checked> Floyd-Steinberg Dithering aktivieren</label>
+                        <label><input type="checkbox" id="enableDitherGlobal" checked onchange="toggleDitherControls()"> Floyd-Steinberg Dithering aktivieren</label>
+                        <div id="ditherControls" style="margin-top: 10px;">
+                            <div class="slider-control" style="display: inline-block; margin-right: 20px;">
+                                <label>Dithering-Stärke</label>
+                                <input type="range" id="ditherStrength" value="1.0" min="0.1" max="2.0" step="0.1" oninput="updateDitherStrengthValue()">
+                                <div class="slider-value" id="ditherStrengthValue">1.0</div>
+                            </div>
+                            <div class="slider-control" style="display: inline-block;">
+                                <label>Kontrast-Verstärkung</label>
+                                <input type="range" id="contrastBoost" value="1.0" min="0.5" max="2.0" step="0.1" oninput="updateContrastValue()">
+                                <div class="slider-value" id="contrastValue">1.0</div>
+                            </div>
+                        </div>
                     </div>
                     <button class="btn" onclick="saveSettings()">💾 Einstellungen speichern</button>
                     <button class="btn btn-warning" onclick="testOffsets()">📐 Offsets testen</button>
@@ -222,7 +284,27 @@ WEB_INTERFACE_ENHANCED = '''
                     <div class="image-options">
                         <label><input type="checkbox" id="fitToLabel" checked onchange="updatePreview()"> An Label anpassen (40×30mm)</label>
                         <label><input type="checkbox" id="maintainAspect" checked onchange="updatePreview()"> Seitenverhältnis beibehalten</label>
-                        <label><input type="checkbox" id="enableDither" checked onchange="updatePreview()"> Dithering aktivieren</label>
+                        <label><input type="checkbox" id="enableDither" checked onchange="toggleImageDither()"> Dithering aktivieren</label>
+                    </div>
+                    <div id="imageDitherControls" style="margin-top: 15px;">
+                        <div class="grid" style="gap: 10px;">
+                            <div class="slider-control">
+                                <label>🎚️ Dither Threshold</label>
+                                <input type="range" id="imageDitherThreshold" value="128" min="0" max="255" step="1" oninput="updateImageDitherValue(); updatePreview();">
+                                <div class="slider-value" id="imageDitherValue">128</div>
+                            </div>
+                            <div class="slider-control">
+                                <label>⚡ Dither Stärke</label>
+                                <input type="range" id="imageDitherStrength" value="1.0" min="0.1" max="2.0" step="0.1" oninput="updateImageDitherStrengthValue(); updatePreview();">
+                                <div class="slider-value" id="imageDitherStrengthValue">1.0</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 10px;">
+                            <button class="btn" onclick="presetDither('soft')" style="font-size: 12px; padding: 5px 10px;">🌙 Weich</button>
+                            <button class="btn" onclick="presetDither('normal')" style="font-size: 12px; padding: 5px 10px;">⚖️ Normal</button>
+                            <button class="btn" onclick="presetDither('sharp')" style="font-size: 12px; padding: 5px 10px;">🔪 Scharf</button>
+                            <button class="btn" onclick="presetDither('high_contrast')" style="font-size: 12px; padding: 5px 10px;">🔥 Kontrast</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -254,7 +336,9 @@ WEB_INTERFACE_ENHANCED = '''
                 x_offset: parseInt(document.getElementById('xOffset').value),
                 y_offset: parseInt(document.getElementById('yOffset').value),
                 dither_threshold: parseInt(document.getElementById('ditherThreshold').value),
-                dither_enabled: document.getElementById('enableDitherGlobal').checked
+                dither_enabled: document.getElementById('enableDitherGlobal').checked,
+                dither_strength: parseFloat(document.getElementById('ditherStrength').value),
+                contrast_boost: parseFloat(document.getElementById('contrastBoost').value)
             };
             
             fetch('/api/settings', { 
@@ -273,6 +357,84 @@ WEB_INTERFACE_ENHANCED = '''
                 .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
         }
         
+        // Schieberegler-Update-Funktionen
+        function updateDitherValue() {
+            const value = document.getElementById('ditherThreshold').value;
+            document.getElementById('ditherValue').textContent = value;
+            document.getElementById('imageDitherThreshold').value = value;
+            document.getElementById('imageDitherValue').textContent = value;
+            updatePreview();
+        }
+        
+        function updateDitherStrengthValue() {
+            const value = document.getElementById('ditherStrength').value;
+            document.getElementById('ditherStrengthValue').textContent = value;
+        }
+        
+        function updateContrastValue() {
+            const value = document.getElementById('contrastBoost').value;
+            document.getElementById('contrastValue').textContent = value;
+        }
+        
+        function updateImageDitherValue() {
+            const value = document.getElementById('imageDitherThreshold').value;
+            document.getElementById('imageDitherValue').textContent = value;
+            document.getElementById('ditherThreshold').value = value;
+            document.getElementById('ditherValue').textContent = value;
+        }
+        
+        function updateImageDitherStrengthValue() {
+            const value = document.getElementById('imageDitherStrength').value;
+            document.getElementById('imageDitherStrengthValue').textContent = value;
+        }
+        
+        function toggleDitherControls() {
+            const enabled = document.getElementById('enableDitherGlobal').checked;
+            const controls = document.getElementById('ditherControls');
+            controls.style.display = enabled ? 'block' : 'none';
+            
+            // Bildbereich auch aktualisieren
+            document.getElementById('enableDither').checked = enabled;
+            toggleImageDither();
+        }
+        
+        function toggleImageDither() {
+            const enabled = document.getElementById('enableDither').checked;
+            const controls = document.getElementById('imageDitherControls');
+            controls.style.display = enabled ? 'block' : 'none';
+            updatePreview();
+        }
+        
+        // Dithering-Presets
+        function presetDither(preset) {
+            const thresholdSlider = document.getElementById('imageDitherThreshold');
+            const strengthSlider = document.getElementById('imageDitherStrength');
+            
+            switch(preset) {
+                case 'soft':
+                    thresholdSlider.value = 100;
+                    strengthSlider.value = 0.5;
+                    break;
+                case 'normal':
+                    thresholdSlider.value = 128;
+                    strengthSlider.value = 1.0;
+                    break;
+                case 'sharp':
+                    thresholdSlider.value = 150;
+                    strengthSlider.value = 1.5;
+                    break;
+                case 'high_contrast':
+                    thresholdSlider.value = 180;
+                    strengthSlider.value = 2.0;
+                    break;
+            }
+            
+            updateImageDitherValue();
+            updateImageDitherStrengthValue();
+            updatePreview();
+            showStatus(`🎨 Preset "${preset}" angewendet`, 'info');
+        }
+        
         function uploadAndPreview() {
             const fileInput = document.getElementById('imageFile');
             const file = fileInput.files[0];
@@ -284,6 +446,8 @@ WEB_INTERFACE_ENHANCED = '''
             formData.append('fit_to_label', document.getElementById('fitToLabel').checked);
             formData.append('maintain_aspect', document.getElementById('maintainAspect').checked);
             formData.append('enable_dither', document.getElementById('enableDither').checked);
+            formData.append('dither_threshold', document.getElementById('imageDitherThreshold').value);
+            formData.append('dither_strength', document.getElementById('imageDitherStrength').value);
             
             showStatus('🔄 Erstelle Vorschau...', 'info');
             
@@ -297,9 +461,10 @@ WEB_INTERFACE_ENHANCED = '''
                         previewImg.style.display = 'block';
                         
                         document.getElementById('imageInfo').innerHTML = 
-                            `Original: ${data.info.original_width} × ${data.info.original_height} px<br>` +
-                            `Verarbeitet: ${data.info.processed_width} × ${data.info.processed_height} px<br>` +
-                            `X-Offset: ${data.info.x_offset} px, Y-Offset: ${data.info.y_offset} px`;
+                            `📏 <strong>Original:</strong> ${data.info.original_width} × ${data.info.original_height} px<br>` +
+                            `📐 <strong>Verarbeitet:</strong> ${data.info.processed_width} × ${data.info.processed_height} px<br>` +
+                            `📍 <strong>Offsets:</strong> X=${data.info.x_offset}px, Y=${data.info.y_offset}px<br>` +
+                            `🎨 <strong>Dithering:</strong> ${data.info.dither_enabled ? 'Ein' : 'Aus'} (Threshold: ${data.info.dither_threshold})`;
                         document.getElementById('imageInfo').style.display = 'block';
                         
                         document.getElementById('printImageBtn').disabled = false;
@@ -361,6 +526,8 @@ WEB_INTERFACE_ENHANCED = '''
             formData.append('fit_to_label', document.getElementById('fitToLabel').checked);
             formData.append('maintain_aspect', document.getElementById('maintainAspect').checked);
             formData.append('enable_dither', document.getElementById('enableDither').checked);
+            formData.append('dither_threshold', document.getElementById('imageDitherThreshold').value);
+            formData.append('dither_strength', document.getElementById('imageDitherStrength').value);
             
             showStatus('🖨️ Drucke Bild...', 'info');
             
@@ -427,7 +594,20 @@ WEB_INTERFACE_ENHANCED = '''
         }
         
         // Auto-load
-        window.onload = checkConnection;
+        window.onload = function() {
+            checkConnection();
+            
+            // Dithering-Controls initial ausblenden/anzeigen
+            toggleDitherControls();
+            toggleImageDither();
+            
+            // Slider-Werte initial setzen
+            updateDitherValue();
+            updateDitherStrengthValue();
+            updateContrastValue();
+            updateImageDitherValue();
+            updateImageDitherStrengthValue();
+        };
     </script>
 </body>
 </html>

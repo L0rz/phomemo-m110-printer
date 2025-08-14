@@ -17,7 +17,15 @@ from typing import Optional, Dict, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+
+# Optional numpy import für erweiterte Bildverarbeitung
+try:
+    import numpy as np
+    HAS_NUMPY = True
+except ImportError:
+    HAS_NUMPY = False
+    logger.warning("Numpy not available, advanced dithering features disabled")
 
 # Konfiguration importieren
 from config_enhanced import *
@@ -134,6 +142,10 @@ class EnhancedPhomemoM110:
                 new_settings['y_offset'] = max(MIN_Y_OFFSET, min(MAX_Y_OFFSET, int(new_settings['y_offset'])))
             if 'dither_threshold' in new_settings:
                 new_settings['dither_threshold'] = max(0, min(255, int(new_settings['dither_threshold'])))
+            if 'dither_strength' in new_settings:
+                new_settings['dither_strength'] = max(0.1, min(2.0, float(new_settings['dither_strength'])))
+            if 'contrast_boost' in new_settings:
+                new_settings['contrast_boost'] = max(0.5, min(2.0, float(new_settings['contrast_boost'])))
             
             self.settings.update(new_settings)
             return self.save_settings()
@@ -228,7 +240,7 @@ class EnhancedPhomemoM110:
             logger.error(f"Send command error: {e}")
             return False
     
-    def process_image_for_preview(self, image_data, fit_to_label=None, maintain_aspect=None, enable_dither=None) -> Optional[ImageProcessingResult]:
+    def process_image_for_preview(self, image_data, fit_to_label=None, maintain_aspect=None, enable_dither=None, dither_threshold=None, dither_strength=None) -> Optional[ImageProcessingResult]:
         """Verarbeitet ein Bild für die Schwarz-Weiß-Vorschau"""
         try:
             # Parameter aus Einstellungen falls nicht übergeben
@@ -238,6 +250,10 @@ class EnhancedPhomemoM110:
                 maintain_aspect = self.settings.get('maintain_aspect_default', True)
             if enable_dither is None:
                 enable_dither = self.settings.get('dither_enabled', True)
+            if dither_threshold is None:
+                dither_threshold = self.settings.get('dither_threshold', DEFAULT_DITHER_THRESHOLD)
+            if dither_strength is None:
+                dither_strength = self.settings.get('dither_strength', DEFAULT_DITHER_STRENGTH)
             
             # Bild öffnen
             if isinstance(image_data, bytes):
@@ -270,15 +286,33 @@ class EnhancedPhomemoM110:
                     # Direkt auf Label-Größe skalieren
                     img = img.resize((target_width, target_height), Image.Resampling.LANCZOS)
             
-            # Schwarz-Weiß konvertieren
+            # Schwarz-Weiß konvertieren mit erweiterten Dithering-Optionen
             if enable_dither:
-                # Floyd-Steinberg Dithering für bessere Qualität
+                # Kontrast-Verstärkung anwenden falls konfiguriert
+                contrast_boost = self.settings.get('contrast_boost', DEFAULT_CONTRAST_BOOST)
+                if contrast_boost != 1.0:
+                    try:
+                        enhancer = ImageEnhance.Contrast(img)
+                        img = enhancer.enhance(contrast_boost)
+                    except Exception:
+                        logger.warning("Contrast enhancement failed, using original image")
+                
+                # Floyd-Steinberg Dithering mit angepasster Stärke
+                if dither_strength != 1.0 and HAS_NUMPY:
+                    try:
+                        # Dithering-Stärke durch Gamma-Korrektur simulieren
+                        gamma = 1.0 / dither_strength
+                        img_array = np.array(img)
+                        img_array = np.power(img_array / 255.0, gamma) * 255.0
+                        img = Image.fromarray(np.uint8(img_array))
+                    except Exception:
+                        logger.warning("Advanced dithering failed, using standard dithering")
+                
                 bw_img = img.convert('1', dither=Image.Dither.FLOYDSTEINBERG)
             else:
                 # Einfacher Threshold
                 gray_img = img.convert('L')
-                threshold = self.settings.get('dither_threshold', DEFAULT_DITHER_THRESHOLD)
-                bw_img = gray_img.point(lambda x: 0 if x < threshold else 255, '1')
+                bw_img = gray_img.point(lambda x: 0 if x < dither_threshold else 255, '1')
             
             # Base64 für Web-Vorschau erstellen
             preview_buffer = io.BytesIO()
@@ -306,7 +340,9 @@ class EnhancedPhomemoM110:
                     'fit_to_label': fit_to_label,
                     'maintain_aspect': maintain_aspect,
                     'dither_enabled': enable_dither,
-                    'dither_threshold': self.settings.get('dither_threshold', DEFAULT_DITHER_THRESHOLD),
+                    'dither_threshold': dither_threshold,
+                    'dither_strength': dither_strength,
+                    'contrast_boost': self.settings.get('contrast_boost', DEFAULT_CONTRAST_BOOST),
                     'x_offset': self.settings.get('x_offset', DEFAULT_X_OFFSET),
                     'y_offset': self.settings.get('y_offset', DEFAULT_Y_OFFSET)
                 }
@@ -342,13 +378,13 @@ class EnhancedPhomemoM110:
             logger.error(f"Error applying offsets: {e}")
             return img
     
-    def print_image_with_preview(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=None):
+    def print_image_with_preview(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=None, dither_threshold=None, dither_strength=None):
         """Druckt ein Bild mit den aktuellen Offset-Einstellungen"""
         try:
             logger.info("Processing image for print with offsets...")
             
             # Bild verarbeiten
-            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, enable_dither)
+            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, enable_dither, dither_threshold, dither_strength)
             if not result:
                 return False
             
@@ -387,10 +423,10 @@ class EnhancedPhomemoM110:
             logger.error(f"Immediate text print error: {e}")
             return False
     
-    def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True) -> bool:
+    def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, dither_threshold=None, dither_strength=None) -> bool:
         """Druckt Bild sofort (bypass Queue)"""
         try:
-            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect)
+            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, dither_threshold=dither_threshold, dither_strength=dither_strength)
             if result:
                 printer_img = self.apply_offsets_to_image(result.processed_image)
                 image_data = self.image_to_printer_format(printer_img)

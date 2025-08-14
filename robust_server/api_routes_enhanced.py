@@ -87,11 +87,14 @@ def setup_enhanced_api_routes(app, printer):
             fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
             maintain_aspect = request.form.get('maintain_aspect', 'true').lower() == 'true'
             enable_dither = request.form.get('enable_dither', 'true').lower() == 'true'
+            dither_threshold = int(request.form.get('dither_threshold', '128'))
+            dither_strength = float(request.form.get('dither_strength', '1.0'))
             
-            # Bild verarbeiten
+            # Bild verarbeiten mit erweiterten Dithering-Parametern
             image_data = file.read()
             result = printer.process_image_for_preview(
-                image_data, fit_to_label, maintain_aspect, enable_dither
+                image_data, fit_to_label, maintain_aspect, enable_dither,
+                dither_threshold=dither_threshold, dither_strength=dither_strength
             )
             
             if result:
@@ -119,14 +122,22 @@ def setup_enhanced_api_routes(app, printer):
             fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
             maintain_aspect = request.form.get('maintain_aspect', 'true').lower() == 'true'
             enable_dither = request.form.get('enable_dither', 'true').lower() == 'true'
+            dither_threshold = int(request.form.get('dither_threshold', '128'))
+            dither_strength = float(request.form.get('dither_strength', '1.0'))
             
             image_data = file.read()
             
             if immediate:
-                success = printer.print_image_immediate(image_data, fit_to_label, maintain_aspect)
+                success = printer.print_image_immediate(
+                    image_data, fit_to_label, maintain_aspect, enable_dither,
+                    dither_threshold=dither_threshold, dither_strength=dither_strength
+                )
                 return jsonify({'success': success})
             else:
-                job_id = printer.print_image_with_preview(image_data, fit_to_label, maintain_aspect, enable_dither)
+                job_id = printer.print_image_with_preview(
+                    image_data, fit_to_label, maintain_aspect, enable_dither,
+                    dither_threshold=dither_threshold, dither_strength=dither_strength
+                )
                 return jsonify({'success': bool(job_id), 'job_id': job_id})
                 
         except Exception as e:

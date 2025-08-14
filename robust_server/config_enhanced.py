@@ -35,6 +35,8 @@ LABEL_HEIGHT_PX = int((LABEL_HEIGHT_MM / 25.4) * LABEL_DPI) # ~240px
 # Bildverarbeitung-Einstellungen
 DEFAULT_DITHER_THRESHOLD = 128  # Schwellenwert für SW-Konvertierung
 DEFAULT_DITHER_ENABLED = True   # Floyd-Steinberg Dithering aktiviert
+DEFAULT_DITHER_STRENGTH = 1.0   # Dithering-Stärke (0.1 - 2.0)
+DEFAULT_CONTRAST_BOOST = 1.0    # Kontrast-Verstärkung (0.5 - 2.0)
 SUPPORTED_IMAGE_FORMATS = ['PNG', 'JPEG', 'JPG', 'BMP', 'GIF', 'WEBP']
 MAX_UPLOAD_SIZE = 10 * 1024 * 1024  # 10MB max Upload
 
@@ -96,6 +98,8 @@ DEFAULT_SETTINGS = {
     'y_offset': DEFAULT_Y_OFFSET,
     'dither_threshold': DEFAULT_DITHER_THRESHOLD,
     'dither_enabled': DEFAULT_DITHER_ENABLED,
+    'dither_strength': DEFAULT_DITHER_STRENGTH,
+    'contrast_boost': DEFAULT_CONTRAST_BOOST,
     'fit_to_label_default': True,
     'maintain_aspect_default': True,
     'auto_connect': True,
