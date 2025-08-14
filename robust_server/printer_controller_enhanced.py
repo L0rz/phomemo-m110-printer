@@ -518,10 +518,10 @@ class EnhancedPhomemoM110:
             logger.error(f"Immediate text print error: {e}")
             return False
     
-    def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
+    def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
         """Druckt Bild sofort (bypass Queue)"""
         try:
-            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, dither_threshold=dither_threshold, dither_strength=dither_strength, scaling_mode=scaling_mode)
+            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, enable_dither, dither_threshold=dither_threshold, dither_strength=dither_strength, scaling_mode=scaling_mode)
             if result:
                 printer_img = self.apply_offsets_to_image(result.processed_image)
                 image_data = self.image_to_printer_format(printer_img)
