@@ -392,7 +392,7 @@ WEB_INTERFACE = '''
             <!-- Text Printing -->
             <div class="card">
                 <h2>📝 Text drucken</h2>
-                <textarea id="textInput" rows="4" placeholder="Text eingeben...">PHOMEMO M110
+                <textarea id="textInput" rows="4" placeholder="Text eingeben..." oninput="debouncedTextPreview()">PHOMEMO M110
 Enhanced Edition
 X-Offset: 0px
 ✓ Bildvorschau
@@ -401,7 +401,7 @@ Zeit: $TIME$</textarea>
                 <div class="grid" style="gap: 10px; margin: 10px 0;">
                     <div>
                         <label>Schriftgröße:</label>
-                        <select id="fontSize">
+                        <select id="fontSize" onchange="updateTextPreview()">
                             <option value="18">Klein (18px)</option>
                             <option value="22" selected>Normal (22px)</option>
                             <option value="26">Groß (26px)</option>
@@ -410,12 +410,22 @@ Zeit: $TIME$</textarea>
                     </div>
                     <div>
                         <label>Textausrichtung:</label>
-                        <select id="textAlignment">
+                        <select id="textAlignment" onchange="updateTextPreview()">
                             <option value="left">📍 Linksbündig</option>
                             <option value="center" selected>📄 Zentriert</option>
                             <option value="right">📍 Rechtsbündig</option>
                         </select>
                     </div>
+                </div>
+                
+                <!-- Text Preview -->
+                <div class="preview-container" id="textPreviewContainer" style="margin: 15px 0;">
+                    <div id="textPreviewPlaceholder">
+                        📝 Text-Vorschau<br>
+                        <small>Tippe Text ein, um Vorschau zu sehen</small>
+                    </div>
+                    <img id="textPreviewImage" class="preview-image" style="display: none;">
+                    <div id="textInfo" class="image-info" style="display: none;"></div>
                 </div>
                 
                 <button class="btn" onclick="printText(false)">🖨️ Sofort drucken</button>
@@ -786,6 +796,57 @@ Zeit: $TIME$</textarea>
                 .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
         }
         
+        // ==================== TEXT PREVIEW FUNCTIONS ====================
+        function updateTextPreview() {
+            const text = document.getElementById('textInput').value;
+            const fontSize = document.getElementById('fontSize').value;
+            const alignment = document.getElementById('textAlignment').value;
+            
+            // Leeren Text behandeln
+            if (!text.trim()) {
+                document.getElementById('textPreviewPlaceholder').style.display = 'block';
+                document.getElementById('textPreviewImage').style.display = 'none';
+                document.getElementById('textInfo').style.display = 'none';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('text', text);
+            formData.append('font_size', fontSize);
+            formData.append('alignment', alignment);
+            
+            fetch('/api/preview-text', { method: 'POST', body: formData })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        document.getElementById('textPreviewPlaceholder').style.display = 'none';
+                        const previewImg = document.getElementById('textPreviewImage');
+                        previewImg.src = 'data:image/png;base64,' + data.preview_base64;
+                        previewImg.style.display = 'block';
+                        
+                        document.getElementById('textInfo').innerHTML = 
+                            `📏 <strong>Größe:</strong> ${data.info.width} × ${data.info.height} px<br>` +
+                            `📝 <strong>Text:</strong> "${data.info.text}"<br>` +
+                            `🔤 <strong>Schrift:</strong> ${data.info.font_size}px, ${data.info.alignment}<br>` +
+                            `📍 <strong>Offsets:</strong> X=${data.info.x_offset}px, Y=${data.info.y_offset}px`;
+                        document.getElementById('textInfo').style.display = 'block';
+                    } else {
+                        showStatus('❌ Text-Vorschau Fehler: ' + (data.error || ''), 'error');
+                    }
+                })
+                .catch(error => {
+                    console.log('Text preview error:', error);
+                    // Fehler still ignorieren für bessere UX
+                });
+        }
+        
+        // Debounce-Funktion für bessere Performance
+        let textPreviewTimeout;
+        function debouncedTextPreview() {
+            clearTimeout(textPreviewTimeout);
+            textPreviewTimeout = setTimeout(updateTextPreview, 300); // 300ms Delay
+        }
+        
         function printImage(useQueue) {
             if (!currentImageData) {
                 showStatus('❌ Kein Bild ausgewählt!', 'error');
@@ -919,6 +980,9 @@ Zeit: $TIME$</textarea>
             
             // Hilfetext für Skalierungsmodus initial setzen
             updateScalingModeHelp();
+            
+            // Text-Vorschau initial laden
+            setTimeout(updateTextPreview, 500); // Kurze Verzögerung für bessere UX
             updateImageDitherValue();
             updateImageDitherStrengthValue();
         };

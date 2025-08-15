@@ -187,6 +187,51 @@ def setup_api_routes(app, printer):
             logger.error(f"Print text error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
+    @app.route('/api/preview-text', methods=['POST'])
+    def api_preview_text():
+        """Erstellt Schwarz-Weiß-Vorschau für Text"""
+        try:
+            text = request.form.get('text', '')
+            font_size = int(request.form.get('font_size', 22))
+            alignment = request.form.get('alignment', 'center')
+            
+            if not text.strip():
+                return jsonify({'success': False, 'error': 'Kein Text'})
+            
+            # Replace $TIME$ placeholder
+            text = text.replace('$TIME$', datetime.now().strftime('%H:%M:%S'))
+            
+            # Text-Bild erstellen (gleiche Logik wie beim Drucken)
+            img = printer.create_text_image_with_offsets(text, font_size, alignment)
+            if img:
+                # Als Base64 für Vorschau konvertieren
+                import io
+                import base64
+                
+                img_buffer = io.BytesIO()
+                img.save(img_buffer, format='PNG')
+                img_base64 = base64.b64encode(img_buffer.getvalue()).decode('utf-8')
+                
+                return jsonify({
+                    'success': True,
+                    'preview_base64': img_base64,
+                    'info': {
+                        'width': img.width,
+                        'height': img.height,
+                        'text': text,
+                        'font_size': font_size,
+                        'alignment': alignment,
+                        'x_offset': printer.settings.get('x_offset', 0),
+                        'y_offset': printer.settings.get('y_offset', 0)
+                    }
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Text-Bild konnte nicht erstellt werden'})
+                
+        except Exception as e:
+            logger.error(f"Text preview error: {e}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)})
+
     @app.route('/api/print-calibration', methods=['POST'])
     def api_print_calibration():
         """Druckt Kalibrierungs-Muster"""
