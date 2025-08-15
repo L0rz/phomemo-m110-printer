@@ -174,33 +174,153 @@ class CodeGenerator:
             logger.error(f"Barcode generation failed: {e}")
             return None
     
+    def parse_markdown_text(self, text, base_font_size):
+        """
+        Parst Markdown-Text und gibt eine Liste von formatierten Text-Segmenten zurück
+        
+        Unterstützte Markdown-Syntax:
+        - **fett** oder __fett__
+        - # Überschrift (große Schrift)
+        - ## Unterüberschrift (mittlere Schrift)
+        
+        Returns: List of tuples (text, font_size, bold)
+        """
+        import re
+        
+        # Text-Bereinigung VOR dem Parsen
+        clean_text = text.replace('\r\n', '\n').replace('\r', '\n').replace('\\n', '\n').replace('\\r\\n', '\n')
+        clean_text = clean_text.replace('\x00', '').replace('\t', '    ')
+        clean_text = ''.join(char for char in clean_text if ord(char) >= 32 or char in ['\n', ' '])
+        
+        lines = clean_text.split('\n')
+        parsed_lines = []
+        
+        for line in lines:
+            line_segments = []
+            
+            # Überschriften prüfen (müssen am Zeilenanfang stehen)
+            if line.strip().startswith('# '):
+                # H1 - Große Überschrift
+                clean_text = line.strip()[2:].strip()
+                line_segments.append((clean_text, base_font_size + 8, True))
+            elif line.strip().startswith('## '):
+                # H2 - Mittlere Überschrift  
+                clean_text = line.strip()[3:].strip()
+                line_segments.append((clean_text, base_font_size + 4, True))
+            else:
+                # Normale Zeile - inline Formatierung parsen
+                segments = self._parse_inline_markdown(line, base_font_size)
+                line_segments.extend(segments)
+            
+            parsed_lines.append(line_segments)
+        
+        return parsed_lines
+    
+    def _parse_inline_markdown(self, text, base_font_size):
+        """Parst inline Markdown-Formatierung in einem Text - NUR FETT"""
+        import re
+        
+        segments = []
+        current_pos = 0
+        
+        # Regex-Patterns für Markdown - NUR FETT, KEIN KURSIV
+        patterns = [
+            (r'\*\*(.*?)\*\*', True),    # **fett**
+            (r'__(.*?)__', True),        # __fett__
+        ]
+        
+        # Alle Matches finden und sortieren
+        all_matches = []
+        for pattern, is_bold in patterns:
+            for match in re.finditer(pattern, text):
+                # Prüfen ob es sich überschneidet mit bereits gefundenen Matches
+                overlaps = False
+                for existing_start, existing_end, _, _ in all_matches:
+                    if (match.start() < existing_end and match.end() > existing_start):
+                        overlaps = True
+                        break
+                
+                if not overlaps:
+                    all_matches.append((match.start(), match.end(), match.group(1), is_bold))
+        
+        # Nach Position sortieren
+        all_matches.sort(key=lambda x: x[0])
+        
+        # Text in Segmente aufteilen
+        for match_start, match_end, match_text, is_bold in all_matches:
+            # Text vor dem Match hinzufügen
+            if current_pos < match_start:
+                plain_text = text[current_pos:match_start]
+                if plain_text:
+                    segments.append((plain_text, base_font_size, False))
+            
+            # Formatierten Text hinzufügen
+            segments.append((match_text, base_font_size, is_bold))
+            current_pos = match_end
+        
+        # Restlichen Text hinzufügen
+        if current_pos < len(text):
+            remaining_text = text[current_pos:]
+            if remaining_text:
+                segments.append((remaining_text, base_font_size, False))
+        
+        # Wenn keine Formatierung gefunden wurde, ganzen Text als plain zurückgeben
+        if not segments:
+            segments.append((text, base_font_size, False))
+        
+        return segments
+
     def create_combined_image(self, text: str, font_size: int = 22, alignment: str = 'center') -> Optional[Image.Image]:
         """
-        Erstellt kombiniertes Bild mit Text und Codes
+        Erstellt kombiniertes Bild mit Text, Markdown UND Codes
         """
         try:
-            # Text parsen und Codes extrahieren
+            # SCHRITT 1: Text parsen und QR/Barcode-Codes extrahieren
             processed_text, codes = self.parse_and_process_text(text)
+            
+            # SCHRITT 2: Den verarbeiteten Text durch Markdown-Parser schicken
+            parsed_lines = self.parse_markdown_text(processed_text, font_size)
             
             # Basis-Bild erstellen
             img = Image.new('1', (self.label_width_px, self.label_height_px), 'white')
             draw = ImageDraw.Draw(img)
             
-            # Font laden
-            try:
-                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-            except:
-                try:
-                    font = ImageFont.truetype("arial.ttf", font_size)
-                except:
-                    font = ImageFont.load_default()
+            # Font-Cache für verschiedene Größen und Stile
+            font_cache = {}
+            
+            def get_font(size, bold=False):
+                key = (size, bold)
+                if key not in font_cache:
+                    font_paths = [
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                        "/System/Library/Fonts/Arial.ttf",  # macOS
+                        "C:/Windows/Fonts/arial.ttf"  # Windows
+                    ]
+                    
+                    font_obj = None
+                    for font_path in font_paths:
+                        try:
+                            if os.path.exists(font_path):
+                                font_obj = ImageFont.truetype(font_path, size)
+                                break
+                        except Exception:
+                            continue
+                    
+                    if font_obj is None:
+                        font_obj = ImageFont.load_default()
+                    
+                    font_cache[key] = font_obj
+                
+                return font_cache[key]
             
             # Platz-Management: Reserviere weniger Platz für Text, mehr für Codes
             reserved_space_per_code = 70  # Minimum Platz pro Code
             available_height = self.label_height_px - (len(codes) * reserved_space_per_code)
             current_y = 5  # Weniger Rand oben
             
-            # Codes generieren und platzieren
+            # Codes generieren
             code_images = {}
             for code in codes:
                 if code['type'] == 'qr':
@@ -213,95 +333,140 @@ class CodeGenerator:
                 if code_img:
                     code_images[code['placeholder']] = code_img
             
-            # Text-Zeilen verarbeiten
-            text_lines = processed_text.split('\n')
-            
-            for line in text_lines:
-                line = line.strip()
-                if not line:
+            # SCHRITT 3: Markdown-formatierte Zeilen mit QR/Barcode-Platzhaltern verarbeiten
+            for line_segments in parsed_lines:
+                if not line_segments:
                     current_y += font_size // 2  # Leerzeile
                     continue
                 
-                # Prüfen ob Zeile einen Code-Platzhalter enthält
+                # Prüfen ob diese Zeile Code-Platzhalter enthält
+                line_text = ''.join([seg[0] for seg in line_segments])
+                
                 code_found = False
                 for placeholder, code_img in code_images.items():
-                    if placeholder in line:
-                        # Code platzieren
+                    if placeholder in line_text:
+                        # CODE EINBINDEN
                         code_x = (self.label_width_px - code_img.width) // 2  # Zentriert
                         
                         # Prüfen ob genug Platz vorhanden
-                        space_needed = code_img.height + 10  # Code + Abstand
+                        space_needed = code_img.height + 10
                         space_available = self.label_height_px - current_y
                         
                         if space_needed > space_available:
                             logger.warning(f"Not enough space for {placeholder}, shrinking...")
-                            # Berechne verfügbare Größe
-                            max_code_height = space_available - 15  # Etwas Puffer
+                            # Code verkleinern (wie vorher)
+                            max_code_height = space_available - 15
                             
-                            if code['type'] == 'qr':
-                                smaller_size = min(max_code_height, 60)  # Minimum QR: 60px
-                                if smaller_size >= 60:
-                                    code_img = self.generate_qr_code(code['content'], smaller_size)
-                                    logger.info(f"Resized QR to {smaller_size}px")
-                                else:
-                                    logger.warning(f"Skipping {placeholder} - not enough space for minimum QR")
-                                    continue
-                            elif code['type'] == 'barcode':
-                                smaller_height = min(max_code_height, 25)  # Minimum Barcode: 25px
-                                if smaller_height >= 25:
-                                    code_img = self.generate_barcode(code['content'], smaller_height)
-                                    logger.info(f"Resized Barcode to {smaller_height}px")
-                                else:
-                                    logger.warning(f"Skipping {placeholder} - not enough space for minimum barcode")
-                                    continue
+                            for code in codes:
+                                if code['placeholder'] == placeholder:
+                                    if code['type'] == 'qr':
+                                        smaller_size = min(max_code_height, 60)
+                                        if smaller_size >= 60:
+                                            code_img = self.generate_qr_code(code['content'], smaller_size)
+                                            logger.info(f"Resized QR to {smaller_size}px")
+                                        else:
+                                            logger.warning(f"Skipping {placeholder} - not enough space")
+                                            continue
+                                    elif code['type'] == 'barcode':
+                                        smaller_height = min(max_code_height, 25)
+                                        if smaller_height >= 25:
+                                            code_img = self.generate_barcode(code['content'], smaller_height)
+                                            logger.info(f"Resized Barcode to {smaller_height}px")
+                                        else:
+                                            logger.warning(f"Skipping {placeholder} - not enough space")
+                                            continue
+                                    break
                         
                         # Code einfügen
                         img.paste(code_img, (code_x, current_y))
                         current_y += code_img.height + 10
                         
-                        # Text vor/nach dem Code
-                        text_before_after = line.replace(placeholder, '').strip()
-                        if text_before_after:
-                            # Text unter dem Code
-                            bbox = draw.textbbox((0, 0), text_before_after, font=font)
-                            text_width = bbox[2] - bbox[0]
-                            text_height = bbox[3] - bbox[1]
-                            
-                            if alignment == 'center':
-                                text_x = (self.label_width_px - text_width) // 2
-                            elif alignment == 'right':
-                                text_x = self.label_width_px - text_width - 10
-                            else:  # left
-                                text_x = 10
-                            
-                            draw.text((text_x, current_y), text_before_after, font=font, fill='black')
-                            current_y += text_height + 5
+                        # MARKDOWN-FORMATIERTE Text-Segmente um den Code herum verarbeiten
+                        remaining_segments = []
+                        for segment_text, seg_font_size, is_bold in line_segments:
+                            if placeholder in segment_text:
+                                # Platzhalter entfernen, aber Text davor/danach behalten
+                                parts = segment_text.split(placeholder)
+                                if parts[0]:
+                                    remaining_segments.append((parts[0], seg_font_size, is_bold))
+                                if len(parts) > 1 and parts[1]:
+                                    remaining_segments.append((parts[1], seg_font_size, is_bold))
+                            else:
+                                remaining_segments.append((segment_text, seg_font_size, is_bold))
+                        
+                        # Remaining text mit Markdown-Formatierung zeichnen
+                        if remaining_segments:
+                            current_y = self._draw_markdown_line(draw, remaining_segments, current_y, alignment, get_font)
                         
                         code_found = True
                         break
                 
                 if not code_found:
-                    # Normaler Text
-                    bbox = draw.textbbox((0, 0), line, font=font)
-                    text_width = bbox[2] - bbox[0]
-                    text_height = bbox[3] - bbox[1]
-                    
-                    if alignment == 'center':
-                        text_x = (self.label_width_px - text_width) // 2
-                    elif alignment == 'right':
-                        text_x = self.label_width_px - text_width - 10
-                    else:  # left
-                        text_x = 10
-                    
-                    draw.text((text_x, current_y), line, font=font, fill='black')
-                    current_y += text_height + 5
+                    # NORMALE MARKDOWN-FORMATIERTE ZEILE ohne Codes
+                    current_y = self._draw_markdown_line(draw, line_segments, current_y, alignment, get_font)
             
-            logger.info(f"Combined image created with {len(codes)} codes")
+            logger.info(f"Combined image created with Markdown + {len(codes)} codes")
             return img
             
         except Exception as e:
             logger.error(f"Combined image creation failed: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
+    
+    def _draw_markdown_line(self, draw, line_segments, current_y, alignment, get_font):
+        """Zeichnet eine Zeile mit Markdown-Formatierung"""
+        try:
+            # Gesamtbreite der Zeile berechnen für Ausrichtung
+            line_width = 0
+            line_height = 0
+            
+            for segment_text, seg_font_size, is_bold in line_segments:
+                if segment_text.strip():
+                    seg_font = get_font(seg_font_size, is_bold)
+                    try:
+                        bbox = draw.textbbox((0, 0), segment_text, font=seg_font)
+                        seg_width = bbox[2] - bbox[0]
+                        seg_height = bbox[3] - bbox[1]
+                        line_width += seg_width
+                        line_height = max(line_height, seg_height)
+                    except Exception:
+                        line_width += len(segment_text) * (seg_font_size // 2)
+                        line_height = max(line_height, seg_font_size)
+            
+            # X-Startposition basierend auf Ausrichtung
+            if alignment == 'left':
+                start_x = 10
+            elif alignment == 'right':
+                start_x = max(10, self.label_width_px - line_width - 10)
+            else:  # center
+                start_x = max(10, (self.label_width_px - line_width) // 2)
+            
+            # Segmente zeichnen
+            current_x = start_x
+            for segment_text, seg_font_size, is_bold in line_segments:
+                if segment_text:
+                    # Text bereinigen
+                    clean_text = segment_text.replace('\x00', '').replace('\t', '    ')
+                    clean_text = ''.join(char for char in clean_text if ord(char) >= 32 or char in '\n\r')
+                    
+                    if clean_text.strip():
+                        seg_font = get_font(seg_font_size, is_bold)
+                        try:
+                            draw.text((current_x, current_y), clean_text, fill='black', font=seg_font)
+                            bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
+                            current_x += bbox[2] - bbox[0]
+                            
+                            logger.debug(f"Drew Markdown segment '{clean_text[:20]}...' (size:{seg_font_size}, bold:{is_bold})")
+                        except Exception as e:
+                            logger.warning(f"Could not draw segment '{clean_text[:20]}...': {e}")
+                            current_x += len(clean_text) * (seg_font_size // 2)
+            
+            return current_y + max(line_height, 20) + 5
+            
+        except Exception as e:
+            logger.error(f"Error drawing markdown line: {e}")
+            return current_y + 25
     
     def get_syntax_help(self) -> str:
         """Gibt Hilfe zur Markdown-Syntax zurück"""
