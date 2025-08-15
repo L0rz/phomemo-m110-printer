@@ -632,11 +632,7 @@ class EnhancedPhomemoM110:
                 printer_img = self.apply_offsets_to_image(result.processed_image)
                 image_data = self.image_to_printer_format(printer_img)
                 if image_data:
-                    # Drucker-Reset vor jedem Druckauftrag
-                    logger.info("🔄 Pre-print stabilization...")
-                    self.send_command(b'\x1b\x40')  # Initialize printer
-                    time.sleep(0.1)
-                    
+                    # Schonende Übertragung ohne aggressive Resets
                     success = self.send_bitmap(image_data, printer_img.height)
                     
                     # Zeitstempel für Anti-Drift tracking
@@ -776,22 +772,12 @@ class EnhancedPhomemoM110:
     
             logger.info(f"📤 Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
             
-            # VERBESSERTE DRUCKER-INITIALISIERUNG
+            # VERBESSERTE DRUCKER-INITIALISIERUNG (schonender)
             # 1. Drucker komplett zurücksetzen
             if not self.send_command(b'\x1b\x40'):  # ESC @ - Initialize printer
                 logger.error("❌ Failed to send reset command")
                 return False
             time.sleep(0.1)  # Längere Pause nach Reset
-            
-            # 2. Position explizit auf Anfang setzen
-            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Set horizontal position to 0
-                logger.warning("⚠️ Failed to reset horizontal position")
-            time.sleep(0.02)
-            
-            # 3. Linken Rand auf 0 setzen
-            if not self.send_command(b'\x1b\x6c\x00'):  # ESC l 0 - Set left margin to 0
-                logger.warning("⚠️ Failed to set left margin")
-            time.sleep(0.02)
     
             # BITMAP-HEADER mit korrekten Dimensionen
             xL = width_bytes & 0xFF
@@ -841,13 +827,11 @@ class EnhancedPhomemoM110:
                 # Adaptives Timing basierend auf Chunk-Größe
                 time.sleep(0.008)  # Etwas längere Pause zwischen Chunks
     
-            # ABSCHLUSS-KOMMANDOS für saubere Position  
+            # ABSCHLUSS-KOMMANDOS für saubere Position (minimal)
             time.sleep(0.1)  # Warten bis alle Daten verarbeitet sind
             
-            # Position final zurücksetzen (OHNE Paper Feed - das ist absichtlich deaktiviert)
-            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Reset position
-                logger.warning("⚠️ Failed to final position reset")
-            time.sleep(0.02)
+            # NUR bei Bedarf Position zurücksetzen
+            # (Entfernt die aggressive Position-Reset-Logik)
             
             logger.info(f"✅ Bitmap sent successfully: {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
             
