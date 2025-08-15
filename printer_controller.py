@@ -931,12 +931,9 @@ class EnhancedPhomemoM110:
             
             logger.info(f"📐 Preview image created (NO offsets): {bw_img.width}x{bw_img.height}")
             return bw_img
-            else:
-                logger.info("✅ Text image created successfully (no offsets)")
-                return bw_img
             
         except Exception as e:
-            logger.error(f"❌ Text image creation error: {e}")
+            logger.error(f"❌ Text preview image creation error: {e}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return None
