@@ -108,7 +108,12 @@ def setup_api_routes(app, printer):
                 return jsonify({
                     'success': True,
                     'preview_base64': result.preview_base64,
-                    'info': result.info
+                    'info': {
+                        **result.info,
+                        # Für Vorschau: Offsets auf 0 setzen, da sie nicht angewendet werden
+                        'x_offset': 0,
+                        'y_offset': 0
+                    }
                 })
             else:
                 return jsonify({'success': False, 'error': 'Bildverarbeitung fehlgeschlagen'})
@@ -201,8 +206,8 @@ def setup_api_routes(app, printer):
             # Replace $TIME$ placeholder
             text = text.replace('$TIME$', datetime.now().strftime('%H:%M:%S'))
             
-            # Text-Bild erstellen (gleiche Logik wie beim Drucken)
-            img = printer.create_text_image_with_offsets(text, font_size, alignment)
+            # Text-Bild erstellen (OHNE Offsets für Vorschau)
+            img = printer.create_text_image_preview(text, font_size, alignment)
             if img:
                 # Als Base64 für Vorschau konvertieren
                 import io
@@ -221,8 +226,9 @@ def setup_api_routes(app, printer):
                         'text': text,
                         'font_size': font_size,
                         'alignment': alignment,
-                        'x_offset': printer.settings.get('x_offset', 0),
-                        'y_offset': printer.settings.get('y_offset', 0)
+                        # Für Vorschau: Offsets auf 0 anzeigen, da sie nicht angewendet werden
+                        'x_offset': 0,
+                        'y_offset': 0
                     }
                 })
             else:

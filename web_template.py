@@ -422,7 +422,8 @@ Zeit: $TIME$</textarea>
                 <div class="preview-container" id="textPreviewContainer" style="margin: 15px 0;">
                     <div id="textPreviewPlaceholder">
                         📝 Text-Vorschau<br>
-                        <small>Tippe Text ein, um Vorschau zu sehen</small>
+                        <small>Tippe Text ein, um Vorschau zu sehen</small><br>
+                        <small style="color: #888;">Vorschau ohne Offsets - zeigt perfekte Positionierung</small>
                     </div>
                     <img id="textPreviewImage" class="preview-image" style="display: none;">
                     <div id="textInfo" class="image-info" style="display: none;"></div>
@@ -440,7 +441,8 @@ Zeit: $TIME$</textarea>
                 <div class="preview-container" id="previewContainer">
                     <div id="previewPlaceholder">
                         📁 Bild auswählen für Schwarz-Weiß-Vorschau<br>
-                        <small>Unterstützte Formate: PNG, JPEG, BMP, GIF, WebP</small>
+                        <small>Unterstützte Formate: PNG, JPEG, BMP, GIF, WebP</small><br>
+                        <small style="color: #888;">Vorschau ohne Offsets - zeigt perfekte Positionierung</small>
                     </div>
                     <img id="previewImage" class="preview-image" style="display: none;">
                 </div>
