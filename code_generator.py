@@ -195,7 +195,10 @@ class CodeGenerator:
                 except:
                     font = ImageFont.load_default()
             
-            current_y = 10
+            # Platz-Management: Reserviere weniger Platz für Text, mehr für Codes
+            reserved_space_per_code = 70  # Minimum Platz pro Code
+            available_height = self.label_height_px - (len(codes) * reserved_space_per_code)
+            current_y = 5  # Weniger Rand oben
             
             # Codes generieren und platzieren
             code_images = {}
@@ -227,21 +230,30 @@ class CodeGenerator:
                         code_x = (self.label_width_px - code_img.width) // 2  # Zentriert
                         
                         # Prüfen ob genug Platz vorhanden
-                        if current_y + code_img.height > self.label_height_px:
+                        space_needed = code_img.height + 10  # Code + Abstand
+                        space_available = self.label_height_px - current_y
+                        
+                        if space_needed > space_available:
                             logger.warning(f"Not enough space for {placeholder}, shrinking...")
-                            # Versuche kleineren Code zu erstellen
-                            if code['type'] == 'qr':
-                                smaller_size = min(80, code.get('size', 100))
-                                code_img = self.generate_qr_code(code['content'], smaller_size)
-                            elif code['type'] == 'barcode':
-                                smaller_height = min(30, code.get('height', 50))
-                                code_img = self.generate_barcode(code['content'], smaller_height)
+                            # Berechne verfügbare Größe
+                            max_code_height = space_available - 15  # Etwas Puffer
                             
-                            if code_img and current_y + code_img.height <= self.label_height_px:
-                                logger.info(f"Successfully shrunk {placeholder}")
-                            else:
-                                logger.warning(f"Skipping {placeholder} - no space even after shrinking")
-                                continue
+                            if code['type'] == 'qr':
+                                smaller_size = min(max_code_height, 60)  # Minimum QR: 60px
+                                if smaller_size >= 60:
+                                    code_img = self.generate_qr_code(code['content'], smaller_size)
+                                    logger.info(f"Resized QR to {smaller_size}px")
+                                else:
+                                    logger.warning(f"Skipping {placeholder} - not enough space for minimum QR")
+                                    continue
+                            elif code['type'] == 'barcode':
+                                smaller_height = min(max_code_height, 25)  # Minimum Barcode: 25px
+                                if smaller_height >= 25:
+                                    code_img = self.generate_barcode(code['content'], smaller_height)
+                                    logger.info(f"Resized Barcode to {smaller_height}px")
+                                else:
+                                    logger.warning(f"Skipping {placeholder} - not enough space for minimum barcode")
+                                    continue
                         
                         # Code einfügen
                         img.paste(code_img, (code_x, current_y))

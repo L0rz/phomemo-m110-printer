@@ -1213,7 +1213,7 @@ class EnhancedPhomemoM110:
                 
                 if x_offset != 0 or y_offset != 0:
                     logger.info(f"🔧 Applying offsets: x={x_offset}, y={y_offset}")
-                    img = self.apply_offsets(img)
+                    img = self.apply_offsets_to_image(img)
                 
                 logger.info(f"✅ Text image with codes created: {img.width}x{img.height}")
                 return img
