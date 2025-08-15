@@ -4,61 +4,102 @@
     <meta charset="UTF-8">
     <title>Label-Größen Tester - Phomemo M110</title>
     <style>
+        /* Dark Mode CSS Variables */
+        :root {
+            --bg-color: #f5f5f5;
+            --card-bg: white;
+            --text-color: #333;
+            --text-secondary: #666;
+            --border-color: #ddd;
+            --current-bg: #e8f5e8;
+            --current-border: #4CAF50;
+            --hover-bg: #f0f8f0;
+            --input-bg: white;
+            --status-success-bg: #d4edda;
+            --status-success-color: #155724;
+            --status-error-bg: #f8d7da;
+            --status-error-color: #721c24;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1a1a1a;
+                --card-bg: #2d2d2d;
+                --text-color: #e0e0e0;
+                --text-secondary: #b0b0b0;
+                --border-color: #404040;
+                --current-bg: #1e3d1e;
+                --current-border: #4CAF50;
+                --hover-bg: #2a432a;
+                --input-bg: #3d3d3d;
+                --status-success-bg: #1e4a2e;
+                --status-success-color: #90ee90;
+                --status-error-bg: #4a1e1e;
+                --status-error-color: #ffb3b3;
+            }
+        }
+
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            background: #f5f5f5;
+            background: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s;
         }
         .container {
             max-width: 800px;
             margin: 0 auto;
-            background: white;
+            background: var(--card-bg);
             padding: 20px;
             border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            transition: background-color 0.3s;
         }
         .current-size {
-            background: #e8f5e8;
+            background: var(--current-bg);
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
-            border-left: 4px solid #4CAF50;
+            border-left: 4px solid var(--current-border);
+            transition: background-color 0.3s;
         }
         .size-option {
-            background: #f9f9f9;
+            background: var(--card-bg);
             padding: 12px;
             margin: 8px 0;
             border-radius: 6px;
-            border: 2px solid #ddd;
+            border: 2px solid var(--border-color);
             cursor: pointer;
             transition: all 0.3s;
         }
         .size-option:hover {
-            border-color: #4CAF50;
-            background: #f0f8f0;
+            border-color: var(--current-border);
+            background: var(--hover-bg);
         }
         .size-option.current {
-            border-color: #4CAF50;
-            background: #e8f5e8;
+            border-color: var(--current-border);
+            background: var(--current-bg);
         }
         .dimensions {
             font-weight: bold;
-            color: #333;
+            color: var(--text-color);
         }
         .description {
-            color: #666;
+            color: var(--text-secondary);
             font-size: 0.9em;
             margin-top: 4px;
         }
         .pixels {
-            color: #888;
+            color: var(--text-secondary);
             font-size: 0.8em;
         }
         .test-section {
             margin-top: 30px;
             padding: 20px;
-            background: #f9f9f9;
+            background: var(--card-bg);
             border-radius: 8px;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s, border-color 0.3s;
         }
         .preview-container {
             margin-top: 20px;
@@ -66,7 +107,7 @@
         }
         .preview-image {
             max-width: 100%;
-            border: 2px solid #ddd;
+            border: 2px solid var(--border-color);
             border-radius: 4px;
             background: white;
         }
@@ -79,12 +120,13 @@
             cursor: pointer;
             font-size: 16px;
             margin: 5px;
+            transition: background-color 0.3s;
         }
         button:hover {
             background: #45a049;
         }
         button:disabled {
-            background: #ccc;
+            background: #666;
             cursor: not-allowed;
         }
         .status {
@@ -92,29 +134,61 @@
             padding: 10px;
             border-radius: 4px;
             display: none;
+            transition: background-color 0.3s, color 0.3s;
         }
         .status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background: var(--status-success-bg);
+            color: var(--status-success-color);
+            border: 1px solid var(--current-border);
         }
         .status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background: var(--status-error-bg);
+            color: var(--status-error-color);
+            border: 1px solid #dc3545;
         }
         textarea {
             width: 100%;
             height: 100px;
             margin: 10px 0;
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
             font-family: monospace;
+            background: var(--input-bg);
+            color: var(--text-color);
+            transition: background-color 0.3s, color 0.3s, border-color 0.3s;
+        }
+        
+        /* Dark mode toggle button */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--current-border);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 1000;
+            transition: background-color 0.3s;
+        }
+        .theme-toggle:hover {
+            background: #45a049;
+        }
+
+        /* Update h1, h3, h4 colors */
+        h1, h2, h3, h4 {
+            color: var(--text-color);
         }
     </style>
 </head>
 <body>
+    <!-- Dark Mode Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Dark/Light Mode umschalten">🌙</button>
+    
     <div class="container">
         <h1>📏 Label-Größen Verwaltung</h1>
         
@@ -157,8 +231,42 @@ Normal text hier.
         let currentSizeData = null;
         let availableSizesData = null;
 
+        // Theme Management
+        function toggleTheme() {
+            const body = document.body;
+            const button = document.querySelector('.theme-toggle');
+            
+            if (body.style.colorScheme === 'dark') {
+                body.style.colorScheme = 'light';
+                button.textContent = '🌙';
+                localStorage.setItem('theme', 'light');
+            } else {
+                body.style.colorScheme = 'dark';
+                button.textContent = '☀️';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+
+        // Load saved theme
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const button = document.querySelector('.theme-toggle');
+            
+            if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+                document.body.style.colorScheme = 'dark';
+                button.textContent = '☀️';
+            } else {
+                document.body.style.colorScheme = 'light';
+                button.textContent = '🌙';
+            }
+        }
+
         // Lade Label-Größen beim Start
-        loadLabelSizes();
+        window.onload = function() {
+            loadTheme();
+            loadLabelSizes();
+        };
 
         async function loadLabelSizes() {
             try {

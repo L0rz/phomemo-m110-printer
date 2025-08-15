@@ -413,6 +413,7 @@ WEB_INTERFACE = '''
                     </div>
                     <button class="btn" onclick="saveSettings()">💾 Einstellungen speichern</button>
                     <button class="btn btn-warning" onclick="testOffsets()">📐 Offsets testen</button>
+                    <button class="btn" onclick="window.open('/label-sizes', '_blank')">📏 Label-Größen verwalten</button>
                 </div>
             </div>
         </div>
