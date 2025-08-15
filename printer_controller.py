@@ -814,28 +814,26 @@ class EnhancedPhomemoM110:
     
             logger.info(f"📤 CORRECTED BITMAP: Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
             
-            # KORREKTE ESC/POS-SEQUENZ basierend auf vivier/phomemo-tools
-            logger.info("🔄 CORRECTED: Proper ESC/POS initialization sequence...")
+            # VEREINFACHTE ESC/POS-SEQUENZ (weniger ist mehr)
+            logger.info("🔄 SIMPLIFIED: Essential ESC/POS initialization...")
             
-            # 1. ESC @ - Initialize printer (CRITICAL!)
+            # 1. ESC @ - Initialize printer (ESSENTIAL!)
             if not self.send_command(b'\x1b\x40'):
                 logger.error("❌ Failed to send ESC @ command")
                 return False
-            time.sleep(0.3)
+            time.sleep(0.2)
             
-            # 2. ESC a - Select justification (left align)
+            # 2. ESC a - Select justification (left align) - ESSENTIAL!
             if not self.send_command(b'\x1b\x61\x00'):  # 0=left, 1=center, 2=right
                 logger.warning("⚠️ Justification setting failed")
             time.sleep(0.1)
             
-            # 3. CRITICAL: Phomemo-specific sequence from packet sniffing
-            # Diese Sequenz ist ENTSCHEIDEND für korrekte Positionierung
-            phomemo_init_sequence = b'\x1f\x11\x02\x04'
-            if not self.send_command(phomemo_init_sequence):
+            # 3. NUR die wirklich kritische Phomemo-Sequenz
+            if not self.send_command(b'\x1f\x11\x02\x04'):
                 logger.warning("⚠️ Phomemo init sequence failed")
-            time.sleep(0.2)
+            time.sleep(0.1)
             
-            logger.info("✅ Corrected ESC/POS initialization finished")
+            logger.info("✅ Simplified initialization finished")
     
             # KORREKTE BITMAP-HEADER basierend auf ESC/POS-Standard
             # GS v 0 - Print raster bit image (aus vivier/phomemo-tools)
@@ -855,70 +853,50 @@ class EnhancedPhomemoM110:
                 return False
             time.sleep(0.2)  # Längere Pause nach Header
     
-            # OPTIMIERTE CHUNK-ÜBERTRAGUNG basierend auf erfolgreichen Implementierungen
-            # Problem war: Zu kleine Chunks verursachen Timing-Probleme
-            CHUNK = 240  # Größere Chunks für bessere Performance (basierend auf vivier/phomemo-tools)
+            # FEINTUNING DER CHUNK-ÜBERTRAGUNG für bessere Qualität
+            # Problem: Chunk-Größe und Timing müssen perfekt abgestimmt sein
+            CHUNK = 128  # Mittelgröße für bessere Balance zwischen Speed und Qualität
             chunks_sent = 0
             total_bytes_sent = 0
             
-            logger.info(f"📦 OPTIMIZED-CHUNKS: Sending {len(image_data)} bytes in {CHUNK}-byte chunks...")
+            logger.info(f"📦 OPTIMIZED-CHUNKS: Sending {len(image_data)} bytes in {CHUNK}-byte chunks (quality-optimized)...")
             
             for i in range(0, len(image_data), CHUNK):
                 chunk = image_data[i:i+CHUNK]
                 
-                # Stabilere Retry-Logik mit exponential backoff
+                # Präzisere Retry-Logik für bessere Qualität
                 chunk_success = False
-                for attempt in range(5):  # Weniger Versuche, aber intelligenter
+                for attempt in range(3):  # Weniger Versuche, schnellere Übertragung
                     if self.send_command(chunk):
                         chunk_success = True
                         break
                     else:
-                        logger.warning(f"⚠️ Chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
-                        # Exponential backoff: 50ms, 100ms, 200ms, 400ms
-                        time.sleep(0.05 * (2 ** attempt))
+                        logger.warning(f"⚠️ Quality chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
+                        # Kürzere, präzisere Retry-Pausen
+                        time.sleep(0.02 * (attempt + 1))
                 
                 if not chunk_success:
-                    logger.error(f"❌ Failed to send chunk {chunks_sent} after 5 attempts")
+                    logger.error(f"❌ Failed to send quality chunk {chunks_sent} after 3 attempts")
                     return False
                 
                 chunks_sent += 1
                 total_bytes_sent += len(chunk)
                 
-                # Progress alle 5 Chunks
-                if chunks_sent % 5 == 0:
+                # Progress alle 10 Chunks
+                if chunks_sent % 10 == 0:
                     progress = (total_bytes_sent / len(image_data)) * 100
-                    logger.info(f"📊 Progress: {chunks_sent} chunks ({progress:.1f}%)")
+                    logger.info(f"📊 Quality progress: {chunks_sent} chunks ({progress:.1f}%)")
                 
-                # Gleichmäßige Pausen für Stabilität
-                time.sleep(0.02)  # Konsistente 20ms Pause
+                # KRITISCH: Sehr kurze, gleichmäßige Pausen für bessere Qualität
+                time.sleep(0.01)  # Kürzere 10ms Pause für flüssige Übertragung
                 
-                # Extra-Pause alle 20 Chunks für Drucker-Stabilität
-                if chunks_sent % 20 == 0:
-                    logger.info(f"🔄 Stabilization pause after {chunks_sent} chunks...")
-                    time.sleep(0.1)
+                # Seltene Extra-Pausen nur alle 40 Chunks
+                if chunks_sent % 40 == 0:
+                    logger.info(f"🔄 Quality stabilization after {chunks_sent} chunks...")
+                    time.sleep(0.05)  # Kurze Stabilisierung
     
-            # KORREKTE POST-PRINT-SEQUENZ basierend auf ESC/POS-Standard
-            time.sleep(0.2)  # Pause nach Daten-Übertragung
-            
-            # ESC d - Print and feed n lines (aus vivier/phomemo-tools)
-            logger.info("🔄 CORRECTED: Post-print feed sequence...")
-            feed_command = b'\x1b\x64\x02'  # ESC d 2 - Feed 2 lines
-            if not self.send_command(feed_command):
-                logger.warning("⚠️ Post-print feed failed")
-            time.sleep(0.1)
-            
-            # Phomemo-spezifische Abschluss-Sequenz (aus Packet-Sniffing)
-            phomemo_end_sequence = [
-                b'\x1f\x11\x08',
-                b'\x1f\x11\x0e', 
-                b'\x1f\x11\x07',
-                b'\x1f\x11\x09'
-            ]
-            
-            for seq in phomemo_end_sequence:
-                if not self.send_command(seq):
-                    logger.warning(f"⚠️ Phomemo end sequence failed: {seq.hex()}")
-                time.sleep(0.05)
+            # MINIMALE POST-PRINT-SEQUENZ (keine extra Zeilen)
+            time.sleep(0.3)  # Pause nach Daten-Übertragung für Stabilität
             
             logger.info(f"✅ CORRECTED BITMAP: Successfully sent {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
             
