@@ -1257,6 +1257,29 @@ class EnhancedPhomemoM110:
             self.stats['failed_jobs'] += 1
             return {'success': False, 'message': str(e)}
 
+    def _print_image_direct(self, img: Image.Image) -> bool:
+        """Druckt ein PIL Image direkt (ohne Queue)"""
+        try:
+            logger.info(f"🔄 Converting image to printer format...")
+            image_data = self.image_to_printer_format(img)
+            if image_data:
+                logger.info(f"✅ Image converted to printer format ({len(image_data)} bytes)")
+                
+                logger.info("📤 Sending bitmap to printer...")
+                success = self.send_bitmap(image_data, img.height)
+                if success:
+                    logger.info("✅ Image printed successfully!")
+                    return True
+                else:
+                    logger.error("❌ Failed to send bitmap to printer")
+                    return False
+            else:
+                logger.error("❌ Failed to convert image to printer format")
+                return False
+        except Exception as e:
+            logger.error(f"❌ Direct image print error: {e}")
+            return False
+
     def _execute_text_with_codes_job(self, data: Dict[str, Any]) -> bool:
         """Führt Text-mit-Codes-Job aus der Queue aus"""
         try:
