@@ -807,19 +807,43 @@ class EnhancedPhomemoM110:
             return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
-        """Sendet Bitmap an Drucker mit verbesserter Positions-Stabilität"""
+        """Sendet Bitmap an Drucker mit FUNDAMENTALER Drift-Reparatur"""
         try:
             width_bytes = self.bytes_per_line
             m = 0
     
-            logger.info(f"📤 Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
+            logger.info(f"📤 FUNDAMENTAL REPAIR: Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
             
-            # VERBESSERTE DRUCKER-INITIALISIERUNG (schonender)
-            # 1. Drucker komplett zurücksetzen
+            # KRITISCH: VOLLSTÄNDIGER DRUCKER-RESET vor JEDEM Druck
+            logger.info("🔄 CRITICAL: Complete printer reset sequence...")
+            
+            # 1. Hardware-Reset
             if not self.send_command(b'\x1b\x40'):  # ESC @ - Initialize printer
                 logger.error("❌ Failed to send reset command")
                 return False
-            time.sleep(0.1)  # Längere Pause nach Reset
+            time.sleep(0.5)  # VIEL längere Pause
+            
+            # 2. Position komplett zurücksetzen
+            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Position to 0
+                logger.warning("⚠️ Position reset failed")
+            time.sleep(0.2)
+            
+            # 3. Linker Rand explizit setzen
+            if not self.send_command(b'\x1b\x6c\x00'):  # ESC l 0 - Left margin to 0
+                logger.warning("⚠️ Left margin reset failed")
+            time.sleep(0.2)
+            
+            # 4. KRITISCH: Print-Mode zurücksetzen
+            if not self.send_command(b'\x1b\x21\x00'):  # ESC ! 0 - Reset print mode
+                logger.warning("⚠️ Print mode reset failed")
+            time.sleep(0.2)
+            
+            # 5. KRITISCH: Zeilenabstand normalisieren
+            if not self.send_command(b'\x1b\x33\x00'):  # ESC 3 0 - Set line spacing
+                logger.warning("⚠️ Line spacing reset failed")
+            time.sleep(0.2)
+            
+            logger.info("✅ Complete printer reset finished")
     
             # BITMAP-HEADER mit korrekten Dimensionen
             xL = width_bytes & 0xFF
@@ -832,50 +856,58 @@ class EnhancedPhomemoM110:
             if not self.send_command(header):
                 logger.error("❌ Failed to send bitmap header")
                 return False
-            time.sleep(0.05)  # Pause nach Header
+            time.sleep(0.1)  # Pause nach Header
     
-            # ROBUSTE DATENÜBERTRAGUNG in kleineren Chunks
-            CHUNK = 512  # Kleinere Chunks für stabilere Übertragung
+            # ULTRA-KONSERVATIVE DATENÜBERTRAGUNG
+            CHUNK = 256  # SEHR kleine Chunks für maximale Stabilität
             chunks_sent = 0
             total_bytes_sent = 0
             
-            logger.info(f"📦 Sending {len(image_data)} bytes in {CHUNK}-byte chunks...")
+            logger.info(f"📦 CONSERVATIVE: Sending {len(image_data)} bytes in {CHUNK}-byte chunks...")
             
             for i in range(0, len(image_data), CHUNK):
                 chunk = image_data[i:i+CHUNK]
                 
-                # Mehrere Versuche pro Chunk
+                # TRIPLE-RETRY für jeden Chunk
                 chunk_success = False
-                for attempt in range(3):
+                for attempt in range(5):  # 5 Versuche statt 3
                     if self.send_command(chunk):
                         chunk_success = True
                         break
                     else:
                         logger.warning(f"⚠️ Chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
-                        time.sleep(0.01)
+                        time.sleep(0.05)  # Längere Retry-Pause
                 
                 if not chunk_success:
-                    logger.error(f"❌ Failed to send chunk {chunks_sent} after 3 attempts")
+                    logger.error(f"❌ Failed to send chunk {chunks_sent} after 5 attempts")
                     return False
                 
                 chunks_sent += 1
                 total_bytes_sent += len(chunk)
                 
                 # Progress logging
-                if chunks_sent % 10 == 0:
+                if chunks_sent % 5 == 0:  # Öfter loggen
                     progress = (total_bytes_sent / len(image_data)) * 100
                     logger.info(f"📊 Progress: {chunks_sent} chunks ({progress:.1f}%)")
                 
-                # Adaptives Timing basierend auf Chunk-Größe
-                time.sleep(0.008)  # Etwas längere Pause zwischen Chunks
+                # LÄNGERE Pausen zwischen Chunks
+                time.sleep(0.02)  # Doppelt so lang
     
-            # ABSCHLUSS-KOMMANDOS für saubere Position (minimal)
-            time.sleep(0.1)  # Warten bis alle Daten verarbeitet sind
+            # FINALE STABILISIERUNG
+            time.sleep(0.5)  # Lange finale Pause
             
-            # NUR bei Bedarf Position zurücksetzen
-            # (Entfernt die aggressive Position-Reset-Logik)
+            # KRITISCH: Position nach Druck stabilisieren
+            logger.info("🔄 CRITICAL: Post-print stabilization...")
+            if not self.send_command(b'\x1b\x64\x00'):  # Position zurücksetzen
+                logger.warning("⚠️ Post-print position reset failed")
+            time.sleep(0.2)
             
-            logger.info(f"✅ Bitmap sent successfully: {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
+            # KRITISCH: Print-Mode nach Druck normalisieren
+            if not self.send_command(b'\x1b\x21\x00'):  # Print mode zurücksetzen
+                logger.warning("⚠️ Post-print mode reset failed")
+            time.sleep(0.2)
+            
+            logger.info(f"✅ FUNDAMENTAL REPAIR: Bitmap sent successfully: {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
             
             # Validierung
             if total_bytes_sent != len(image_data):
@@ -884,7 +916,7 @@ class EnhancedPhomemoM110:
             return True
             
         except Exception as e:
-            logger.error(f"❌ Bitmap send error: {e}")
+            logger.error(f"❌ FUNDAMENTAL REPAIR: Bitmap send error: {e}")
             import traceback
             logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
