@@ -49,6 +49,140 @@ WEB_INTERFACE = '''
         /* Debug Info */
         .debug { background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px; }
         
+        /* ==================== DARK MODE ==================== */
+        /* Dark Mode Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        .theme-toggle:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+        
+        /* Smooth transitions for all elements */
+        * {
+            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        /* Dark mode styles */
+        [data-theme="dark"] {
+            color-scheme: dark;
+        }
+        
+        [data-theme="dark"] body {
+            background: #121212;
+            color: #e0e0e0;
+        }
+        
+        [data-theme="dark"] .card {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        [data-theme="dark"] h1 {
+            color: #e0e0e0;
+        }
+        
+        [data-theme="dark"] .subtitle {
+            color: #b0b0b0;
+        }
+        
+        [data-theme="dark"] textarea,
+        [data-theme="dark"] input,
+        [data-theme="dark"] select {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: 1px solid #444;
+        }
+        
+        [data-theme="dark"] textarea:focus,
+        [data-theme="dark"] input:focus,
+        [data-theme="dark"] select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+        }
+        
+        [data-theme="dark"] .debug {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+        }
+        
+        [data-theme="dark"] .config-section {
+            background: #2a2a2a;
+            border: 1px solid #444;
+        }
+        
+        [data-theme="dark"] .config-title {
+            color: #e0e0e0;
+        }
+        
+        [data-theme="dark"] .offset-control label {
+            color: #b0b0b0;
+        }
+        
+        [data-theme="dark"] .stat-label {
+            color: #b0b0b0;
+        }
+        
+        [data-theme="dark"] .preview-container {
+            background: #2a2a2a;
+            border: 2px dashed #555;
+        }
+        
+        [data-theme="dark"] .preview-image {
+            border: 1px solid #555;
+            background: #1a1a1a;
+        }
+        
+        [data-theme="dark"] .image-info {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+        }
+        
+        /* Dark mode status messages */
+        [data-theme="dark"] .success {
+            background: #1a4d2e;
+            color: #4ade80;
+            border: 1px solid #166534;
+        }
+        
+        [data-theme="dark"] .error {
+            background: #4d1a1a;
+            color: #f87171;
+            border: 1px solid #991b1b;
+        }
+        
+        [data-theme="dark"] .info {
+            background: #1a3a4d;
+            color: #60a5fa;
+            border: 1px solid #1e40af;
+        }
+        
+        [data-theme="dark"] .warning {
+            background: #4d3a1a;
+            color: #fbbf24;
+            border: 1px solid #b45309;
+        }
+        
         /* Statistics */
         .stats { display: flex; justify-content: space-around; text-align: center; flex-wrap: wrap; }
         .stat-item { flex: 1; min-width: 80px; margin: 5px; }
@@ -195,6 +329,11 @@ WEB_INTERFACE = '''
     </style>
 </head>
 <body>
+    <!-- Dark Mode Toggle Button -->
+    <button class="theme-toggle" onclick="toggleTheme()" title="Theme wechseln">
+        🌙
+    </button>
+    
     <div class="container">
         <h1>🖨️ Phomemo M110 Enhanced</h1>
         <div class="subtitle">Mit Bildvorschau und X-Offset Konfiguration</div>
@@ -351,6 +490,53 @@ Zeit: $TIME$</textarea>
 
     <script>
         let currentImageData = null;
+        
+        // ==================== THEME MANAGEMENT ====================
+        // Theme initialization
+        function initTheme() {
+            const savedTheme = localStorage.getItem('phomemo-theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
+            
+            document.documentElement.setAttribute('data-theme', theme);
+            updateThemeButton(theme);
+        }
+        
+        // Toggle theme
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('phomemo-theme', newTheme);
+            updateThemeButton(newTheme);
+            
+            // Show feedback
+            showStatus(newTheme === 'dark' ? '🌙 Dark Mode aktiviert' : '☀️ Light Mode aktiviert', 'info');
+        }
+        
+        // Update theme button appearance
+        function updateThemeButton(theme) {
+            const button = document.querySelector('.theme-toggle');
+            if (button) {
+                button.textContent = theme === 'dark' ? '☀️' : '🌙';
+                button.title = theme === 'dark' ? 'Light Mode aktivieren' : 'Dark Mode aktivieren';
+            }
+        }
+        
+        // Listen for system theme changes
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+                if (!localStorage.getItem('phomemo-theme')) {
+                    const theme = e.matches ? 'dark' : 'light';
+                    document.documentElement.setAttribute('data-theme', theme);
+                    updateThemeButton(theme);
+                }
+            });
+        }
+        
+        // Initialize theme on page load
+        document.addEventListener('DOMContentLoaded', initTheme);
         
         function checkConnection() {
             fetch('/api/status')
