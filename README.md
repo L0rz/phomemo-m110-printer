@@ -48,15 +48,15 @@ Diese Anwendung erweitert Ihren Phomemo M110 Drucker um folgende **tatsächlich 
 ## 📂 Dateistruktur
 
 ```
-robust_server/
-├── main_enhanced.py              # Hauptserver mit Enhanced Features
-├── printer_controller_enhanced.py # Erweiterte Printer-Logik mit Bildverarbeitung
-├── api_routes_enhanced.py        # REST API mit Bildvorschau
-├── web_template_enhanced.py      # Modernes Web-Interface
-├── config_enhanced.py            # Erweiterte Konfiguration
+/
+├── main.py              # Hauptserver mit Enhanced Features
+├── printer_controller.py # Erweiterte Printer-Logik mit Bildverarbeitung
+├── api_routes.py        # REST API mit Bildvorschau
+├── web_template.py      # Modernes Web-Interface
+├── config.py            # Erweiterte Konfiguration
 ├── calibration_tool.py           # Kalibrierungs-Muster-Generator
 ├── calibration_api.py            # Kalibrierungs-API (separates Modul)
-├── install_enhanced.sh           # Installations-Skript
+├── install.sh           # Installations-Skript
 └── printer_settings.json         # Persistente Einstellungen (wird automatisch erstellt)
 ```
 
@@ -64,8 +64,8 @@ robust_server/
 
 ### Schnelle Installation
 ```bash
-chmod +x install_enhanced.sh
-./install_enhanced.sh
+chmod +x install.sh
+./install.sh
 ```
 
 ### Manuelle Installation
@@ -79,12 +79,12 @@ pip3 install flask pillow
 # Optional für erweiterte Bildverarbeitung
 pip3 install numpy
 
-# MAC-Adresse in config_enhanced.py anpassen
-nano config_enhanced.py
+# MAC-Adresse in config.py anpassen
+nano config.py
 # Ändern Sie: PRINTER_MAC = "12:7E:5A:E9:E5:22"  # IHRE MAC-ADRESSE!
 
 # Server starten
-python3 main_enhanced.py
+python3 main.py
 ```
 
 ## 🎛️ Konfiguration
@@ -324,19 +324,6 @@ tail -f phomemo_server.log
 sudo journalctl -u phomemo-enhanced -f
 ```
 
-## 🆕 Migration von Standard-Version
-
-### Automatische Kompatibilität
-Das Enhanced System ist rückwärtskompatibel:
-- Bestehende Bluetooth-Verbindungen werden übernommen
-- Alte Konfiguration wird automatisch migriert
-
-### Manuelle Schritte
-1. Standard-Version stoppen
-2. Enhanced Version installieren
-3. MAC-Adresse in `config_enhanced.py` anpassen
-4. Server starten: `python3 main_enhanced.py`
-
 ## 🎯 Best Practices
 
 ### Bildoptimierung
@@ -364,7 +351,7 @@ git pull origin main
 # Server neu starten
 sudo systemctl restart phomemo-enhanced
 # oder bei manueller Ausführung
-python3 main_enhanced.py
+python3 main.py
 ```
 
 ## 📈 Roadmap & Geplante Features
