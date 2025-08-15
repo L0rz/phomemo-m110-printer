@@ -180,7 +180,14 @@ def setup_api_routes(app, printer):
 
             # ---- Drucken (wie gehabt) ----
             if use_queue:
-                job_id = printer.print_image_async(image_data, filename)
+                # Verwende korrekte Queue-Methode
+                job_id = printer.queue_print_job('image', {
+                    'image_data': image_data,
+                    'filename': filename,
+                    'fit_to_label': fit_to_label,
+                    'maintain_aspect': maintain_aspect,
+                    'dither': dither
+                })
                 return jsonify({
                     'success': True,
                     'job_id': job_id,
@@ -190,12 +197,14 @@ def setup_api_routes(app, printer):
                     'size_bytes': len(image_data)
                 })
             else:
-                success = printer.print_image_from_data(image_data, filename)
+                # Verwende korrekte Methode für sofortigen Druck
+                success = printer.print_image_immediate(image_data)
                 return jsonify({
                     'success': success,
                     'filename': filename,
                     'format': detected_fmt,
-                    'size_bytes': len(image_data)
+                    'size_bytes': len(image_data),
+                    'message': f'Bild {"erfolgreich gedruckt" if success else "Druck fehlgeschlagen"} ({detected_fmt}, {len(image_data)} bytes)'
                 })
 
         except Exception as e:
