@@ -858,40 +858,46 @@ class EnhancedPhomemoM110:
                 return False
             time.sleep(0.1)  # Pause nach Header
     
-            # ULTRA-KONSERVATIVE DATENÜBERTRAGUNG
-            CHUNK = 256  # SEHR kleine Chunks für maximale Stabilität
+            # SPEZIELL für VOLLE HORIZONTALE ZEILEN: Ultra-kleine Chunks
+            # Problem: Dichte horizontale Bereiche (A-Z, echte Bilder) verursachen Drift
+            CHUNK = 128  # NOCH kleinere Chunks für dichte Bereiche (vorher 256)
             chunks_sent = 0
             total_bytes_sent = 0
             
-            logger.info(f"📦 CONSERVATIVE: Sending {len(image_data)} bytes in {CHUNK}-byte chunks...")
+            logger.info(f"📦 DENSE-DATA-SAFE: Sending {len(image_data)} bytes in {CHUNK}-byte chunks (optimized for full horizontal lines)...")
             
             for i in range(0, len(image_data), CHUNK):
                 chunk = image_data[i:i+CHUNK]
                 
-                # TRIPLE-RETRY für jeden Chunk
+                # ULTRA-RETRY für dichte Daten
                 chunk_success = False
-                for attempt in range(5):  # 5 Versuche statt 3
+                for attempt in range(7):  # 7 Versuche für dichte Bereiche (vorher 5)
                     if self.send_command(chunk):
                         chunk_success = True
                         break
                     else:
-                        logger.warning(f"⚠️ Chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
-                        time.sleep(0.05)  # Längere Retry-Pause
+                        logger.warning(f"⚠️ Dense-data chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
+                        time.sleep(0.01 * (attempt + 1))  # Progressive Retry-Pause
                 
                 if not chunk_success:
-                    logger.error(f"❌ Failed to send chunk {chunks_sent} after 5 attempts")
+                    logger.error(f"❌ Failed to send dense-data chunk {chunks_sent} after 7 attempts")
                     return False
                 
                 chunks_sent += 1
                 total_bytes_sent += len(chunk)
                 
-                # Progress logging
-                if chunks_sent % 5 == 0:  # Öfter loggen
+                # Häufigerer Progress für dichte Daten
+                if chunks_sent % 3 == 0:  # Alle 3 Chunks statt 5
                     progress = (total_bytes_sent / len(image_data)) * 100
-                    logger.info(f"📊 Progress: {chunks_sent} chunks ({progress:.1f}%)")
+                    logger.info(f"📊 Dense-data progress: {chunks_sent} chunks ({progress:.1f}%)")
                 
-                # LÄNGERE Pausen zwischen Chunks
-                time.sleep(0.02)  # Doppelt so lang
+                # KRITISCH: Längere Pausen für dichte horizontale Bereiche
+                time.sleep(0.03)  # 50% länger als vorher (0.02)
+                
+                # EXTRA-PAUSE bei jedem 10. Chunk für Drucker-Stabilisierung
+                if chunks_sent % 10 == 0:
+                    logger.info(f"🔄 Stabilization pause after {chunks_sent} chunks...")
+                    time.sleep(0.1)  # Extra-Stabilisierung
     
             # FINALE STABILISIERUNG
             time.sleep(0.5)  # Lange finale Pause
