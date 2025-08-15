@@ -177,5 +177,6 @@ DEFAULT_SETTINGS = {
     'maintain_aspect_default': True,
     'auto_connect': True,
     'debug_mode': False,
-    'label_size': DEFAULT_LABEL_SIZE  # Neue Einstellung für Label-Größe
+    'label_size': DEFAULT_LABEL_SIZE,  # Neue Einstellung für Label-Größe
+    'anti_drift_interval': 2.0  # Anti-Drift-Pause in Sekunden (basierend auf erfolgreichen Tests)
 }

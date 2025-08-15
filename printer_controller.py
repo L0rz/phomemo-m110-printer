@@ -616,13 +616,13 @@ class EnhancedPhomemoM110:
     def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
         """Druckt Bild sofort (bypass Queue) mit Anti-Drift-Mechanismus"""
         try:
-            # Anti-Drift: Pause zwischen Druckaufträgen
+            # Anti-Drift: Konfigurierbare Pause zwischen Druckaufträgen
             if hasattr(self, 'last_print_time'):
                 time_since_last = time.time() - self.last_print_time
-                min_interval = 0.5  # Mindestens 500ms zwischen Druckaufträgen
+                min_interval = self.settings.get('anti_drift_interval', 2.0)  # Konfigurierbar, Standard 2.0s
                 if time_since_last < min_interval:
                     sleep_time = min_interval - time_since_last
-                    logger.info(f"⏱️ Anti-drift pause: {sleep_time:.2f}s")
+                    logger.info(f"⏱️ Anti-drift pause ({min_interval}s setting): {sleep_time:.2f}s")
                     time.sleep(sleep_time)
             
             logger.info("🖨️ Starting immediate image print with anti-drift protection")
