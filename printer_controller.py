@@ -841,16 +841,11 @@ class EnhancedPhomemoM110:
                 # Adaptives Timing basierend auf Chunk-Größe
                 time.sleep(0.008)  # Etwas längere Pause zwischen Chunks
     
-            # ABSCHLUSS-KOMMANDOS für saubere Position
+            # ABSCHLUSS-KOMMANDOS für saubere Position  
             time.sleep(0.1)  # Warten bis alle Daten verarbeitet sind
             
-            # 4. Paper Feed für sauberen Abschluss
-            if not self.send_command(b'\x1b\x64\x02'):  # ESC d 2 - Feed 2 lines
-                logger.warning("⚠️ Failed to feed paper")
-            time.sleep(0.05)
-            
-            # 5. Drucker-Position final zurücksetzen
-            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Reset position again
+            # Position final zurücksetzen (OHNE Paper Feed - das ist absichtlich deaktiviert)
+            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Reset position
                 logger.warning("⚠️ Failed to final position reset")
             time.sleep(0.02)
             
