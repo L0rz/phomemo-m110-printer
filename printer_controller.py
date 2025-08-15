@@ -715,7 +715,35 @@ class EnhancedPhomemoM110:
             return False
     
     def create_text_image_with_offsets(self, text, font_size, alignment='center'):
-        """Erstellt Text-Bild mit Offsets und Ausrichtung"""
+        """Erstellt Text-Bild mit Offsets und Ausrichtung - MIT MARKDOWN SUPPORT"""
+        try:
+            # Erst das Markdown-formatierte Bild ohne Offsets erstellen
+            markdown_img = self.create_text_image_preview(text, font_size, alignment)
+            
+            if markdown_img is None:
+                logger.error("❌ Failed to create markdown image")
+                return None
+            
+            # Dann Offsets anwenden
+            x_offset = self.settings.get('x_offset', 0)
+            y_offset = self.settings.get('y_offset', 0)
+            
+            if x_offset != 0 or y_offset != 0:
+                logger.info(f"📐 Applying offsets to markdown text: X={x_offset}, Y={y_offset}")
+                final_img = self.apply_offsets_to_image(markdown_img)
+                logger.info(f"📐 Final markdown text image size: {final_img.width}x{final_img.height}")
+                return final_img
+            else:
+                logger.info(f"📐 No offsets applied to markdown text, image size: {markdown_img.width}x{markdown_img.height}")
+                return markdown_img
+                
+        except Exception as e:
+            logger.error(f"❌ Markdown text image creation error: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            return None
+    
+    def parse_markdown_text(self, text, base_font_size):
         try:
             import os
             from PIL import Image, ImageDraw, ImageFont
@@ -748,16 +776,24 @@ class EnhancedPhomemoM110:
                 font = ImageFont.load_default()
             
             # Text-Verarbeitung - verbesserte Zeilumbruch-Behandlung
-            # Verschiedene Newline-Formate normalisieren
             processed_text = text.replace('\\r\\n', '\n')  # Windows CRLF literal
             processed_text = processed_text.replace('\\n', '\n')  # Escaped newlines
             processed_text = processed_text.replace('\r\n', '\n')  # Windows CRLF
             processed_text = processed_text.replace('\r', '\n')   # Mac CR
             
+            # Zusätzliche Bereinigung für bessere Font-Kompatibilität
+            processed_text = processed_text.replace('\x00', '')  # Null-Bytes entfernen
+            processed_text = processed_text.replace('\t', '    ')  # Tabs zu Spaces
+            
             lines = processed_text.split('\n')
             # Leere Zeilen am Ende entfernen
             while lines and not lines[-1].strip():
                 lines.pop()
+            
+            # Leere Zeilen in der Mitte beibehalten, aber als Leerstring
+            for i, line in enumerate(lines):
+                if not line.strip():
+                    lines[i] = ''  # Explizit leer setzen
             
             logger.info(f"📄 Processing {len(lines)} lines: {[line[:20] + '...' if len(line) > 20 else line for line in lines[:3]]}")
             
@@ -1032,17 +1068,23 @@ class EnhancedPhomemoM110:
                 current_x = start_x
                 for segment_text, seg_font_size, is_bold, is_italic in line_segments:
                     if segment_text:
-                        seg_font = get_font(seg_font_size, is_bold, is_italic)
-                        try:
-                            draw.text((current_x, y_pos), segment_text, fill='black', font=seg_font)
-                            # X-Position für nächstes Segment aktualisieren
-                            bbox = draw.textbbox((0, 0), segment_text, font=seg_font)
-                            current_x += bbox[2] - bbox[0]
-                            
-                            logger.debug(f"✏️ Drew segment '{segment_text}' (size:{seg_font_size}, bold:{is_bold}, italic:{is_italic}) at ({current_x}, {y_pos})")
-                        except Exception as e:
-                            logger.warning(f"⚠️ Could not draw segment '{segment_text}': {e}")
-                            current_x += len(segment_text) * (seg_font_size // 2)
+                        # Spezielle Zeichen bereinigen für bessere Font-Kompatibilität
+                        clean_text = segment_text.replace('\x00', '').replace('\t', '    ')
+                        # Zusätzliche Unicode-Bereinigung
+                        clean_text = ''.join(char for char in clean_text if ord(char) >= 32 or char in '\n\r')
+                        
+                        if clean_text.strip():  # Nur nicht-leere Texte zeichnen
+                            seg_font = get_font(seg_font_size, is_bold, is_italic)
+                            try:
+                                draw.text((current_x, y_pos), clean_text, fill='black', font=seg_font)
+                                # X-Position für nächstes Segment aktualisieren
+                                bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
+                                current_x += bbox[2] - bbox[0]
+                                
+                                logger.debug(f"✏️ Drew segment '{clean_text[:20]}...' (size:{seg_font_size}, bold:{is_bold}, italic:{is_italic}) at ({current_x}, {y_pos})")
+                            except Exception as e:
+                                logger.warning(f"⚠️ Could not draw segment '{clean_text[:20]}...': {e}")
+                                current_x += len(clean_text) * (seg_font_size // 2)
                 
                 y_pos += line_heights[i] + 5
             
