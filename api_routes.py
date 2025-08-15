@@ -145,61 +145,61 @@ def setup_api_routes(app, printer):
             return jsonify({'success': False, 'error': str(e)})
 
     @app.route('/api/print-image', methods=['POST'])
-        def api_print_image():
-            """Druckt hochgeladenes Bild (multipart Feld 'data' ODER 'image')."""
-            try:
-                # ---- Datei holen (data ODER image) ----
-                file = _get_uploaded_file()
-                if not file:
-                    return jsonify({'success': False, 'error': 'Kein Bild hochgeladen (erwarte Feld: data oder image)'}), 400
-                if (file.filename or '') == '':
-                    return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'}), 400
-    
-                # ---- Einstellungen aus Form (bestehende Keys unverändert lassen) ----
-                use_queue = request.form.get('use_queue', 'false').lower() == 'true'
-                fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
-                maintain_aspect = request.form.get('maintain_aspect', 'true').lower() == 'true'
-                dither = request.form.get('dither', 'true').lower() == 'true'
-    
-                # ---- Datei lesen & Basis-Checks ----
-                image_data = file.read()
-                if not image_data:
-                    return jsonify({'success': False, 'error': 'Datei ist leer'}), 400
-    
-                if len(image_data) > (MAX_UPLOAD_SIZE or 10 * 1024 * 1024):
-                    return jsonify({'success': False, 'error': 'Datei zu groß (max 10MB)'}), 413
-    
-                # ---- Format robust aus Bytes erkennen ----
-                detected_fmt = _detect_image_format(image_data)
-                if not detected_fmt:
-                    return jsonify({'success': False, 'error': f'Nicht unterstütztes Format. Erlaubt: {", ".join(SUPPORTED_IMAGE_FORMATS)}'}), 415
-    
-                # Für Log/Dateiname (optional)
-                filename = secure_filename(file.filename or f"image.{detected_fmt.lower()}")
-    
-                # ---- Drucken (wie gehabt) ----
-                if use_queue:
-                    job_id = printer.print_image_async(image_data, filename)
-                    return jsonify({
-                        'success': True,
-                        'job_id': job_id,
-                        'message': 'Image queued',
-                        'filename': filename,
-                        'format': detected_fmt,
-                        'size_bytes': len(image_data)
-                    })
-                else:
-                    success = printer.print_image_from_data(image_data, filename)
-                    return jsonify({
-                        'success': success,
-                        'filename': filename,
-                        'format': detected_fmt,
-                        'size_bytes': len(image_data)
-                    })
-    
-            except Exception as e:
-                logger.error(f"API print image error: {e}")
-                return jsonify({'success': False, 'error': str(e)}), 500
+    def api_print_image():
+        """Druckt hochgeladenes Bild (multipart Feld 'data' ODER 'image')."""
+        try:
+            # ---- Datei holen (data ODER image) ----
+            file = _get_uploaded_file()
+            if not file:
+                return jsonify({'success': False, 'error': 'Kein Bild hochgeladen (erwarte Feld: data oder image)'}), 400
+            if (file.filename or '') == '':
+                return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'}), 400
+
+            # ---- Einstellungen aus Form (bestehende Keys unverändert lassen) ----
+            use_queue = request.form.get('use_queue', 'false').lower() == 'true'
+            fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
+            maintain_aspect = request.form.get('maintain_aspect', 'true').lower() == 'true'
+            dither = request.form.get('dither', 'true').lower() == 'true'
+
+            # ---- Datei lesen & Basis-Checks ----
+            image_data = file.read()
+            if not image_data:
+                return jsonify({'success': False, 'error': 'Datei ist leer'}), 400
+
+            if len(image_data) > (MAX_UPLOAD_SIZE or 10 * 1024 * 1024):
+                return jsonify({'success': False, 'error': 'Datei zu groß (max 10MB)'}), 413
+
+            # ---- Format robust aus Bytes erkennen ----
+            detected_fmt = _detect_image_format(image_data)
+            if not detected_fmt:
+                return jsonify({'success': False, 'error': f'Nicht unterstütztes Format. Erlaubt: {", ".join(SUPPORTED_IMAGE_FORMATS)}'}), 415
+
+            # Für Log/Dateiname (optional)
+            filename = secure_filename(file.filename or f"image.{detected_fmt.lower()}")
+
+            # ---- Drucken (wie gehabt) ----
+            if use_queue:
+                job_id = printer.print_image_async(image_data, filename)
+                return jsonify({
+                    'success': True,
+                    'job_id': job_id,
+                    'message': 'Image queued',
+                    'filename': filename,
+                    'format': detected_fmt,
+                    'size_bytes': len(image_data)
+                })
+            else:
+                success = printer.print_image_from_data(image_data, filename)
+                return jsonify({
+                    'success': success,
+                    'filename': filename,
+                    'format': detected_fmt,
+                    'size_bytes': len(image_data)
+                })
+
+        except Exception as e:
+            logger.error(f"API print image error: {e}")
+            return jsonify({'success': False, 'error': str(e)}), 500
     @app.route('/api/print-text', methods=['POST'])
     def api_print_text():
         """Druckt Text mit Offset-Einstellungen"""
