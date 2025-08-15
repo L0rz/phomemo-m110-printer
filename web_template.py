@@ -422,18 +422,27 @@ WEB_INTERFACE = '''
             <!-- Text Printing -->
             <div class="card">
                 <h2>📝 Text drucken (mit Markdown)</h2>
-                <textarea id="textInput" rows="4" placeholder="Text eingeben... (Markdown möglich)" oninput="debouncedTextPreview()"># PHOMEMO M110
+                <textarea id="textInput" rows="6" placeholder="Text eingeben... (Markdown möglich)" oninput="debouncedTextPreview()"># PHOMEMO M110
 ## Enhanced Edition  
-**Fetter Text** ist verfügbar
-X-Offset: 0px
-✓ Bildvorschau
+**QR & Barcode Test**
+
+QR-Code:
+#qr#https://example.com#qr#
+
+Barcode:
+#bar#ART-12345#bar#
+
 Zeit: $TIME$</textarea>
                 
                 <div class="markdown-help" style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 12px;">
                     <strong>📖 Markdown-Hilfe:</strong><br>
                     <code>**fett**</code> → <strong>fett</strong> | 
                     <code># Überschrift</code> → große Schrift | 
-                    <code>## Unterüberschrift</code> → mittlere Schrift
+                    <code>## Unterüberschrift</code> → mittlere Schrift<br>
+                    <strong>🔲 QR/Barcode:</strong> 
+                    <code>#qr#Inhalt#qr#</code> → QR-Code | 
+                    <code>#bar#12345#bar#</code> → Barcode | 
+                    <code>#qr:150#Größer#qr#</code> → 150px QR
                 </div>
                 
                 <div class="grid" style="gap: 10px; margin: 10px 0;">
@@ -469,76 +478,7 @@ Zeit: $TIME$</textarea>
                 
                 <button class="btn" onclick="printText(false)">🖨️ Sofort drucken</button>
                 <button class="btn btn-success" onclick="printText(true)">📤 In Queue</button>
-            </div>
-
-            <!-- QR-Code & Barcode Printing -->
-            <div class="card">
-                <h2>🔲 QR-Codes & Barcodes</h2>
-                
-                <div style="margin: 10px 0; padding: 15px; background: #e8f4fd; border-radius: 8px; border-left: 4px solid #2196F3;">
-                    <h4 style="margin: 0 0 10px 0; color: #1976D2;">📖 Code-Syntax:</h4>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-family: monospace; font-size: 13px;">
-                        <div>
-                            <strong>QR-Codes:</strong><br>
-                            <code>#qr#Inhalt#qr#</code> → Standard QR<br>
-                            <code>#qr:150#Größer#qr#</code> → 150px QR<br>
-                            <code>#qr#https://example.com#qr#</code> → URL QR
-                        </div>
-                        <div>
-                            <strong>Barcodes:</strong><br>
-                            <code>#bar#1234567890#bar#</code> → Standard Barcode<br>
-                            <code>#bar:80#Code#bar#</code> → 80px hoher Barcode<br>
-                            <code>#bar#ART-12345#bar#</code> → Artikel-Code
-                        </div>
-                    </div>
-                    <div style="margin-top: 10px; color: #555;">
-                        <strong>💡 Tipps:</strong> Codes werden automatisch zentriert. Text kann vor/nach Codes stehen. Mehrere Codes pro Label möglich.
-                    </div>
-                </div>
-                
-                <textarea id="codeTextInput" rows="6" placeholder="Text mit QR-Codes und Barcodes eingeben..." oninput="debouncedCodePreview()">Produkt Information:
-
-#qr#https://shop.example.com/product/123#qr#
-
-Artikel-Nr: #bar#ART-456789#bar#
-
-Datum: $TIME$</textarea>
-                
-                <div class="grid" style="gap: 10px; margin: 10px 0;">
-                    <div>
-                        <label>Schriftgröße:</label>
-                        <select id="codeFontSize" onchange="updateCodePreview()">
-                            <option value="16">Klein (16px)</option>
-                            <option value="20" selected>Normal (20px)</option>
-                            <option value="24">Groß (24px)</option>
-                            <option value="28">Extra Groß (28px)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Ausrichtung:</label>
-                        <select id="codeAlignment" onchange="updateCodePreview()">
-                            <option value="left">Links</option>
-                            <option value="center" selected>Zentriert</option>
-                            <option value="right">Rechts</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="grid" style="gap: 10px;">
-                    <button onclick="previewCodeText()" class="btn">🔍 Vorschau mit Codes</button>
-                    <button onclick="printCodeText(false)" class="btn-primary">📄 In Queue</button>
-                    <button onclick="printCodeText(true)" class="btn-warning">⚡ Sofort drucken</button>
-                    <button onclick="showCodeSyntaxHelp()" class="btn" style="background: #4CAF50; color: white;">📖 Syntax-Hilfe</button>
-                </div>
-                
-                <!-- Code Preview Container -->
-                <div id="codePreview" class="preview-container" style="display: none; margin-top: 15px;">
-                    <h4>🔍 Vorschau mit Codes:</h4>
-                    <div class="preview-image-container">
-                        <img id="codePreviewImage" style="max-width: 100%; border: 2px solid #ddd; border-radius: 5px; background: white;">
-                    </div>
-                    <div id="codePreviewInfo" class="preview-info"></div>
-                </div>
+                <button onclick="showCodeSyntaxHelp()" class="btn" style="background: #4CAF50; color: white; margin-left: 10px;">📖 QR/Barcode Hilfe</button>
             </div>
             
             <!-- Image Printing with Preview -->
@@ -892,15 +832,21 @@ Datum: $TIME$</textarea>
             formData.append('alignment', alignment);
             formData.append('immediate', useQueue ? 'false' : 'true');
             
+            // Check if text contains QR/Barcode syntax
+            const hasQRCodes = finalText.includes('#qr#');
+            const hasBarcodes = finalText.includes('#bar#');
+            const apiEndpoint = (hasQRCodes || hasBarcodes) ? '/api/print-text-with-codes' : '/api/print-text';
+            
             showStatus(`🖨️ Drucke Text (${alignment})...`, 'info');
             
-            fetch('/api/print-text', { method: 'POST', body: formData })
+            fetch(apiEndpoint, { method: 'POST', body: formData })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        showStatus('✅ Text gedruckt!', 'success');
+                        const message = (hasQRCodes || hasBarcodes) ? '✅ Text mit Codes gedruckt!' : '✅ Text gedruckt!';
+                        showStatus(message, 'success');
                     } else {
-                        showStatus('❌ Druckfehler: ' + (data.error || ''), 'error');
+                        showStatus('❌ Druckfehler: ' + (data.error || data.message || ''), 'error');
                     }
                 })
                 .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
@@ -925,7 +871,12 @@ Datum: $TIME$</textarea>
             formData.append('font_size', fontSize);
             formData.append('alignment', alignment);
             
-            fetch('/api/preview-text', { method: 'POST', body: formData })
+            // Check if text contains QR/Barcode syntax
+            const hasQRCodes = text.includes('#qr#');
+            const hasBarcodes = text.includes('#bar#');
+            const apiEndpoint = (hasQRCodes || hasBarcodes) ? '/api/preview-text-with-codes' : '/api/preview-text';
+            
+            fetch(apiEndpoint, { method: 'POST', body: formData })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -934,11 +885,18 @@ Datum: $TIME$</textarea>
                         previewImg.src = 'data:image/png;base64,' + data.preview_base64;
                         previewImg.style.display = 'block';
                         
-                        document.getElementById('textInfo').innerHTML = 
+                        let infoHTML = 
                             `📏 <strong>Größe:</strong> ${data.info.width} × ${data.info.height} px<br>` +
                             `📝 <strong>Text:</strong> "${data.info.text}"<br>` +
                             `🔤 <strong>Schrift:</strong> ${data.info.font_size}px, ${data.info.alignment}<br>` +
                             `📍 <strong>Offsets:</strong> X=${data.info.x_offset}px, Y=${data.info.y_offset}px`;
+                        
+                        // Add QR/Barcode info if present
+                        if (data.info.codes_found && data.info.codes_found > 0) {
+                            infoHTML += `<br>🔲 <strong>Codes:</strong> ${data.info.codes_found} gefunden`;
+                        }
+                        
+                        document.getElementById('textInfo').innerHTML = infoHTML;
                         document.getElementById('textInfo').style.display = 'block';
                     } else {
                         showStatus('❌ Text-Vorschau Fehler: ' + (data.error || ''), 'error');
@@ -1096,125 +1054,7 @@ Datum: $TIME$</textarea>
             updateImageDitherValue();
             updateImageDitherStrengthValue();
 
-        // QR/Barcode spezifische Funktionen
-        let codePreviewDebounceTimer;
-        
-        function debouncedCodePreview() {
-            clearTimeout(codePreviewDebounceTimer);
-            codePreviewDebounceTimer = setTimeout(updateCodePreview, 500);
-        }
-        
-        function updateCodePreview() {
-            const text = document.getElementById('codeTextInput').value;
-            if (text.trim() && (text.includes('#qr#') || text.includes('#bar#'))) {
-                previewCodeText();
-            }
-        }
-        
-        async function previewCodeText() {
-            const text = document.getElementById('codeTextInput').value;
-            const fontSize = document.getElementById('codeFontSize').value;
-            const alignment = document.getElementById('codeAlignment').value;
-            
-            if (!text.trim()) {
-                alert('Bitte Text eingeben');
-                return;
-            }
-            
-            showLoading('Erstelle Vorschau mit Codes...');
-            
-            const formData = new FormData();
-            formData.append('text', text);
-            formData.append('font_size', fontSize);
-            formData.append('alignment', alignment);
-            
-            try {
-                const response = await fetch('/api/preview-text-with-codes', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                hideLoading();
-                
-                if (result.success) {
-                    const previewContainer = document.getElementById('codePreview');
-                    const previewImage = document.getElementById('codePreviewImage');
-                    const previewInfo = document.getElementById('codePreviewInfo');
-                    
-                    previewImage.src = 'data:image/png;base64,' + result.preview_base64;
-                    previewContainer.style.display = 'block';
-                    
-                    // Info anzeigen
-                    const info = result.info;
-                    previewInfo.innerHTML = `
-                        <strong>📐 Abmessungen:</strong> ${info.width}×${info.height}px<br>
-                        <strong>🔤 Schrift:</strong> ${info.font_size}px, ${info.alignment}<br>
-                        <strong>🔲 Codes gefunden:</strong> ${info.codes_found}<br>
-                        ${info.codes && info.codes.length > 0 ? 
-                            '<strong>📋 Code-Details:</strong><br>' + 
-                            info.codes.map(code => 
-                                `&nbsp;&nbsp;• ${code.type.toUpperCase()}: "${code.content}" (${code.size || code.height || 'default'}px)`
-                            ).join('<br>')
-                            : ''
-                        }
-                    `;
-                    
-                    // Scroll to preview
-                    previewContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                } else {
-                    alert('Vorschau-Fehler: ' + (result.error || 'Unbekannter Fehler'));
-                }
-            } catch (error) {
-                hideLoading();
-                alert('Netzwerk-Fehler: ' + error.message);
-            }
-        }
-        
-        async function printCodeText(immediate = false) {
-            const text = document.getElementById('codeTextInput').value;
-            const fontSize = document.getElementById('codeFontSize').value;
-            const alignment = document.getElementById('codeAlignment').value;
-            
-            if (!text.trim()) {
-                alert('Bitte Text eingeben');
-                return;
-            }
-            
-            showLoading(immediate ? 'Drucke Text mit Codes...' : 'Füge zu Queue hinzu...');
-            
-            const formData = new FormData();
-            formData.append('text', text);
-            formData.append('font_size', fontSize);
-            formData.append('alignment', alignment);
-            formData.append('immediate', immediate.toString());
-            
-            try {
-                const response = await fetch('/api/print-text-with-codes', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                hideLoading();
-                
-                if (result.success) {
-                    const message = immediate ? 
-                        'Text mit Codes erfolgreich gedruckt!' : 
-                        `Text mit Codes zur Queue hinzugefügt (Job ID: ${result.job_id})`;
-                    showMessage(message, 'success');
-                    
-                    // Statistiken aktualisieren
-                    setTimeout(updateStatus, 1000);
-                } else {
-                    showMessage('Fehler: ' + (result.error || result.message || 'Unbekannter Fehler'), 'error');
-                }
-            } catch (error) {
-                hideLoading();
-                showMessage('Netzwerk-Fehler: ' + error.message, 'error');
-            }
-        }
-        
+        // QR/Barcode Syntax Help Function
         async function showCodeSyntaxHelp() {
             try {
                 const response = await fetch('/api/code-syntax-help');
