@@ -26,7 +26,7 @@ try:
     HAS_NUMPY = True
 except ImportError:
     HAS_NUMPY = False
-    logger.warning("Numpy not available, advanced dithering features disabled")
+    print("WARNING: Numpy not available, advanced dithering features disabled")
 
 # Konfiguration importieren
 from config import *
@@ -1213,7 +1213,7 @@ class EnhancedPhomemoM110:
                 
                 if x_offset != 0 or y_offset != 0:
                     logger.info(f"🔧 Applying offsets: x={x_offset}, y={y_offset}")
-                    img = self.apply_offset_to_image(img, x_offset, y_offset)
+                    img = self.apply_offsets(img)
                 
                 logger.info(f"✅ Text image with codes created: {img.width}x{img.height}")
                 return img
