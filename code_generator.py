@@ -275,11 +275,20 @@ class CodeGenerator:
         Erstellt kombiniertes Bild mit Text, Markdown UND Codes
         """
         try:
+            logger.info(f"🎯 STARTING create_combined_image with font_size={font_size}")
+            
             # SCHRITT 1: Text parsen und QR/Barcode-Codes extrahieren
             processed_text, codes = self.parse_and_process_text(text)
+            logger.info(f"📝 Found {len(codes)} codes in text")
             
             # SCHRITT 2: Den verarbeiteten Text durch Markdown-Parser schicken
             parsed_lines = self.parse_markdown_text(processed_text, font_size)
+            logger.info(f"📄 Parsed into {len(parsed_lines)} lines with font_size={font_size}")
+            
+            # Debug: Zeige die geparsten Zeilen
+            for i, line_segments in enumerate(parsed_lines):
+                for segment_text, seg_font_size, is_bold in line_segments:
+                    logger.info(f"  Line {i}: '{segment_text}' -> size={seg_font_size}, bold={is_bold}")
             
             # Basis-Bild erstellen
             img = Image.new('1', (self.label_width_px, self.label_height_px), 'white')
@@ -358,28 +367,10 @@ class CodeGenerator:
             
             # Prüfen ob alle Codes + Text auf das Label passen
             estimated_text_height = len(parsed_lines) * (font_size + 5)  # Grobe Schätzung
-            total_needed_height = total_code_height + estimated_text_height + 20  # + Ränder
+            # **WICHTIG: Schriftgröße wird NIEMALS automatisch reduziert!**
+            # Stattdessen werden nur die Codes angepasst oder übergelaufen gelassen
             
-            if total_needed_height > self.label_height_px:
-                logger.info(f"Content too large ({total_needed_height}px > {self.label_height_px}px), optimizing...")
-                
-                # Codes verkleinern wenn nötig
-                for code in codes:
-                    placeholder = code['placeholder']
-                    if placeholder in code_images:
-                        old_img = code_images[placeholder]
-                        
-                        if code['type'] == 'qr':
-                            # QR auf minimum verkleinern
-                            new_size = 60
-                            code_images[placeholder] = self.generate_qr_code(code['content'], new_size)
-                            logger.info(f"Resized QR from {old_img.width}px to {new_size}px")
-                            
-                        elif code['type'] == 'barcode':
-                            # Barcode auf minimum verkleinern
-                            new_height = 30
-                            code_images[placeholder] = self.generate_barcode(code['content'], new_height)
-                            logger.info(f"Resized Barcode from {old_img.height}px to {new_height}px")
+            logger.info(f"💬 Text font size guaranteed: {font_size}px (NEVER auto-reduced)")
             
             # SCHRITT 3: Markdown-formatierte Zeilen mit QR/Barcode-Platzhaltern verarbeiten
             for line_segments in parsed_lines:
@@ -482,6 +473,7 @@ class CodeGenerator:
                         try:
                             draw.text((current_x, current_y), clean_text, fill='black', font=seg_font)
                             bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
+                            logger.info(f"🎨 Drawing '{clean_text}' with font_size={seg_font_size}, bold={is_bold}")
                             current_x += bbox[2] - bbox[0]
                             
                             logger.debug(f"Drew Markdown segment '{clean_text[:20]}...' (size:{seg_font_size}, bold:{is_bold})")
