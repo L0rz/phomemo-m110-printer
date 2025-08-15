@@ -29,7 +29,7 @@ def test_label_sizes():
         
         # 2. Label-Größe wechseln
         print("\n2. Teste Label-Größen-Wechsel...")
-        test_sizes = ['30x50', '25x25', '40x30']  # Zurück zum Standard
+        test_sizes = ['50x30', '50x80', '30x50', '25x25', '40x30']  # Alle neuen Größen + zurück zum Standard
         
         for size_key in test_sizes:
             print(f"\n   Wechsle zu {size_key}...")
@@ -39,6 +39,7 @@ def test_label_sizes():
             if data['success']:
                 print(f"   ✅ {data['message']}")
                 print(f"   📐 Neue Größe: {data['current_size']['width_px']}×{data['current_size']['height_px']}px")
+                print(f"   📏 Physisch: {data['current_size']['width_mm']}×{data['current_size']['height_mm']}mm")
             else:
                 print(f"   ❌ Fehler: {data['error']}")
         

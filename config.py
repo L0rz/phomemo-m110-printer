@@ -46,13 +46,29 @@ LABEL_SIZES = {
         'height_px': int((50 / 25.4) * LABEL_DPI),  # ~400px
         'description': 'Schmales hohes Label'
     },
+    '50x30': {
+        'name': '50x30mm (Breit/Standard)',
+        'width_mm': 50,
+        'height_mm': 30,
+        'width_px': int((50 / 25.4) * LABEL_DPI),   # ~400px (wird auf 384px begrenzt)
+        'height_px': int((30 / 25.4) * LABEL_DPI),  # ~240px
+        'description': 'Breites Standard-Label'
+    },
+    '50x80': {
+        'name': '50x80mm (Groß/Hoch)',
+        'width_mm': 50,
+        'height_mm': 80,
+        'width_px': int((50 / 25.4) * LABEL_DPI),   # ~400px (wird auf 384px begrenzt)
+        'height_px': int((80 / 25.4) * LABEL_DPI),  # ~640px
+        'description': 'Großes hohes Label für viel Text'
+    },
     '80x50': {
-        'name': '80x50mm (Breit)',
+        'name': '80x50mm (Extra Breit)',
         'width_mm': 80,
         'height_mm': 50,
         'width_px': int((80 / 25.4) * LABEL_DPI),   # ~640px (wird auf 384px begrenzt)
         'height_px': int((50 / 25.4) * LABEL_DPI),  # ~400px
-        'description': 'Breites Label (wird auf Drucker-Breite begrenzt)'
+        'description': 'Extra breites Label'
     },
     '50x25': {
         'name': '50x25mm (Breit/Flach)',

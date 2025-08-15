@@ -207,13 +207,22 @@
             <textarea id="testText" placeholder="Test-Text eingeben (unterstützt Markdown und QR/Barcodes)...">
 # Test Label
 
-**Größe:** Aktuell eingestellt
+**Größe:** Dynamisch angepasst
 
 #qr#https://example.com#qr#
 
 **Barcode:** #bar#TEST-12345#bar#
 
-Normal text hier.
+**Verfügbare Größen:**
+• 40×30mm (Standard)
+• 30×50mm (Schmal/Hoch) 
+• 50×30mm (Breit/Standard)
+• 50×80mm (Groß/Hoch)
+• 80×50mm (Extra Breit)
+• 50×25mm (Breit/Flach)
+• 25×25mm (Quadrat)
+
+✅ Label-System funktioniert!
             </textarea>
             <br>
             <button onclick="previewTest()">📋 Vorschau erstellen</button>
