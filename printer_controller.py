@@ -28,7 +28,7 @@ except ImportError:
     logger.warning("Numpy not available, advanced dithering features disabled")
 
 # Konfiguration importieren
-from config_enhanced import *
+from config import *
 
 logger = logging.getLogger(__name__)
 

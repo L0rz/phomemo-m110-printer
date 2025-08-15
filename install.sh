@@ -1,11 +1,11 @@
 #!/bin/bash
 """
-Installations-Skript für Phomemo M110 Enhanced Server
+Installations-Skript für Phomemo M110 Server
 Mit Bildvorschau und X-Offset-Konfiguration
 """
 
-echo "🖨️  PHOMEMO M110 ENHANCED INSTALLATION"
-echo "======================================"
+echo "🖨️  PHOMEMO M110 INSTALLATION"
+echo "============================="
 
 # Farben für Output
 RED='\033[0;31m'
@@ -76,7 +76,7 @@ fi
 
 # Konfigurationsdatei anpassen
 print_step "Updating configuration file..."
-sed -i "s/12:7E:5A:E9:E5:22/$PRINTER_MAC/g" config_enhanced.py
+sed -i "s/12:7E:5A:E9:E5:22/$PRINTER_MAC/g" config.py
 
 # Bluetooth-Pairing
 print_step "Pairing with printer..."

@@ -3,7 +3,7 @@ Erweitertes Web Interface Template für Phomemo M110
 Mit Bildvorschau, X-Offset-Konfiguration und erweiterten Features
 """
 
-WEB_INTERFACE_ENHANCED = '''
+WEB_INTERFACE = '''
 <!DOCTYPE html>
 <html>
 <head>

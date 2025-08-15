@@ -11,14 +11,14 @@ import queue
 import base64
 from flask import request, jsonify, Blueprint
 from datetime import datetime
-from printer_controller_enhanced import PrintJob, ConnectionStatus
+from printer_controller import PrintJob, ConnectionStatus
 from werkzeug.utils import secure_filename
-from config_enhanced import SUPPORTED_IMAGE_FORMATS, MAX_UPLOAD_SIZE
+from config import SUPPORTED_IMAGE_FORMATS, MAX_UPLOAD_SIZE
 
 bp = Blueprint('api', __name__)
 logger = logging.getLogger(__name__)
 
-def setup_enhanced_api_routes(app, printer):
+def setup_api_routes(app, printer):
     """Registriert alle erweiterten API-Routes"""
     
     @app.route('/api/status')

@@ -11,11 +11,11 @@ import os
 import time
 from flask import Flask, render_template_string
 
-# Erweiterte Module importieren
-from printer_controller_enhanced import EnhancedPhomemoM110
-from api_routes_enhanced import setup_enhanced_api_routes
-from web_template_enhanced import WEB_INTERFACE_ENHANCED
-from config_enhanced import *
+# Module importieren
+from printer_controller import EnhancedPhomemoM110
+from api_routes import setup_api_routes
+from web_template import WEB_INTERFACE
+from config import *
 
 # Logging konfigurieren
 logging.basicConfig(
@@ -36,12 +36,12 @@ app.config['MAX_CONTENT_LENGTH'] = MAX_UPLOAD_SIZE  # File upload limit
 printer = EnhancedPhomemoM110(PRINTER_MAC)
 
 # API Routes registrieren
-setup_enhanced_api_routes(app, printer)
+setup_api_routes(app, printer)
 
 # Web Interface Route
 @app.route('/')
 def index():
-    return render_template_string(WEB_INTERFACE_ENHANCED)
+    return render_template_string(WEB_INTERFACE)
 
 # Static Files Error Handler
 @app.errorhandler(413)
@@ -113,12 +113,12 @@ def print_startup_info():
     print("   F5: Verbindungsstatus aktualisieren")
     print("=" * 60)
     print("📁 MODULARE STRUKTUR:")
-    print("   ├── main_enhanced.py           (Hauptserver)")
-    print("   ├── printer_controller_enhanced.py (Erweiterte Printer-Logik)")
-    print("   ├── api_routes_enhanced.py     (REST API mit Bildverarbeitung)")
-    print("   ├── web_template_enhanced.py   (Web-Interface)")
-    print("   ├── config_enhanced.py         (Konfiguration)")
-    print("   └── printer_settings.json      (Persistente Einstellungen)")
+    print("   ├── main.py                    (Hauptserver)")
+    print("   ├── printer_controller.py     (Printer-Logik)")
+    print("   ├── api_routes.py              (REST API mit Bildverarbeitung)")
+    print("   ├── web_template.py            (Web-Interface)")
+    print("   ├── config.py                  (Konfiguration)")
+    print("   └── printer_settings.json     (Persistente Einstellungen)")
     print("=" * 60)
     
     # Aktuelle Einstellungen anzeigen
@@ -129,7 +129,7 @@ def print_startup_info():
     print(f"   Dithering: {'✅' if settings.get('dither_enabled', True) else '❌'}")
     print(f"   Auto-Connect: {'✅' if settings.get('auto_connect', True) else '❌'}")
     print("=" * 60)
-    print("💡 WICHTIG: MAC-Adresse in config_enhanced.py anpassen!")
+    print("💡 WICHTIG: MAC-Adresse in config.py anpassen!")
     print("🚀 Server startet...")
     print("=" * 60)
 
