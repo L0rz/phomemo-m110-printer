@@ -883,7 +883,21 @@ class EnhancedPhomemoM110:
         """
         import re
         
-        lines = text.split('\n')
+        # SCHRITT 1: Komplette Text-Bereinigung VOR dem Parsen
+        # Windows CRLF und andere Zeilenende-Formate normalisieren
+        clean_text = text.replace('\r\n', '\n')  # Windows CRLF
+        clean_text = clean_text.replace('\r', '\n')   # Mac CR
+        clean_text = clean_text.replace('\\n', '\n')  # Escaped newlines
+        clean_text = clean_text.replace('\\r\\n', '\n')  # Windows CRLF literal
+        
+        # Problematische Zeichen entfernen
+        clean_text = clean_text.replace('\x00', '')  # Null-Bytes entfernen
+        clean_text = clean_text.replace('\t', '    ')  # Tabs zu 4 Spaces
+        
+        # Alle anderen Steuerzeichen entfernen (außer \n und Space)
+        clean_text = ''.join(char for char in clean_text if ord(char) >= 32 or char in ['\n', ' '])
+        
+        lines = clean_text.split('\n')
         parsed_lines = []
         
         for line in lines:
@@ -911,6 +925,7 @@ class EnhancedPhomemoM110:
         """Parst inline Markdown-Formatierung in einem Text"""
         import re
         
+        # Text ist bereits in parse_markdown_text bereinigt worden
         segments = []
         current_pos = 0
         
