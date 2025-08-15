@@ -30,7 +30,15 @@ except ImportError:
 
 # Konfiguration importieren
 from config import *
-from code_generator import CodeGenerator
+
+# Code Generator import mit Fallback
+try:
+    from code_generator import CodeGenerator
+    HAS_CODE_GENERATOR = True
+except ImportError as e:
+    HAS_CODE_GENERATOR = False
+    print(f"WARNING: Code generator not available: {e}")
+    print("QR/Barcode features will be disabled. Install with: pip3 install qrcode pillow")
 
 logger = logging.getLogger(__name__)
 
@@ -91,8 +99,11 @@ class EnhancedPhomemoM110:
         self.queue_processor_running = False
         self.queue_thread = None
         
-        # Code Generator für QR/Barcodes
-        self.code_generator = CodeGenerator(self.label_width_px, self.label_height_px)
+        # Code Generator für QR/Barcodes (falls verfügbar)
+        if HAS_CODE_GENERATOR:
+            self.code_generator = CodeGenerator(self.label_width_px, self.label_height_px)
+        else:
+            self.code_generator = None
         
         # Connection Monitoring
         self.monitor_thread = None
@@ -1186,6 +1197,10 @@ class EnhancedPhomemoM110:
     def create_text_image_with_codes(self, text: str, font_size: int = 22, alignment: str = 'center') -> Optional[Image.Image]:
         """Erstellt Text-Bild mit QR/Barcode-Unterstützung"""
         try:
+            if not HAS_CODE_GENERATOR or self.code_generator is None:
+                logger.warning("Code generator not available, falling back to regular text image")
+                return self.create_text_image_with_offsets(text, font_size, alignment)
+            
             logger.info(f"📝 Creating text image with codes: font_size={font_size}, alignment={alignment}")
             
             # Code Generator verwenden
@@ -1213,6 +1228,9 @@ class EnhancedPhomemoM110:
     def print_text_with_codes_immediate(self, text: str, font_size: int = 22, alignment: str = 'center') -> Dict[str, Any]:
         """Druckt Text mit QR-Codes und Barcodes sofort"""
         try:
+            if not HAS_CODE_GENERATOR or self.code_generator is None:
+                return {'success': False, 'message': 'QR/Barcode features not available. Install with: pip3 install qrcode pillow'}
+            
             logger.info(f"🖨️ Starting immediate text with codes print: '{text[:50]}...'")
             
             img = self.create_text_image_with_codes(text, font_size, alignment)

@@ -438,6 +438,13 @@ def setup_api_routes(app, printer):
     def api_print_text_with_codes():
         """Druckt Text mit QR-Codes und Barcodes"""
         try:
+            # Check if code generator is available
+            if not hasattr(printer, 'code_generator') or printer.code_generator is None:
+                return jsonify({
+                    'success': False, 
+                    'error': 'QR/Barcode features not available. Install with: pip3 install qrcode pillow'
+                })
+            
             text = request.form.get('text', '')
             font_size = int(request.form.get('font_size', 22))
             immediate = request.form.get('immediate', 'false').lower() == 'true'
@@ -467,6 +474,13 @@ def setup_api_routes(app, printer):
     def api_preview_text_with_codes():
         """Erstellt Vorschau für Text mit QR-Codes und Barcodes"""
         try:
+            # Check if code generator is available
+            if not hasattr(printer, 'code_generator') or printer.code_generator is None:
+                return jsonify({
+                    'success': False, 
+                    'error': 'QR/Barcode features not available. Install with: pip3 install qrcode pillow'
+                })
+            
             text = request.form.get('text', '')
             font_size = int(request.form.get('font_size', 22))
             alignment = request.form.get('alignment', 'center')
