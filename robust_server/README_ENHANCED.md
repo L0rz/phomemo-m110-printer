@@ -376,10 +376,11 @@ python3 main_enhanced.py
 - [ ] **🔌 REST API für externe Integration** - Vollständige API für Drittanbieter-Software
 - [ ] **🖨️ Multi-Drucker-Support** - Verwaltung mehrerer Phomemo-Drucker gleichzeitig
 - [ ] **💾 Job-Persistenz** - Druckjobs überleben Server-Neustarts
+- [ ] ** Print Queue ** - Wenn gedruckt wird wenn der Drucker aus/nicht errreichbar ist werde die Drucke nach neu verbinden gesendet
 - [ ] **🎨 Erweiterte Bildfilter** - Zusätzliche Bildbearbeitungsoptionen
 - [ ] **📊 Export-Funktionen** - Statistiken und Logs exportieren
-- [ ] **🔔 Benachrichtigungen** - Push-Benachrichtigungen für Job-Status
 - [ ] **🌐 Multi-Language Support** - Internationalisierung des Web-Interface
+- [ ] ** Homeassistant Integration**
 
 ### 🎯 **Nächste Releases:**
 - **v1.1**: QR-Code Generation und Template-System
