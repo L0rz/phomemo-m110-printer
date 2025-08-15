@@ -448,10 +448,10 @@ Zeit: $TIME$</textarea>
                     <div style="margin-top: 15px;">
                         <label style="display: block; margin-bottom: 10px;"><strong>📐 Skalierungsmodus:</strong></label>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <label><input type="radio" name="scalingMode" value="fit_aspect" checked onchange="updatePreview()"> 📏 Seitenverhältnis beibehalten</label>
-                            <label><input type="radio" name="scalingMode" value="stretch_full" onchange="updatePreview()"> 🔄 Volle Größe (stretchen)</label>
-                            <label><input type="radio" name="scalingMode" value="crop_center" onchange="updatePreview()"> ✂️ Zentriert zuschneiden</label>
-                            <label><input type="radio" name="scalingMode" value="pad_center" onchange="updatePreview()"> 🖼️ Zentriert mit Rand</label>
+                            <label><input type="radio" name="scalingMode" value="fit_aspect" checked onchange="updatePreview(); updateScalingModeHelp();"> 📏 Seitenverhältnis beibehalten</label>
+                            <label><input type="radio" name="scalingMode" value="stretch_full" onchange="updatePreview(); updateScalingModeHelp();"> 🔄 Volle Größe (stretchen)</label>
+                            <label><input type="radio" name="scalingMode" value="crop_center" onchange="updatePreview(); updateScalingModeHelp();"> ✂️ Zentriert zuschneiden</label>
+                            <label><input type="radio" name="scalingMode" value="pad_center" onchange="updatePreview(); updateScalingModeHelp();"> 🖼️ Zentriert mit Rand</label>
                         </div>
                         <div style="margin-top: 5px; font-size: 12px; color: #666;">
                             <div id="scalingModeHelp">📏 Behält Seitenverhältnis bei, kann Ränder hinterlassen</div>
@@ -700,6 +700,16 @@ Zeit: $TIME$</textarea>
             
             if (!file) return;
             
+            // Aktuellen Skalierungsmodus ermitteln
+            const scalingModeRadios = document.getElementsByName('scalingMode');
+            let selectedScalingMode = 'fit_aspect'; // Default
+            for (let radio of scalingModeRadios) {
+                if (radio.checked) {
+                    selectedScalingMode = radio.value;
+                    break;
+                }
+            }
+            
             const formData = new FormData();
             formData.append('image', file);
             formData.append('fit_to_label', document.getElementById('fitToLabel').checked);
@@ -707,6 +717,7 @@ Zeit: $TIME$</textarea>
             formData.append('enable_dither', document.getElementById('enableDither').checked);
             formData.append('dither_threshold', document.getElementById('imageDitherThreshold').value);
             formData.append('dither_strength', document.getElementById('imageDitherStrength').value);
+            formData.append('scaling_mode', selectedScalingMode); // ← DIESER PARAMETER FEHLTE!
             
             showStatus('🔄 Erstelle Vorschau...', 'info');
             
@@ -781,6 +792,16 @@ Zeit: $TIME$</textarea>
                 return;
             }
             
+            // Aktuellen Skalierungsmodus ermitteln
+            const scalingModeRadios = document.getElementsByName('scalingMode');
+            let selectedScalingMode = 'fit_aspect'; // Default
+            for (let radio of scalingModeRadios) {
+                if (radio.checked) {
+                    selectedScalingMode = radio.value;
+                    break;
+                }
+            }
+            
             const formData = new FormData();
             formData.append('image', currentImageData);
             formData.append('immediate', useQueue ? 'false' : 'true');
@@ -789,6 +810,7 @@ Zeit: $TIME$</textarea>
             formData.append('enable_dither', document.getElementById('enableDither').checked);
             formData.append('dither_threshold', document.getElementById('imageDitherThreshold').value);
             formData.append('dither_strength', document.getElementById('imageDitherStrength').value);
+            formData.append('scaling_mode', selectedScalingMode); // ← DIESER PARAMETER FEHLTE AUCH HIER!
             
             showStatus('🖨️ Drucke Bild...', 'info');
             
@@ -854,6 +876,34 @@ Zeit: $TIME$</textarea>
             setTimeout(() => statusDiv.innerHTML = '', 5000);
         }
         
+        // Hilfetext für Skalierungsmodi aktualisieren
+        function updateScalingModeHelp() {
+            const scalingModeRadios = document.getElementsByName('scalingMode');
+            const helpDiv = document.getElementById('scalingModeHelp');
+            
+            for (let radio of scalingModeRadios) {
+                if (radio.checked) {
+                    switch(radio.value) {
+                        case 'fit_aspect':
+                            helpDiv.innerHTML = '📏 Behält Seitenverhältnis bei, kann Ränder hinterlassen';
+                            break;
+                        case 'stretch_full':
+                            helpDiv.innerHTML = '🔄 Streckt Bild auf volle Label-Größe, kann verzerren';
+                            break;
+                        case 'crop_center':
+                            helpDiv.innerHTML = '✂️ Schneidet Bild zentriert zu, füllt Label vollständig';
+                            break;
+                        case 'pad_center':
+                            helpDiv.innerHTML = '🖼️ Zentriert Bild mit weißem Rand, kein Zuschnitt';
+                            break;
+                        default:
+                            helpDiv.innerHTML = '';
+                    }
+                    break;
+                }
+            }
+        }
+        
         // Auto-load
         window.onload = function() {
             checkConnection();
@@ -866,6 +916,9 @@ Zeit: $TIME$</textarea>
             updateDitherValue();
             updateDitherStrengthValue();
             updateContrastValue();
+            
+            // Hilfetext für Skalierungsmodus initial setzen
+            updateScalingModeHelp();
             updateImageDitherValue();
             updateImageDitherStrengthValue();
         };
