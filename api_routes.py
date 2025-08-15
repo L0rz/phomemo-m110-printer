@@ -60,10 +60,10 @@ def setup_api_routes(app, printer):
     def api_preview_image():
         """Erstellt Schwarz-Weiß-Vorschau eines Bildes"""
         try:
-            if 'image' not in request.files:
-                return jsonify({'success': False, 'error': 'Kein Bild hochgeladen'})
-            
-            file = request.files['image']
+            # Akzeptiere data ODER image als Datei-Feld
+            file = request.files.get('data') or request.files.get('image')
+            if not file:
+                return jsonify({'success': False, 'error': 'Kein Bild hochgeladen (erwarte Feld: data oder image)'}), 400
             if file.filename == '':
                 return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'})
             
@@ -126,10 +126,10 @@ def setup_api_routes(app, printer):
     def api_print_image():
         """Druckt ein Bild mit Vorschau-Verarbeitung"""
         try:
-            if 'image' not in request.files:
-                return jsonify({'success': False, 'error': 'Kein Bild hochgeladen'})
-            
-            file = request.files['image']
+            # Akzeptiere data ODER image als Datei-Feld
+            file = request.files.get('data') or request.files.get('image')
+            if not file:
+                return jsonify({'success': False, 'error': 'Kein Bild hochgeladen (erwarte Feld: data oder image)'}), 400
             immediate = request.form.get('immediate', 'false').lower() == 'true'
             fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
             maintain_aspect = request.form.get('maintain_aspect', 'true').lower() == 'true'
