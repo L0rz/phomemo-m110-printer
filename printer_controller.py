@@ -833,48 +833,140 @@ class EnhancedPhomemoM110:
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return None
     
+    def parse_markdown_text(self, text, base_font_size):
+        """
+        Parst Markdown-Text und gibt eine Liste von formatierten Text-Segmenten zurück
+        
+        Unterstützte Markdown-Syntax:
+        - **fett** oder __fett__
+        - *kursiv* oder _kursiv_
+        - # Überschrift (große Schrift)
+        - ## Unterüberschrift (mittlere Schrift)
+        
+        Returns: List of tuples (text, font_size, bold, italic)
+        """
+        import re
+        
+        lines = text.split('\n')
+        parsed_lines = []
+        
+        for line in lines:
+            line_segments = []
+            
+            # Überschriften prüfen (müssen am Zeilenanfang stehen)
+            if line.strip().startswith('# '):
+                # H1 - Große Überschrift
+                clean_text = line.strip()[2:].strip()
+                line_segments.append((clean_text, base_font_size + 8, True, False))
+            elif line.strip().startswith('## '):
+                # H2 - Mittlere Überschrift  
+                clean_text = line.strip()[3:].strip()
+                line_segments.append((clean_text, base_font_size + 4, True, False))
+            else:
+                # Normale Zeile - inline Formatierung parsen
+                segments = self._parse_inline_markdown(line, base_font_size)
+                line_segments.extend(segments)
+            
+            parsed_lines.append(line_segments)
+        
+        return parsed_lines
+    
+    def _parse_inline_markdown(self, text, base_font_size):
+        """Parst inline Markdown-Formatierung in einem Text"""
+        import re
+        
+        segments = []
+        current_pos = 0
+        
+        # Regex-Patterns für Markdown
+        patterns = [
+            (r'\*\*(.*?)\*\*', True, False),    # **fett**
+            (r'__(.*?)__', True, False),        # __fett__
+            (r'\*(.*?)\*', False, True),        # *kursiv*
+            (r'_(.*?)_', False, True),          # _kursiv_
+        ]
+        
+        # Alle Matches finden und sortieren
+        all_matches = []
+        for pattern, is_bold, is_italic in patterns:
+            for match in re.finditer(pattern, text):
+                # Prüfen ob es sich überschneidet mit bereits gefundenen Matches
+                overlaps = False
+                for existing_start, existing_end, _, _ in all_matches:
+                    if (match.start() < existing_end and match.end() > existing_start):
+                        overlaps = True
+                        break
+                
+                if not overlaps:
+                    all_matches.append((match.start(), match.end(), match.group(1), (is_bold, is_italic)))
+        
+        # Nach Position sortieren
+        all_matches.sort(key=lambda x: x[0])
+        
+        # Text in Segmente aufteilen
+        for match_start, match_end, match_text, (is_bold, is_italic) in all_matches:
+            # Text vor dem Match hinzufügen
+            if current_pos < match_start:
+                plain_text = text[current_pos:match_start]
+                if plain_text:
+                    segments.append((plain_text, base_font_size, False, False))
+            
+            # Formatierten Text hinzufügen
+            segments.append((match_text, base_font_size, is_bold, is_italic))
+            current_pos = match_end
+        
+        # Restlichen Text hinzufügen
+        if current_pos < len(text):
+            remaining_text = text[current_pos:]
+            if remaining_text:
+                segments.append((remaining_text, base_font_size, False, False))
+        
+        # Wenn keine Formatierung gefunden wurde, ganzen Text als plain zurückgeben
+        if not segments:
+            segments.append((text, base_font_size, False, False))
+        
+        return segments
+    
     def create_text_image_preview(self, text, font_size, alignment='center'):
-        """Erstellt Text-Bild für Vorschau OHNE Offsets"""
+        """Erstellt Text-Bild für Vorschau OHNE Offsets - mit Markdown-Support"""
         try:
             import os
             from PIL import Image, ImageDraw, ImageFont
             
-            logger.info(f"📝 Creating text PREVIEW image with font size {font_size}, alignment: {alignment}")
+            logger.info(f"📝 Creating MARKDOWN text preview with font size {font_size}, alignment: {alignment}")
             
-            # Font laden mit besserer Fehlerbehandlung (gleiche Logik wie oben)
-            font = None
-            font_paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf", 
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/System/Library/Fonts/Arial.ttf",  # macOS
-                "C:/Windows/Fonts/arial.ttf"  # Windows
-            ]
+            # Markdown-Text parsen
+            parsed_lines = self.parse_markdown_text(text, font_size)
             
-            for font_path in font_paths:
-                try:
-                    if os.path.exists(font_path):
-                        font = ImageFont.truetype(font_path, font_size)
-                        logger.info(f"✅ Font loaded: {font_path}")
-                        break
-                except Exception as e:
-                    logger.debug(f"Font {font_path} failed: {e}")
-                    continue
+            # Font-Cache für verschiedene Größen und Stile
+            font_cache = {}
             
-            if font is None:
-                logger.warning("⚠️ Using default font - no TrueType font found")
-                font = ImageFont.load_default()
-            
-            # Text-Verarbeitung (gleiche Logik)
-            processed_text = text.replace('\\r\\n', '\n')
-            processed_text = processed_text.replace('\\n', '\n')
-            processed_text = processed_text.replace('\r\n', '\n')
-            processed_text = processed_text.replace('\r', '\n')
-            
-            lines = processed_text.split('\n')
-            while lines and not lines[-1].strip():
-                lines.pop()
+            def get_font(size, bold=False, italic=False):
+                key = (size, bold, italic)
+                if key not in font_cache:
+                    font_paths = [
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/TTF/DejaVuSans.ttf",
+                        "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                        "/System/Library/Fonts/Arial.ttf",  # macOS
+                        "C:/Windows/Fonts/arial.ttf"  # Windows
+                    ]
+                    
+                    font_obj = None
+                    for font_path in font_paths:
+                        try:
+                            if os.path.exists(font_path):
+                                font_obj = ImageFont.truetype(font_path, size)
+                                break
+                        except Exception:
+                            continue
+                    
+                    if font_obj is None:
+                        font_obj = ImageFont.load_default()
+                    
+                    font_cache[key] = font_obj
+                
+                return font_cache[key]
             
             # Bildgröße berechnen
             temp_img = Image.new('RGB', (1, 1), 'white')
@@ -883,57 +975,85 @@ class EnhancedPhomemoM110:
             line_heights = []
             max_width = 0
             
-            for line in lines:
-                try:
-                    bbox = temp_draw.textbbox((0, 0), line, font=font)
-                    line_width = bbox[2] - bbox[0]
-                    line_height = bbox[3] - bbox[1]
-                    max_width = max(max_width, line_width)
-                    line_heights.append(max(line_height, 20))
-                except Exception as e:
-                    logger.warning(f"⚠️ Problem with line '{line}': {e}")
-                    line_heights.append(20)
-                    max_width = max(max_width, 100)
+            for line_segments in parsed_lines:
+                line_width = 0
+                line_height = 0
+                
+                for segment_text, seg_font_size, is_bold, is_italic in line_segments:
+                    if segment_text.strip():
+                        seg_font = get_font(seg_font_size, is_bold, is_italic)
+                        try:
+                            bbox = temp_draw.textbbox((0, 0), segment_text, font=seg_font)
+                            seg_width = bbox[2] - bbox[0]
+                            seg_height = bbox[3] - bbox[1]
+                            line_width += seg_width
+                            line_height = max(line_height, seg_height)
+                        except Exception:
+                            line_width += len(segment_text) * (seg_font_size // 2)
+                            line_height = max(line_height, seg_font_size)
+                
+                max_width = max(max_width, line_width)
+                line_heights.append(max(line_height, 20))
             
             # Bild erstellen
-            total_height = sum(line_heights) + (len(lines) - 1) * 5 + 40
+            total_height = sum(line_heights) + (len(parsed_lines) - 1) * 5 + 40
             total_height = max(total_height, 50)
             
-            logger.info(f"📐 Preview image size: {self.label_width_px}x{total_height}")
+            logger.info(f"📐 Markdown preview image size: {self.label_width_px}x{total_height}")
             img = Image.new('RGB', (self.label_width_px, total_height), 'white')
             draw = ImageDraw.Draw(img)
             
-            # Text zeichnen mit Ausrichtung (gleiche Logik)
+            # Markdown-Text mit Formatierung zeichnen
             y_pos = 20
-            for i, line in enumerate(lines):
-                if line.strip():
-                    try:
-                        bbox = draw.textbbox((0, 0), line, font=font)
-                        line_width = bbox[2] - bbox[0]
-                        
-                        # X-Position basierend auf Ausrichtung berechnen
-                        if alignment == 'left':
-                            x_pos = 10
-                        elif alignment == 'right':
-                            x_pos = max(10, self.label_width_px - line_width - 10)
-                        else:  # center (default)
-                            x_pos = max(10, (self.label_width_px - line_width) // 2)
-                        
-                        draw.text((x_pos, y_pos), line, fill='black', font=font)
-                        logger.debug(f"✏️ Drew preview line {i+1} ({alignment}): '{line}' at ({x_pos}, {y_pos})")
-                    except Exception as e:
-                        logger.warning(f"⚠️ Could not draw line '{line}': {e}")
+            for i, line_segments in enumerate(parsed_lines):
+                line_x_positions = []
+                line_width = 0
+                
+                # Gesamtbreite der Zeile berechnen für Ausrichtung
+                for segment_text, seg_font_size, is_bold, is_italic in line_segments:
+                    if segment_text.strip():
+                        seg_font = get_font(seg_font_size, is_bold, is_italic)
+                        try:
+                            bbox = draw.textbbox((0, 0), segment_text, font=seg_font)
+                            seg_width = bbox[2] - bbox[0]
+                            line_width += seg_width
+                        except Exception:
+                            line_width += len(segment_text) * (seg_font_size // 2)
+                
+                # X-Startposition basierend auf Ausrichtung
+                if alignment == 'left':
+                    start_x = 10
+                elif alignment == 'right':
+                    start_x = max(10, self.label_width_px - line_width - 10)
+                else:  # center
+                    start_x = max(10, (self.label_width_px - line_width) // 2)
+                
+                # Segmente zeichnen
+                current_x = start_x
+                for segment_text, seg_font_size, is_bold, is_italic in line_segments:
+                    if segment_text:
+                        seg_font = get_font(seg_font_size, is_bold, is_italic)
+                        try:
+                            draw.text((current_x, y_pos), segment_text, fill='black', font=seg_font)
+                            # X-Position für nächstes Segment aktualisieren
+                            bbox = draw.textbbox((0, 0), segment_text, font=seg_font)
+                            current_x += bbox[2] - bbox[0]
+                            
+                            logger.debug(f"✏️ Drew segment '{segment_text}' (size:{seg_font_size}, bold:{is_bold}, italic:{is_italic}) at ({current_x}, {y_pos})")
+                        except Exception as e:
+                            logger.warning(f"⚠️ Could not draw segment '{segment_text}': {e}")
+                            current_x += len(segment_text) * (seg_font_size // 2)
                 
                 y_pos += line_heights[i] + 5
             
             # Bild zu S/W konvertieren OHNE Offsets!
             bw_img = img.convert('1')
             
-            logger.info(f"📐 Preview image created (NO offsets): {bw_img.width}x{bw_img.height}")
+            logger.info(f"📐 Markdown preview image created (NO offsets): {bw_img.width}x{bw_img.height}")
             return bw_img
             
         except Exception as e:
-            logger.error(f"❌ Text preview image creation error: {e}")
+            logger.error(f"❌ Markdown text preview image creation error: {e}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return None

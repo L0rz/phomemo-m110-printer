@@ -183,6 +183,13 @@ WEB_INTERFACE = '''
             border: 1px solid #b45309;
         }
         
+        /* Dark mode für Markdown-Hilfe */
+        [data-theme="dark"] .markdown-help {
+            background: #2a2a2a !important;
+            border: 1px solid #444 !important;
+            color: #e0e0e0 !important;
+        }
+        
         /* Statistics */
         .stats { display: flex; justify-content: space-around; text-align: center; flex-wrap: wrap; }
         .stat-item { flex: 1; min-width: 80px; margin: 5px; }
@@ -391,12 +398,21 @@ WEB_INTERFACE = '''
         <div class="grid">
             <!-- Text Printing -->
             <div class="card">
-                <h2>📝 Text drucken</h2>
-                <textarea id="textInput" rows="4" placeholder="Text eingeben..." oninput="debouncedTextPreview()">PHOMEMO M110
-Enhanced Edition
+                <h2>📝 Text drucken (mit Markdown)</h2>
+                <textarea id="textInput" rows="4" placeholder="Text eingeben... (Markdown möglich)" oninput="debouncedTextPreview()"># PHOMEMO M110
+## Enhanced Edition  
+**Fett** und *kursiv* Text
 X-Offset: 0px
 ✓ Bildvorschau
 Zeit: $TIME$</textarea>
+                
+                <div class="markdown-help" style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 12px;">
+                    <strong>📖 Markdown-Hilfe:</strong><br>
+                    <code>**fett**</code> → <strong>fett</strong> | 
+                    <code>*kursiv*</code> → <em>kursiv</em> | 
+                    <code># Überschrift</code> → große Schrift | 
+                    <code>## Unterüberschrift</code> → mittlere Schrift
+                </div>
                 
                 <div class="grid" style="gap: 10px; margin: 10px 0;">
                     <div>
