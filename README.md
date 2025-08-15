@@ -367,7 +367,9 @@ python3 main.py
 - [ ] **🎨 Erweiterte Bildfilter** - Zusätzliche Bildbearbeitungsoptionen
 - [ ] **📊 Export-Funktionen** - Statistiken und Logs exportieren
 - [ ] **🌐 Multi-Language Support** - Internationalisierung des Web-Interface
-- [ ] ** Homeassistant Integration**
+- [ ] ** Homeassistant Integration** - Docker Container oder als Addon direkt Installieren
+- [ ] Log handling - Aufpassen das der Log nicht zu groß wird
+- [ ] 
 
 ### 🎯 **Nächste Releases:**
 - **v1.1**: QR-Code Generation und Template-System
