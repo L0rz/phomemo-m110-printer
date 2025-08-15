@@ -82,33 +82,35 @@ def setup_api_routes(app, printer):
     def api_preview_image():
         """Erstellt Schwarz-Weiß-Vorschau eines Bildes"""
         try:
-            # Akzeptiere data ODER image als Datei-Feld
-            file = request.files.get('data') or request.files.get('image')
+            # Verwende robuste Datei-Erkennung wie bei print-image
+            file = _get_uploaded_file()
             if not file:
                 return jsonify({'success': False, 'error': 'Kein Bild hochgeladen (erwarte Feld: data oder image)'}), 400
-            if file.filename == '':
+            if (file.filename or '') == '':
                 return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'})
             
-            # Datei-Validierung
-            filename = secure_filename(file.filename)
-            file_ext = filename.rsplit('.', 1)[1].upper() if '.' in filename else ''
-            
-            if file_ext not in SUPPORTED_IMAGE_FORMATS:
-                return jsonify({
-                    'success': False, 
-                    'error': f'Nicht unterstütztes Format. Erlaubt: {", ".join(SUPPORTED_IMAGE_FORMATS)}'
-                })
+            # Datei lesen
+            image_data = file.read()
+            if not image_data:
+                return jsonify({'success': False, 'error': 'Datei ist leer'})
             
             # Größe prüfen
-            file.seek(0, 2)  # Zum Ende
-            file_size = file.tell()
-            file.seek(0)  # Zurück zum Anfang
-            
-            if file_size > MAX_UPLOAD_SIZE:
+            if len(image_data) > MAX_UPLOAD_SIZE:
                 return jsonify({
                     'success': False, 
                     'error': f'Datei zu groß. Maximum: {MAX_UPLOAD_SIZE // (1024*1024)}MB'
                 })
+            
+            # Robuste Format-Erkennung (wie bei print-image)
+            detected_format = _detect_image_format(image_data)
+            if not detected_format:
+                filename = secure_filename(file.filename or 'unknown')
+                return jsonify({
+                    'success': False, 
+                    'error': f'Nicht unterstütztes Bildformat. Datei: "{filename}". Erlaubt: {", ".join(SUPPORTED_IMAGE_FORMATS)}'
+                })
+            
+            logger.info(f"📸 Preview for {detected_format} image, size: {len(image_data)} bytes")
             
             # Parameter aus Request
             fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
@@ -118,8 +120,7 @@ def setup_api_routes(app, printer):
             dither_strength = float(request.form.get('dither_strength', '1.0'))
             scaling_mode = request.form.get('scaling_mode', 'fit_aspect')
             
-            # Bild verarbeiten mit erweiterten Parametern
-            image_data = file.read()
+            # Bild verarbeiten mit erweiterten Parametern (image_data bereits gelesen)
             result = printer.process_image_for_preview(
                 image_data, fit_to_label, maintain_aspect, enable_dither,
                 dither_threshold=dither_threshold, dither_strength=dither_strength,
