@@ -614,16 +614,39 @@ class EnhancedPhomemoM110:
             return {'success': False, 'error': str(e)}
     
     def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
-        """Druckt Bild sofort (bypass Queue)"""
+        """Druckt Bild sofort (bypass Queue) mit Anti-Drift-Mechanismus"""
         try:
+            # Anti-Drift: Pause zwischen Druckaufträgen
+            if hasattr(self, 'last_print_time'):
+                time_since_last = time.time() - self.last_print_time
+                min_interval = 0.5  # Mindestens 500ms zwischen Druckaufträgen
+                if time_since_last < min_interval:
+                    sleep_time = min_interval - time_since_last
+                    logger.info(f"⏱️ Anti-drift pause: {sleep_time:.2f}s")
+                    time.sleep(sleep_time)
+            
+            logger.info("🖨️ Starting immediate image print with anti-drift protection")
+            
             result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, enable_dither, dither_threshold=dither_threshold, dither_strength=dither_strength, scaling_mode=scaling_mode)
             if result:
                 printer_img = self.apply_offsets_to_image(result.processed_image)
                 image_data = self.image_to_printer_format(printer_img)
                 if image_data:
+                    # Drucker-Reset vor jedem Druckauftrag
+                    logger.info("🔄 Pre-print stabilization...")
+                    self.send_command(b'\x1b\x40')  # Initialize printer
+                    time.sleep(0.1)
+                    
                     success = self.send_bitmap(image_data, printer_img.height)
+                    
+                    # Zeitstempel für Anti-Drift tracking
+                    self.last_print_time = time.time()
+                    
                     if success:
                         self.stats['successful_jobs'] += 1
+                        logger.info("✅ Image printed successfully with anti-drift protection")
+                    else:
+                        logger.error("❌ Image print failed")
                     return success
             return False
         except Exception as e:
@@ -746,41 +769,103 @@ class EnhancedPhomemoM110:
             return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
-        """Sendet Bitmap an Drucker"""
+        """Sendet Bitmap an Drucker mit verbesserter Positions-Stabilität"""
         try:
             width_bytes = self.bytes_per_line
             m = 0
     
-            if not self.send_command(b'\x1b\x40'):  # ESC @
+            logger.info(f"📤 Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
+            
+            # VERBESSERTE DRUCKER-INITIALISIERUNG
+            # 1. Drucker komplett zurücksetzen
+            if not self.send_command(b'\x1b\x40'):  # ESC @ - Initialize printer
                 logger.error("❌ Failed to send reset command")
                 return False
-            time.sleep(0.05)
+            time.sleep(0.1)  # Längere Pause nach Reset
+            
+            # 2. Position explizit auf Anfang setzen
+            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Set horizontal position to 0
+                logger.warning("⚠️ Failed to reset horizontal position")
+            time.sleep(0.02)
+            
+            # 3. Linken Rand auf 0 setzen
+            if not self.send_command(b'\x1b\x6c\x00'):  # ESC l 0 - Set left margin to 0
+                logger.warning("⚠️ Failed to set left margin")
+            time.sleep(0.02)
     
+            # BITMAP-HEADER mit korrekten Dimensionen
             xL = width_bytes & 0xFF
             xH = (width_bytes >> 8) & 0xFF
             yL = height & 0xFF
             yH = (height >> 8) & 0xFF
             header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
     
-            logger.info(f"📤 Sending bitmap header: {len(header)} bytes")
+            logger.info(f"📋 Bitmap header: width_bytes={width_bytes}, height={height}")
             if not self.send_command(header):
                 logger.error("❌ Failed to send bitmap header")
                 return False
+            time.sleep(0.05)  # Pause nach Header
     
-            # In Chunks senden
-            CHUNK = 1024
+            # ROBUSTE DATENÜBERTRAGUNG in kleineren Chunks
+            CHUNK = 512  # Kleinere Chunks für stabilere Übertragung
             chunks_sent = 0
+            total_bytes_sent = 0
+            
+            logger.info(f"📦 Sending {len(image_data)} bytes in {CHUNK}-byte chunks...")
+            
             for i in range(0, len(image_data), CHUNK):
-                if not self.send_command(image_data[i:i+CHUNK]):
-                    logger.error(f"❌ Failed to send chunk {chunks_sent}")
+                chunk = image_data[i:i+CHUNK]
+                
+                # Mehrere Versuche pro Chunk
+                chunk_success = False
+                for attempt in range(3):
+                    if self.send_command(chunk):
+                        chunk_success = True
+                        break
+                    else:
+                        logger.warning(f"⚠️ Chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
+                        time.sleep(0.01)
+                
+                if not chunk_success:
+                    logger.error(f"❌ Failed to send chunk {chunks_sent} after 3 attempts")
                     return False
+                
                 chunks_sent += 1
-                time.sleep(0.005)
+                total_bytes_sent += len(chunk)
+                
+                # Progress logging
+                if chunks_sent % 10 == 0:
+                    progress = (total_bytes_sent / len(image_data)) * 100
+                    logger.info(f"📊 Progress: {chunks_sent} chunks ({progress:.1f}%)")
+                
+                # Adaptives Timing basierend auf Chunk-Größe
+                time.sleep(0.008)  # Etwas längere Pause zwischen Chunks
     
-            logger.info(f"✅ Bitmap sent successfully: {chunks_sent} chunks, {len(image_data)} bytes total")
+            # ABSCHLUSS-KOMMANDOS für saubere Position
+            time.sleep(0.1)  # Warten bis alle Daten verarbeitet sind
+            
+            # 4. Paper Feed für sauberen Abschluss
+            if not self.send_command(b'\x1b\x64\x02'):  # ESC d 2 - Feed 2 lines
+                logger.warning("⚠️ Failed to feed paper")
+            time.sleep(0.05)
+            
+            # 5. Drucker-Position final zurücksetzen
+            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Reset position again
+                logger.warning("⚠️ Failed to final position reset")
+            time.sleep(0.02)
+            
+            logger.info(f"✅ Bitmap sent successfully: {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
+            
+            # Validierung
+            if total_bytes_sent != len(image_data):
+                logger.warning(f"⚠️ Byte count mismatch: sent {total_bytes_sent}, expected {len(image_data)}")
+            
             return True
+            
         except Exception as e:
             logger.error(f"❌ Bitmap send error: {e}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
     
     def create_text_image_with_offsets(self, text, font_size, alignment='center'):
