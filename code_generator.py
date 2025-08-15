@@ -26,12 +26,12 @@ class CodeGenerator:
         self.label_width_px = label_width_px
         self.label_height_px = label_height_px
         
-        # QR-Code Standardeinstellungen
-        self.qr_default_size = 100  # Pixel
+        # QR-Code Standardeinstellungen - KOMPAKTER für bessere Text-Balance
+        self.qr_default_size = 80  # Reduziert von 100 auf 80 Pixel
         self.qr_border = 2
         
-        # Barcode Standardeinstellungen
-        self.barcode_height = 50
+        # Barcode Standardeinstellungen - KOMPAKTER für bessere Text-Balance  
+        self.barcode_height = 40  # Reduziert von 50 auf 40 Pixel
         self.barcode_width_factor = 2
         
     def parse_and_process_text(self, text: str) -> Tuple[str, list]:
@@ -315,23 +315,71 @@ class CodeGenerator:
                 
                 return font_cache[key]
             
-            # Platz-Management: Reserviere weniger Platz für Text, mehr für Codes
-            reserved_space_per_code = 70  # Minimum Platz pro Code
-            available_height = self.label_height_px - (len(codes) * reserved_space_per_code)
-            current_y = 5  # Weniger Rand oben
+            # VERBESSERTES Platz-Management: Intelligente Code-Größenanpassung
+            current_y = 5  # Start-Y-Position
             
-            # Codes generieren
+            # Codes generieren mit intelligenter Größenanpassung
             code_images = {}
+            total_code_height = 0
+            
             for code in codes:
                 if code['type'] == 'qr':
-                    code_img = self.generate_qr_code(code['content'], code['size'])
+                    # QR-Code Größe basierend auf verfügbarem Platz anpassen
+                    requested_size = code['size']
+                    max_qr_size = min(requested_size, 120)  # Maximal 120px
+                    min_qr_size = 60  # Minimal 60px für Lesbarkeit
+                    
+                    # Versuche mit der gewünschten Größe, aber nicht größer als sinnvoll
+                    if len(codes) == 1:  # Nur ein Code -> mehr Platz
+                        qr_size = min(requested_size, max_qr_size)
+                    else:  # Mehrere Codes -> kompakter
+                        qr_size = min(requested_size, 80)
+                    
+                    code_img = self.generate_qr_code(code['content'], qr_size)
+                    
                 elif code['type'] == 'barcode':
-                    code_img = self.generate_barcode(code['content'], code['height'])
+                    # Barcode Höhe basierend auf verfügbarem Platz anpassen
+                    requested_height = code['height']
+                    max_bar_height = min(requested_height, 60)  # Maximal 60px
+                    min_bar_height = 30  # Minimal 30px für Lesbarkeit
+                    
+                    if len(codes) == 1:  # Nur ein Code -> mehr Platz
+                        bar_height = min(requested_height, max_bar_height)
+                    else:  # Mehrere Codes -> kompakter
+                        bar_height = min(requested_height, 45)
+                    
+                    code_img = self.generate_barcode(code['content'], bar_height)
                 else:
                     continue
                 
                 if code_img:
                     code_images[code['placeholder']] = code_img
+                    total_code_height += code_img.height + 15  # Code + Abstand
+            
+            # Prüfen ob alle Codes + Text auf das Label passen
+            estimated_text_height = len(parsed_lines) * (font_size + 5)  # Grobe Schätzung
+            total_needed_height = total_code_height + estimated_text_height + 20  # + Ränder
+            
+            if total_needed_height > self.label_height_px:
+                logger.info(f"Content too large ({total_needed_height}px > {self.label_height_px}px), optimizing...")
+                
+                # Codes verkleinern wenn nötig
+                for code in codes:
+                    placeholder = code['placeholder']
+                    if placeholder in code_images:
+                        old_img = code_images[placeholder]
+                        
+                        if code['type'] == 'qr':
+                            # QR auf minimum verkleinern
+                            new_size = 60
+                            code_images[placeholder] = self.generate_qr_code(code['content'], new_size)
+                            logger.info(f"Resized QR from {old_img.width}px to {new_size}px")
+                            
+                        elif code['type'] == 'barcode':
+                            # Barcode auf minimum verkleinern
+                            new_height = 30
+                            code_images[placeholder] = self.generate_barcode(code['content'], new_height)
+                            logger.info(f"Resized Barcode from {old_img.height}px to {new_height}px")
             
             # SCHRITT 3: Markdown-formatierte Zeilen mit QR/Barcode-Platzhaltern verarbeiten
             for line_segments in parsed_lines:
@@ -348,38 +396,17 @@ class CodeGenerator:
                         # CODE EINBINDEN
                         code_x = (self.label_width_px - code_img.width) // 2  # Zentriert
                         
-                        # Prüfen ob genug Platz vorhanden
-                        space_needed = code_img.height + 10
-                        space_available = self.label_height_px - current_y
+                        # Prüfen ob genug Platz vorhanden (weniger strikt)
+                        space_needed = code_img.height + 5  # Weniger Abstand
+                        space_available = self.label_height_px - current_y - 20  # Reserve für Text
                         
-                        if space_needed > space_available:
-                            logger.warning(f"Not enough space for {placeholder}, shrinking...")
-                            # Code verkleinern (wie vorher)
-                            max_code_height = space_available - 15
-                            
-                            for code in codes:
-                                if code['placeholder'] == placeholder:
-                                    if code['type'] == 'qr':
-                                        smaller_size = min(max_code_height, 60)
-                                        if smaller_size >= 60:
-                                            code_img = self.generate_qr_code(code['content'], smaller_size)
-                                            logger.info(f"Resized QR to {smaller_size}px")
-                                        else:
-                                            logger.warning(f"Skipping {placeholder} - not enough space")
-                                            continue
-                                    elif code['type'] == 'barcode':
-                                        smaller_height = min(max_code_height, 25)
-                                        if smaller_height >= 25:
-                                            code_img = self.generate_barcode(code['content'], smaller_height)
-                                            logger.info(f"Resized Barcode to {smaller_height}px")
-                                        else:
-                                            logger.warning(f"Skipping {placeholder} - not enough space")
-                                            continue
-                                    break
-                        
-                        # Code einfügen
-                        img.paste(code_img, (code_x, current_y))
-                        current_y += code_img.height + 10
+                        if space_needed <= space_available:
+                            # Code einfügen
+                            img.paste(code_img, (code_x, current_y))
+                            current_y += code_img.height + 8  # Weniger Abstand nach Code
+                            logger.info(f"Placed {placeholder} at y={current_y-code_img.height-8}")
+                        else:
+                            logger.warning(f"Skipping {placeholder} - not enough space ({space_needed}px needed, {space_available}px available)")
                         
                         # MARKDOWN-FORMATIERTE Text-Segmente um den Code herum verarbeiten
                         remaining_segments = []
