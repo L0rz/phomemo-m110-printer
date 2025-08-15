@@ -2,6 +2,7 @@
 """
 Erweiteter Phomemo M110 Printer Controller
 Mit Bildvorschau, X-Offset und konfigurierbaren Einstellungen
+Plus QR-Code und Barcode-Unterstützung
 """
 
 import os
@@ -29,6 +30,7 @@ except ImportError:
 
 # Konfiguration importieren
 from config import *
+from code_generator import CodeGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +90,9 @@ class EnhancedPhomemoM110:
         self.print_queue = queue.Queue()
         self.queue_processor_running = False
         self.queue_thread = None
+        
+        # Code Generator für QR/Barcodes
+        self.code_generator = CodeGenerator(self.label_width_px, self.label_height_px)
         
         # Connection Monitoring
         self.monitor_thread = None
@@ -1176,6 +1181,76 @@ class EnhancedPhomemoM110:
             logger.error(f"❌ Calibration job error: {e}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            return False
+
+    def create_text_image_with_codes(self, text: str, font_size: int = 22, alignment: str = 'center') -> Optional[Image.Image]:
+        """Erstellt Text-Bild mit QR/Barcode-Unterstützung"""
+        try:
+            logger.info(f"📝 Creating text image with codes: font_size={font_size}, alignment={alignment}")
+            
+            # Code Generator verwenden
+            img = self.code_generator.create_combined_image(text, font_size, alignment)
+            
+            if img:
+                # Offsets anwenden (falls gesetzt)
+                x_offset = self.settings.get('x_offset', 0)
+                y_offset = self.settings.get('y_offset', 0)
+                
+                if x_offset != 0 or y_offset != 0:
+                    logger.info(f"🔧 Applying offsets: x={x_offset}, y={y_offset}")
+                    img = self.apply_offset_to_image(img, x_offset, y_offset)
+                
+                logger.info(f"✅ Text image with codes created: {img.width}x{img.height}")
+                return img
+            else:
+                logger.error("❌ Failed to create image with codes")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Error creating text image with codes: {e}")
+            return None
+
+    def print_text_with_codes_immediate(self, text: str, font_size: int = 22, alignment: str = 'center') -> Dict[str, Any]:
+        """Druckt Text mit QR-Codes und Barcodes sofort"""
+        try:
+            logger.info(f"🖨️ Starting immediate text with codes print: '{text[:50]}...'")
+            
+            img = self.create_text_image_with_codes(text, font_size, alignment)
+            if img:
+                logger.info(f"✅ Text image with codes created, size: {img.width}x{img.height}")
+                
+                success = self._print_image_direct(img)
+                if success:
+                    logger.info("✅ Text with codes printed successfully!")
+                    self.stats['successful_jobs'] += 1
+                    self.stats['text_jobs'] += 1
+                    return {'success': True, 'message': 'Text mit Codes gedruckt'}
+                else:
+                    logger.error("❌ Failed to print image with codes")
+                    self.stats['failed_jobs'] += 1
+                    return {'success': False, 'message': 'Druckfehler'}
+            else:
+                logger.error("❌ Failed to create text image with codes")
+                self.stats['failed_jobs'] += 1
+                return {'success': False, 'message': 'Bild-Erstellung fehlgeschlagen'}
+                
+        except Exception as e:
+            logger.error(f"❌ Print text with codes error: {e}")
+            self.stats['failed_jobs'] += 1
+            return {'success': False, 'message': str(e)}
+
+    def _execute_text_with_codes_job(self, data: Dict[str, Any]) -> bool:
+        """Führt Text-mit-Codes-Job aus der Queue aus"""
+        try:
+            text = data.get('text', '')
+            font_size = data.get('font_size', 22)
+            alignment = data.get('alignment', 'center')
+            
+            result = self.print_text_with_codes_immediate(text, font_size, alignment)
+            return result.get('success', False)
+            
+        except Exception as e:
+            logger.error(f"❌ Execute text with codes job error: {e}")
             return False
 
 # Alias für Kompatibilität mit bestehenden Modulen

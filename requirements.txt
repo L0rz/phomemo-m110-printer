@@ -1,2 +1,5 @@
 Flask==2.3.3
 Pillow==10.0.1
+qrcode==7.4.2
+code128==0.3
+numpy>=1.21.0
