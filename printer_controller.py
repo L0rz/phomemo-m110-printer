@@ -1225,6 +1225,29 @@ class EnhancedPhomemoM110:
             logger.error(f"❌ Error creating text image with codes: {e}")
             return None
 
+    def create_text_image_with_codes_preview(self, text: str, font_size: int = 22, alignment: str = 'center') -> Optional[Image.Image]:
+        """Erstellt Text-Bild mit QR/Barcode-Unterstützung OHNE OFFSETS (für Vorschau)"""
+        try:
+            if not HAS_CODE_GENERATOR or self.code_generator is None:
+                logger.warning("Code generator not available, falling back to regular text preview")
+                return self.create_text_image_preview(text, font_size, alignment)
+            
+            logger.info(f"📝 Creating PREVIEW with codes (NO offsets): font_size={font_size}, alignment={alignment}")
+            
+            # Code Generator verwenden - OHNE Offsets!
+            img = self.code_generator.create_combined_image(text, font_size, alignment)
+            
+            if img:
+                logger.info(f"✅ Text PREVIEW with codes created (NO offsets): {img.width}x{img.height}")
+                return img
+            else:
+                logger.error("❌ Failed to create text preview with codes")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Text preview with codes error: {e}")
+            return None
+
     def print_text_with_codes_immediate(self, text: str, font_size: int = 22, alignment: str = 'center') -> Dict[str, Any]:
         """Druckt Text mit QR-Codes und Barcodes sofort"""
         try:

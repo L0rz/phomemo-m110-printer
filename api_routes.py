@@ -206,8 +206,18 @@ def setup_api_routes(app, printer):
             # Replace $TIME$ placeholder
             text = text.replace('$TIME$', datetime.now().strftime('%H:%M:%S'))
             
-            # Text-Bild erstellen (OHNE Offsets für Vorschau)
-            img = printer.create_text_image_preview(text, font_size, alignment)
+            # Prüfen ob QR/Barcode-Syntax im Text vorhanden ist
+            has_codes = '#qr#' in text or '#bar#' in text
+            
+            if has_codes and hasattr(printer, 'code_generator') and printer.code_generator is not None:
+                # Text mit Codes - OHNE Offsets für Vorschau!
+                logger.info("📱 Using QR/Barcode preview (NO offsets)")
+                img = printer.create_text_image_with_codes_preview(text, font_size, alignment)
+            else:
+                # Normaler Text - OHNE Offsets für Vorschau
+                logger.info("📝 Using normal text preview (NO offsets)")
+                img = printer.create_text_image_preview(text, font_size, alignment)
+            
             if img:
                 # Als Base64 für Vorschau konvertieren
                 import io
@@ -491,8 +501,8 @@ def setup_api_routes(app, printer):
             # Replace $TIME$ placeholder
             text = text.replace('$TIME$', datetime.now().strftime('%H:%M:%S'))
             
-            # Bild mit Codes erstellen
-            img = printer.create_text_image_with_codes(text, font_size, alignment)
+            # Bild mit Codes erstellen - OHNE OFFSETS für Vorschau!
+            img = printer.create_text_image_with_codes_preview(text, font_size, alignment)
             if img:
                 # Als Base64 für Vorschau konvertieren
                 import io
