@@ -995,6 +995,7 @@ class EnhancedPhomemoM110:
             def get_font(size, bold=False, italic=False):
                 key = (size, bold, italic)
                 if key not in font_cache:
+                    # Basis-Font laden (fett wenn nötig)
                     font_paths = [
                         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                         "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf" if bold else "/usr/share/fonts/TTF/DejaVuSans.ttf",
@@ -1015,7 +1016,9 @@ class EnhancedPhomemoM110:
                     if font_obj is None:
                         font_obj = ImageFont.load_default()
                     
-                    font_cache[key] = font_obj
+                    # Kursiv wird durch PIL's Transformation simuliert (nicht durch separate Font-Datei)
+                    # PIL unterstützt keine direkte Kursiv-Transformation, also merken wir uns das für's Zeichnen
+                    font_cache[key] = (font_obj, italic)  # Tuple: (font, is_italic_flag)
                 
                 return font_cache[key]
             
@@ -1032,7 +1035,7 @@ class EnhancedPhomemoM110:
                 
                 for segment_text, seg_font_size, is_bold, is_italic in line_segments:
                     if segment_text.strip():
-                        seg_font = get_font(seg_font_size, is_bold, is_italic)
+                        seg_font, _ = get_font(seg_font_size, is_bold, is_italic)  # Nur Font-Objekt für Größenmessung
                         try:
                             bbox = temp_draw.textbbox((0, 0), segment_text, font=seg_font)
                             seg_width = bbox[2] - bbox[0]
@@ -1063,7 +1066,7 @@ class EnhancedPhomemoM110:
                 # Gesamtbreite der Zeile berechnen für Ausrichtung
                 for segment_text, seg_font_size, is_bold, is_italic in line_segments:
                     if segment_text.strip():
-                        seg_font = get_font(seg_font_size, is_bold, is_italic)
+                        seg_font, _ = get_font(seg_font_size, is_bold, is_italic)  # Nur Font-Objekt für Größenmessung
                         try:
                             bbox = draw.textbbox((0, 0), segment_text, font=seg_font)
                             seg_width = bbox[2] - bbox[0]
@@ -1089,14 +1092,36 @@ class EnhancedPhomemoM110:
                         clean_text = ''.join(char for char in clean_text if ord(char) >= 32 or char in '\n\r')
                         
                         if clean_text.strip():  # Nur nicht-leere Texte zeichnen
-                            seg_font = get_font(seg_font_size, is_bold, is_italic)
+                            seg_font, needs_italic = get_font(seg_font_size, is_bold, is_italic)
                             try:
-                                draw.text((current_x, y_pos), clean_text, fill='black', font=seg_font)
-                                # X-Position für nächstes Segment aktualisieren
-                                bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
-                                current_x += bbox[2] - bbox[0]
-                                
-                                logger.debug(f"✏️ Drew segment '{clean_text[:20]}...' (size:{seg_font_size}, bold:{is_bold}, italic:{is_italic}) at ({current_x}, {y_pos})")
+                                if needs_italic:
+                                    # Kursiv-Simulation durch Zeichen-für-Zeichen Zeichnen mit X-Offset
+                                    char_x = current_x
+                                    for char_idx, char in enumerate(clean_text):
+                                        # Kleiner X-Offset für Kursiv-Effekt (proportional zur Y-Position vom Baseline)
+                                        italic_offset = int(seg_font_size * 0.15)  # 15% der Schriftgröße
+                                        draw.text((char_x + italic_offset, y_pos), char, fill='black', font=seg_font)
+                                        
+                                        # X-Position für nächstes Zeichen
+                                        try:
+                                            char_bbox = draw.textbbox((0, 0), char, font=seg_font)
+                                            char_x += char_bbox[2] - char_bbox[0]
+                                        except:
+                                            char_x += seg_font_size // 2  # Fallback
+                                    
+                                    # Gesamtbreite für nächstes Segment
+                                    bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
+                                    current_x += bbox[2] - bbox[0] + italic_offset
+                                    
+                                    logger.debug(f"✏️ Drew ITALIC segment '{clean_text[:20]}...' with simulation")
+                                else:
+                                    # Normales Zeichnen
+                                    draw.text((current_x, y_pos), clean_text, fill='black', font=seg_font)
+                                    # X-Position für nächstes Segment aktualisieren
+                                    bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
+                                    current_x += bbox[2] - bbox[0]
+                                    
+                                    logger.debug(f"✏️ Drew segment '{clean_text[:20]}...' (size:{seg_font_size}, bold:{is_bold}, italic:{is_italic}) at ({current_x}, {y_pos})")
                             except Exception as e:
                                 logger.warning(f"⚠️ Could not draw segment '{clean_text[:20]}...': {e}")
                                 current_x += len(clean_text) * (seg_font_size // 2)
