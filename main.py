@@ -67,6 +67,16 @@ def health_check():
     except Exception as e:
         return {"status": "unhealthy", "error": str(e)}, 500
 
+# Label-Größen-Verwaltung
+@app.route('/label-sizes')
+def label_sizes_page():
+    """Label-Größen-Verwaltungsseite"""
+    try:
+        with open('static/label-sizes.html', 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        return f"<h1>Fehler beim Laden der Label-Größen-Seite</h1><p>{e}</p>", 500
+
 # Graceful Shutdown
 def signal_handler(signum, frame):
     logger.info("Received shutdown signal, stopping services...")

@@ -28,10 +28,23 @@ class CodeGenerator:
         self.label_height_px = label_height_px
         
         # KOMPAKTE Standard-Größen für mehr Text-Platz
-        self.qr_default_size = 70  # Kleine QR-Codes für mehr Text
+        self.qr_default_size = min(70, label_width_px // 6)  # Dynamisch basierend auf Label-Breite
         self.qr_border = 2
-        self.barcode_height = 30  # Kleine Barcodes für mehr Text
+        self.barcode_height = min(30, label_height_px // 8)  # Dynamisch basierend auf Label-Höhe
         self.barcode_width_factor = 2
+        
+        logger.info(f"📏 CodeGenerator initialized: {label_width_px}x{label_height_px}px, QR:{self.qr_default_size}px, Barcode:{self.barcode_height}px")
+
+    def update_dimensions(self, width_px: int, height_px: int):
+        """Aktualisiert die Label-Dimensionen"""
+        self.label_width_px = width_px
+        self.label_height_px = height_px
+        
+        # Standard-Größen anpassen
+        self.qr_default_size = min(70, width_px // 6)
+        self.barcode_height = min(30, height_px // 8)
+        
+        logger.info(f"📏 CodeGenerator dimensions updated: {width_px}x{height_px}px")
 
     def parse_and_process_text(self, text: str) -> Tuple[str, list]:
         """Parst Text nach QR-Codes und Barcodes"""
@@ -44,7 +57,9 @@ class CodeGenerator:
         
         for i, match in enumerate(qr_matches):
             size = int(match.group(1)) if match.group(1) else self.qr_default_size
-            size = min(size, 70)  # MAXIMAL 70px für QR
+            # Größe basierend auf Label-Dimensionen begrenzen
+            max_qr_size = min(self.label_width_px // 4, self.label_height_px // 4)
+            size = min(size, max_qr_size)
             content = match.group(2).strip()
             
             placeholder = f"[QR_CODE_{i}]"
@@ -64,7 +79,9 @@ class CodeGenerator:
         
         for i, match in enumerate(bar_matches):
             height = int(match.group(1)) if match.group(1) else self.barcode_height
-            height = min(height, 30)  # MAXIMAL 30px für Barcode
+            # Höhe basierend auf Label-Dimensionen begrenzen
+            max_bar_height = min(self.label_height_px // 6, 50)
+            height = min(height, max_bar_height)
             content = match.group(2).strip()
             
             placeholder = f"[BARCODE_{i}]"
@@ -81,13 +98,14 @@ class CodeGenerator:
         return processed_text, codes
 
     def generate_qr_code(self, content: str, size: int = None) -> Optional[Image.Image]:
-        """Generiert KOMPAKTEN QR-Code"""
+        """Generiert QR-Code angepasst an Label-Größe"""
         try:
             if size is None:
                 size = self.qr_default_size
             
-            # MAXIMAL 70px für mehr Text-Platz
-            size = min(size, 70)
+            # Dynamische Größenbegrenzung basierend auf Label
+            max_size = min(self.label_width_px // 4, self.label_height_px // 4)
+            size = min(size, max_size)
             
             qr = qrcode.QRCode(
                 version=1,
@@ -102,7 +120,7 @@ class CodeGenerator:
             qr_img = qr.make_image(fill_color="black", back_color="white")
             qr_img = qr_img.resize((size, size), Image.Resampling.LANCZOS)
             
-            logger.info(f"📱 Generated COMPACT QR: {size}x{size}px")
+            logger.info(f"📱 Generated QR for {self.label_width_px}x{self.label_height_px} label: {size}x{size}px")
             return qr_img
             
         except Exception as e:
@@ -110,13 +128,14 @@ class CodeGenerator:
             return None
 
     def generate_barcode(self, content: str, height: int = None) -> Optional[Image.Image]:
-        """Generiert KOMPAKTEN Barcode"""
+        """Generiert Barcode angepasst an Label-Größe"""
         try:
             if height is None:
                 height = self.barcode_height
             
-            # MAXIMAL 30px für mehr Text-Platz
-            height = min(height, 30)
+            # Dynamische Höhenbegrenzung basierend auf Label
+            max_height = min(self.label_height_px // 6, 50)
+            height = min(height, max_height)
             
             if not content.strip():
                 logger.warning("Empty barcode, creating placeholder")
@@ -416,19 +435,26 @@ class CodeGenerator:
             return current_y + 25
 
     def get_syntax_help(self) -> str:
-        """Gibt Hilfe zur Markdown-Syntax zurück"""
-        return """
-QR-Code und Barcode Syntax:
+        """Gibt Hilfe zur Markdown-Syntax zurück (angepasst an aktuelle Label-Größe)"""
+        max_qr = min(self.label_width_px // 4, self.label_height_px // 4)
+        max_bar = min(self.label_height_px // 6, 50)
+        
+        return f"""
+QR-Code und Barcode Syntax (Label: {self.label_width_px}×{self.label_height_px}px):
 
 QR-Codes:
-  #qr#Inhalt#qr#                    -> Standard QR-Code (70px)
-  #qr:60#Größerer Inhalt#qr#        -> QR-Code mit 60px Größe
+  #qr#Inhalt#qr#                    -> Standard QR-Code ({self.qr_default_size}px)
+  #qr:{max_qr//2}#Größerer Inhalt#qr#        -> QR-Code mit angepasster Größe
   #qr#https://example.com#qr#       -> QR mit URL
   #qr#WIFI:S:MeinWLAN;T:WPA;P:passwort123;H:false;;#qr#  -> WLAN QR
+  
+  ⚠️ Maximale QR-Größe für aktuelles Label: {max_qr}px
 
 Barcodes:
-  #bar#1234567890#bar#              -> Standard Barcode (30px hoch)
-  #bar:25#Code mit Text#bar#        -> Barcode mit 25px Höhe
+  #bar#1234567890#bar#              -> Standard Barcode ({self.barcode_height}px hoch)
+  #bar:{max_bar//2}#Code mit Text#bar#        -> Barcode mit angepasster Höhe
+  
+  ⚠️ Maximale Barcode-Höhe für aktuelles Label: {max_bar}px
 
 Markdown:
   **Fetter Text**                   -> Fett formatiert
@@ -442,9 +468,10 @@ Kombiniert:
   
 Hinweise:
 - Codes werden automatisch zentriert
-- Text kann vor/nach Codes stehen
+- Text kann vor/nach Codes stehen  
 - Mehrere Codes pro Label möglich
-- Achte auf Labelgröße (384x240px)
+- Größen werden automatisch an Label angepasst
+- Aktuelles Label: {self.label_width_px}×{self.label_height_px} Pixel
         """.strip()
 
 

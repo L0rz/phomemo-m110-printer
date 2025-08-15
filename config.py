@@ -25,12 +25,61 @@ MAX_X_OFFSET = 100     # Maximum X-Offset
 MIN_Y_OFFSET = -50     # Minimum Y-Offset
 MAX_Y_OFFSET = 50      # Maximum Y-Offset
 
-# Label-Spezifikationen für Vorschau
-LABEL_WIDTH_MM = 40    # 40mm Label-Breite
-LABEL_HEIGHT_MM = 30   # 30mm Label-Höhe
+# Label-Spezifikationen für verschiedene Größen
 LABEL_DPI = 203        # Dots per inch
-LABEL_WIDTH_PX = int((LABEL_WIDTH_MM / 25.4) * LABEL_DPI)   # ~320px
-LABEL_HEIGHT_PX = int((LABEL_HEIGHT_MM / 25.4) * LABEL_DPI) # ~240px
+
+# Verfügbare Label-Größen
+LABEL_SIZES = {
+    '40x30': {
+        'name': '40x30mm (Standard)',
+        'width_mm': 40,
+        'height_mm': 30,
+        'width_px': int((40 / 25.4) * LABEL_DPI),   # ~320px
+        'height_px': int((30 / 25.4) * LABEL_DPI),  # ~240px
+        'description': 'Standard Adresslabel'
+    },
+    '30x50': {
+        'name': '30x50mm (Schmal/Hoch)',
+        'width_mm': 30,
+        'height_mm': 50,
+        'width_px': int((30 / 25.4) * LABEL_DPI),   # ~240px
+        'height_px': int((50 / 25.4) * LABEL_DPI),  # ~400px
+        'description': 'Schmales hohes Label'
+    },
+    '80x50': {
+        'name': '80x50mm (Breit)',
+        'width_mm': 80,
+        'height_mm': 50,
+        'width_px': int((80 / 25.4) * LABEL_DPI),   # ~640px (wird auf 384px begrenzt)
+        'height_px': int((50 / 25.4) * LABEL_DPI),  # ~400px
+        'description': 'Breites Label (wird auf Drucker-Breite begrenzt)'
+    },
+    '50x25': {
+        'name': '50x25mm (Breit/Flach)',
+        'width_mm': 50,
+        'height_mm': 25,
+        'width_px': int((50 / 25.4) * LABEL_DPI),   # ~400px (wird auf 384px begrenzt)
+        'height_px': int((25 / 25.4) * LABEL_DPI),  # ~200px
+        'description': 'Flaches breites Label'
+    },
+    '25x25': {
+        'name': '25x25mm (Quadrat)',
+        'width_mm': 25,
+        'height_mm': 25,
+        'width_px': int((25 / 25.4) * LABEL_DPI),   # ~200px
+        'height_px': int((25 / 25.4) * LABEL_DPI),  # ~200px
+        'description': 'Quadratisches Label'
+    }
+}
+
+# Standard Label-Größe
+DEFAULT_LABEL_SIZE = '40x30'
+
+# Backwards compatibility - Berechnet aus Standard-Label
+LABEL_WIDTH_MM = LABEL_SIZES[DEFAULT_LABEL_SIZE]['width_mm']
+LABEL_HEIGHT_MM = LABEL_SIZES[DEFAULT_LABEL_SIZE]['height_mm']
+LABEL_WIDTH_PX = LABEL_SIZES[DEFAULT_LABEL_SIZE]['width_px']
+LABEL_HEIGHT_PX = LABEL_SIZES[DEFAULT_LABEL_SIZE]['height_px']
 
 # Bildverarbeitung-Einstellungen
 DEFAULT_DITHER_THRESHOLD = 128  # Schwellenwert für SW-Konvertierung
@@ -111,5 +160,6 @@ DEFAULT_SETTINGS = {
     'fit_to_label_default': True,
     'maintain_aspect_default': True,
     'auto_connect': True,
-    'debug_mode': False
+    'debug_mode': False,
+    'label_size': DEFAULT_LABEL_SIZE  # Neue Einstellung für Label-Größe
 }

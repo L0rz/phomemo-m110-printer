@@ -75,7 +75,8 @@ class EnhancedPhomemoM110:
         self.width_pixels = PRINTER_WIDTH_PIXELS
         self.bytes_per_line = PRINTER_BYTES_PER_LINE
         
-        # Label-Spezifikationen
+        # Label-Spezifikationen - Standard aus Config
+        self.current_label_size = DEFAULT_LABEL_SIZE
         self.label_width_px = LABEL_WIDTH_PX
         self.label_height_px = LABEL_HEIGHT_PX
         self.label_width_mm = LABEL_WIDTH_MM
@@ -84,6 +85,9 @@ class EnhancedPhomemoM110:
         # Konfigurierbare Einstellungen
         self.settings = DEFAULT_SETTINGS.copy()
         self.load_settings()
+        
+        # Label-Größe aus Settings laden
+        self.update_label_size(self.settings.get('label_size', DEFAULT_LABEL_SIZE))
         
         # Connection Management
         self.connection_status = ConnectionStatus.DISCONNECTED
@@ -173,6 +177,55 @@ class EnhancedPhomemoM110:
     def get_settings(self) -> Dict[str, Any]:
         """Gibt aktuelle Einstellungen zurück"""
         return self.settings.copy()
+    
+    def get_available_label_sizes(self) -> Dict[str, Any]:
+        """Gibt verfügbare Label-Größen zurück"""
+        return LABEL_SIZES.copy()
+    
+    def get_current_label_size(self) -> Dict[str, Any]:
+        """Gibt aktuelle Label-Größe zurück"""
+        return {
+            'current': self.current_label_size,
+            'width_px': self.label_width_px,
+            'height_px': self.label_height_px,
+            'width_mm': self.label_width_mm,
+            'height_mm': self.label_height_mm,
+            **LABEL_SIZES[self.current_label_size]
+        }
+    
+    def update_label_size(self, label_size_key: str) -> bool:
+        """Aktualisiert die Label-Größe"""
+        try:
+            if label_size_key not in LABEL_SIZES:
+                logger.error(f"Unknown label size: {label_size_key}")
+                return False
+            
+            label_config = LABEL_SIZES[label_size_key]
+            
+            # Label-Dimensionen aktualisieren
+            self.current_label_size = label_size_key
+            self.label_width_mm = label_config['width_mm']
+            self.label_height_mm = label_config['height_mm']
+            
+            # Pixel-Dimensionen - begrenzt auf Drucker-Breite
+            self.label_width_px = min(label_config['width_px'], PRINTER_WIDTH_PIXELS)
+            self.label_height_px = label_config['height_px']
+            
+            # Code Generator aktualisieren falls vorhanden
+            if hasattr(self, 'code_generator') and self.code_generator:
+                self.code_generator.label_width_px = self.label_width_px
+                self.code_generator.label_height_px = self.label_height_px
+            
+            # Settings speichern
+            self.settings['label_size'] = label_size_key
+            self.save_settings()
+            
+            logger.info(f"📏 Label size updated to {label_config['name']}: {self.label_width_px}x{self.label_height_px}px")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating label size: {e}")
+            return False
     
     def start_services(self):
         """Startet Background-Services"""

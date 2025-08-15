@@ -557,5 +557,45 @@ def setup_api_routes(app, printer):
             logger.error(f"Code syntax help error: {e}", exc_info=True)
             return jsonify({'success': False, 'error': str(e)})
 
+    @app.route('/api/label-sizes', methods=['GET'])
+    def api_get_label_sizes():
+        """Gibt verfügbare Label-Größen zurück"""
+        try:
+            available_sizes = printer.get_available_label_sizes()
+            current_size = printer.get_current_label_size()
+            
+            return jsonify({
+                'success': True,
+                'available_sizes': available_sizes,
+                'current_size': current_size
+            })
+        except Exception as e:
+            logger.error(f"Get label sizes error: {e}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)})
+
+    @app.route('/api/label-size', methods=['POST'])
+    def api_set_label_size():
+        """Setzt neue Label-Größe"""
+        try:
+            label_size = request.form.get('label_size', '')
+            
+            if not label_size:
+                return jsonify({'success': False, 'error': 'Keine Label-Größe angegeben'})
+            
+            success = printer.update_label_size(label_size)
+            if success:
+                current_size = printer.get_current_label_size()
+                return jsonify({
+                    'success': True,
+                    'message': f'Label-Größe geändert zu {current_size["name"]}',
+                    'current_size': current_size
+                })
+            else:
+                return jsonify({'success': False, 'error': 'Ungültige Label-Größe'})
+                
+        except Exception as e:
+            logger.error(f"Set label size error: {e}", exc_info=True)
+            return jsonify({'success': False, 'error': str(e)})
+
     app.register_blueprint(bp)
     return app
