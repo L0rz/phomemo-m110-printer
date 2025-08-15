@@ -401,7 +401,7 @@ WEB_INTERFACE = '''
                 <h2>📝 Text drucken (mit Markdown)</h2>
                 <textarea id="textInput" rows="4" placeholder="Text eingeben... (Markdown möglich)" oninput="debouncedTextPreview()"># PHOMEMO M110
 ## Enhanced Edition  
-**Fett** und *kursiv* Text
+**Fetter Text** ist verfügbar
 X-Offset: 0px
 ✓ Bildvorschau
 Zeit: $TIME$</textarea>
@@ -409,7 +409,6 @@ Zeit: $TIME$</textarea>
                 <div class="markdown-help" style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 12px;">
                     <strong>📖 Markdown-Hilfe:</strong><br>
                     <code>**fett**</code> → <strong>fett</strong> | 
-                    <code>*kursiv*</code> → <em>kursiv</em> | 
                     <code># Überschrift</code> → große Schrift | 
                     <code>## Unterüberschrift</code> → mittlere Schrift
                 </div>

@@ -875,11 +875,10 @@ class EnhancedPhomemoM110:
         
         Unterstützte Markdown-Syntax:
         - **fett** oder __fett__
-        - *kursiv* oder _kursiv_
         - # Überschrift (große Schrift)
         - ## Unterüberschrift (mittlere Schrift)
         
-        Returns: List of tuples (text, font_size, bold, italic)
+        Returns: List of tuples (text, font_size, bold)
         """
         import re
         
@@ -907,11 +906,11 @@ class EnhancedPhomemoM110:
             if line.strip().startswith('# '):
                 # H1 - Große Überschrift
                 clean_text = line.strip()[2:].strip()
-                line_segments.append((clean_text, base_font_size + 8, True, False))
+                line_segments.append((clean_text, base_font_size + 8, True))
             elif line.strip().startswith('## '):
                 # H2 - Mittlere Überschrift  
                 clean_text = line.strip()[3:].strip()
-                line_segments.append((clean_text, base_font_size + 4, True, False))
+                line_segments.append((clean_text, base_font_size + 4, True))
             else:
                 # Normale Zeile - inline Formatierung parsen
                 segments = self._parse_inline_markdown(line, base_font_size)
@@ -922,24 +921,22 @@ class EnhancedPhomemoM110:
         return parsed_lines
     
     def _parse_inline_markdown(self, text, base_font_size):
-        """Parst inline Markdown-Formatierung in einem Text"""
+        """Parst inline Markdown-Formatierung in einem Text - NUR FETT"""
         import re
         
         # Text ist bereits in parse_markdown_text bereinigt worden
         segments = []
         current_pos = 0
         
-        # Regex-Patterns für Markdown
+        # Regex-Patterns für Markdown - NUR FETT, KEIN KURSIV
         patterns = [
-            (r'\*\*(.*?)\*\*', True, False),    # **fett**
-            (r'__(.*?)__', True, False),        # __fett__
-            (r'\*(.*?)\*', False, True),        # *kursiv*
-            (r'_(.*?)_', False, True),          # _kursiv_
+            (r'\*\*(.*?)\*\*', True),    # **fett**
+            (r'__(.*?)__', True),        # __fett__
         ]
         
         # Alle Matches finden und sortieren
         all_matches = []
-        for pattern, is_bold, is_italic in patterns:
+        for pattern, is_bold in patterns:
             for match in re.finditer(pattern, text):
                 # Prüfen ob es sich überschneidet mit bereits gefundenen Matches
                 overlaps = False
@@ -949,32 +946,32 @@ class EnhancedPhomemoM110:
                         break
                 
                 if not overlaps:
-                    all_matches.append((match.start(), match.end(), match.group(1), (is_bold, is_italic)))
+                    all_matches.append((match.start(), match.end(), match.group(1), is_bold))
         
         # Nach Position sortieren
         all_matches.sort(key=lambda x: x[0])
         
         # Text in Segmente aufteilen
-        for match_start, match_end, match_text, (is_bold, is_italic) in all_matches:
+        for match_start, match_end, match_text, is_bold in all_matches:
             # Text vor dem Match hinzufügen
             if current_pos < match_start:
                 plain_text = text[current_pos:match_start]
                 if plain_text:
-                    segments.append((plain_text, base_font_size, False, False))
+                    segments.append((plain_text, base_font_size, False))
             
             # Formatierten Text hinzufügen
-            segments.append((match_text, base_font_size, is_bold, is_italic))
+            segments.append((match_text, base_font_size, is_bold))
             current_pos = match_end
         
         # Restlichen Text hinzufügen
         if current_pos < len(text):
             remaining_text = text[current_pos:]
             if remaining_text:
-                segments.append((remaining_text, base_font_size, False, False))
+                segments.append((remaining_text, base_font_size, False))
         
         # Wenn keine Formatierung gefunden wurde, ganzen Text als plain zurückgeben
         if not segments:
-            segments.append((text, base_font_size, False, False))
+            segments.append((text, base_font_size, False))
         
         return segments
     
@@ -992,8 +989,8 @@ class EnhancedPhomemoM110:
             # Font-Cache für verschiedene Größen und Stile
             font_cache = {}
             
-            def get_font(size, bold=False, italic=False):
-                key = (size, bold, italic)
+            def get_font(size, bold=False):
+                key = (size, bold)
                 if key not in font_cache:
                     # Basis-Font laden (fett wenn nötig)
                     font_paths = [
@@ -1016,9 +1013,7 @@ class EnhancedPhomemoM110:
                     if font_obj is None:
                         font_obj = ImageFont.load_default()
                     
-                    # Kursiv wird durch PIL's Transformation simuliert (nicht durch separate Font-Datei)
-                    # PIL unterstützt keine direkte Kursiv-Transformation, also merken wir uns das für's Zeichnen
-                    font_cache[key] = (font_obj, italic)  # Tuple: (font, is_italic_flag)
+                    font_cache[key] = font_obj
                 
                 return font_cache[key]
             
@@ -1033,9 +1028,9 @@ class EnhancedPhomemoM110:
                 line_width = 0
                 line_height = 0
                 
-                for segment_text, seg_font_size, is_bold, is_italic in line_segments:
+                for segment_text, seg_font_size, is_bold in line_segments:
                     if segment_text.strip():
-                        seg_font, _ = get_font(seg_font_size, is_bold, is_italic)  # Nur Font-Objekt für Größenmessung
+                        seg_font = get_font(seg_font_size, is_bold)
                         try:
                             bbox = temp_draw.textbbox((0, 0), segment_text, font=seg_font)
                             seg_width = bbox[2] - bbox[0]
@@ -1064,9 +1059,9 @@ class EnhancedPhomemoM110:
                 line_width = 0
                 
                 # Gesamtbreite der Zeile berechnen für Ausrichtung
-                for segment_text, seg_font_size, is_bold, is_italic in line_segments:
+                for segment_text, seg_font_size, is_bold in line_segments:
                     if segment_text.strip():
-                        seg_font, _ = get_font(seg_font_size, is_bold, is_italic)  # Nur Font-Objekt für Größenmessung
+                        seg_font = get_font(seg_font_size, is_bold)
                         try:
                             bbox = draw.textbbox((0, 0), segment_text, font=seg_font)
                             seg_width = bbox[2] - bbox[0]
@@ -1084,7 +1079,7 @@ class EnhancedPhomemoM110:
                 
                 # Segmente zeichnen
                 current_x = start_x
-                for segment_text, seg_font_size, is_bold, is_italic in line_segments:
+                for segment_text, seg_font_size, is_bold in line_segments:
                     if segment_text:
                         # Spezielle Zeichen bereinigen für bessere Font-Kompatibilität
                         clean_text = segment_text.replace('\x00', '').replace('\t', '    ')
@@ -1092,36 +1087,15 @@ class EnhancedPhomemoM110:
                         clean_text = ''.join(char for char in clean_text if ord(char) >= 32 or char in '\n\r')
                         
                         if clean_text.strip():  # Nur nicht-leere Texte zeichnen
-                            seg_font, needs_italic = get_font(seg_font_size, is_bold, is_italic)
+                            seg_font = get_font(seg_font_size, is_bold)
                             try:
-                                if needs_italic:
-                                    # Kursiv-Simulation durch Zeichen-für-Zeichen Zeichnen mit X-Offset
-                                    char_x = current_x
-                                    for char_idx, char in enumerate(clean_text):
-                                        # Kleiner X-Offset für Kursiv-Effekt (proportional zur Y-Position vom Baseline)
-                                        italic_offset = int(seg_font_size * 0.15)  # 15% der Schriftgröße
-                                        draw.text((char_x + italic_offset, y_pos), char, fill='black', font=seg_font)
-                                        
-                                        # X-Position für nächstes Zeichen
-                                        try:
-                                            char_bbox = draw.textbbox((0, 0), char, font=seg_font)
-                                            char_x += char_bbox[2] - char_bbox[0]
-                                        except:
-                                            char_x += seg_font_size // 2  # Fallback
-                                    
-                                    # Gesamtbreite für nächstes Segment
-                                    bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
-                                    current_x += bbox[2] - bbox[0] + italic_offset
-                                    
-                                    logger.debug(f"✏️ Drew ITALIC segment '{clean_text[:20]}...' with simulation")
-                                else:
-                                    # Normales Zeichnen
-                                    draw.text((current_x, y_pos), clean_text, fill='black', font=seg_font)
-                                    # X-Position für nächstes Segment aktualisieren
-                                    bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
-                                    current_x += bbox[2] - bbox[0]
-                                    
-                                    logger.debug(f"✏️ Drew segment '{clean_text[:20]}...' (size:{seg_font_size}, bold:{is_bold}, italic:{is_italic}) at ({current_x}, {y_pos})")
+                                # Einfaches Zeichnen - kein Kursiv
+                                draw.text((current_x, y_pos), clean_text, fill='black', font=seg_font)
+                                # X-Position für nächstes Segment aktualisieren
+                                bbox = draw.textbbox((0, 0), clean_text, font=seg_font)
+                                current_x += bbox[2] - bbox[0]
+                                
+                                logger.debug(f"✏️ Drew segment '{clean_text[:20]}...' (size:{seg_font_size}, bold:{is_bold}) at ({current_x}, {y_pos})")
                             except Exception as e:
                                 logger.warning(f"⚠️ Could not draw segment '{clean_text[:20]}...': {e}")
                                 current_x += len(clean_text) * (seg_font_size // 2)
