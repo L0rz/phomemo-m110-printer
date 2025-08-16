@@ -43,7 +43,7 @@ Zeile 2: NOPQRSTUVWXYZ
 Zeile 3: 1234567890
 
 Position Test:
-← Links    Mitte    Rechts →
+<- Links    Mitte    Rechts ->
 |          |          |
 
 FUNKTIONIERT PERFEKT!"""
@@ -93,7 +93,7 @@ def test_image_print():
         draw.text((10, 70), "Zeile 3: 1234567890", fill='black')
         
         draw.text((10, 100), "Position Test:", fill='black')
-        draw.text((10, 120), "← Links    Mitte    Rechts →", fill='black')
+        draw.text((10, 120), "<- Links    Mitte    Rechts ->", fill='black')
         draw.text((10, 140), "|          |          |", fill='black')
         
         draw.text((10, 170), "GLEICHE STRUKTUR WIE TEXT!", fill='black')
