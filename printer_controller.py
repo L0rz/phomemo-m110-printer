@@ -791,8 +791,8 @@ class EnhancedPhomemoM110:
 
             logger.info(f"📤 RESTORED WORKING: Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
             
-            # ENHANCED Anti-Drift: Immer eine Stabilisierungs-Pause, auch beim ersten Druck
-            min_interval = self.settings.get('anti_drift_interval', 2.0)
+            # SPEED-OPTIMIERTE Anti-Drift: Kürzere Pausen
+            min_interval = self.settings.get('anti_drift_interval', 1.0)  # Halbiert: 1s statt 2s
             
             if hasattr(self, 'last_print_time'):
                 time_since_last = time.time() - self.last_print_time
@@ -805,18 +805,18 @@ class EnhancedPhomemoM110:
                 logger.info(f"🔄 First image print - initial stabilization pause: {min_interval}s")
                 time.sleep(min_interval)
             
-            # DRUCKER-VORBEREITUNG für Bilder (kritisch!)
-            logger.info("🔧 Pre-image printer stabilization...")
+            # SPEED-OPTIMIERTE DRUCKER-VORBEREITUNG
+            logger.info("🚀 Speed-optimized printer preparation...")
             
-            # Sanfte Drucker-Vorbereitung für Bilder
+            # Schnelle Drucker-Vorbereitung
             if not self.send_command(b'\x1b\x40'):  # ESC @ - Initialize printer
                 logger.warning("⚠️ Printer initialization failed")
-            time.sleep(0.2)  # Längere Pause für Bilder
+            time.sleep(0.1)  # Halbiert: 0.1s statt 0.2s
             
-            # Position-Konsistenz für Bilder
+            # Schnelle Position-Konsistenz
             if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Horizontal position to 0
                 logger.warning("⚠️ Position reset failed")
-            time.sleep(0.1)
+            time.sleep(0.05)  # Halbiert: 0.05s statt 0.1s
 
             # BITMAP-HEADER mit korrekten Dimensionen
             xL = width_bytes & 0xFF
@@ -825,60 +825,60 @@ class EnhancedPhomemoM110:
             yH = (height >> 8) & 0xFF
             header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
 
-            logger.info(f"📋 Bitmap header: width_bytes={width_bytes}, height={height}")
+            logger.info(f"📋 Speed bitmap header: width_bytes={width_bytes}, height={height}")
             if not self.send_command(header):
                 logger.error("❌ Failed to send bitmap header")
                 return False
-            time.sleep(0.1)  # Pause nach Header
+            time.sleep(0.05)  # Halbiert: 0.05s statt 0.1s
 
-            # BEWÄHRTE ULTRA-KLEINE Chunks 
-            CHUNK = 64  # BEWÄHRTE Größe - funktionierte vorher
+            # SPEED-OPTIMIERTE Chunks bei gleicher Struktur
+            CHUNK = 256  # DEUTLICH größere Chunks für bessere Geschwindigkeit
             chunks_sent = 0
             total_bytes_sent = 0
             
-            logger.info(f"📦 PROVEN ULTRA-SMALL-CHUNKS: Sending {len(image_data)} bytes in {CHUNK}-byte chunks...")
+            logger.info(f"📦 SPEED-OPTIMIZED: Sending {len(image_data)} bytes in {CHUNK}-byte chunks (fast transmission)...")
             
             for i in range(0, len(image_data), CHUNK):
                 chunk = image_data[i:i+CHUNK]
                 
-                # BEWÄHRTE RETRY für kontinuierliche Sequenzen
+                # SCHNELLERE Retry-Logik
                 chunk_success = False
-                for attempt in range(7):  # Bewährte Anzahl
+                for attempt in range(3):  # Weniger Versuche für Speed
                     if self.send_command(chunk):
                         chunk_success = True
                         break
                     else:
-                        logger.warning(f"⚠️ Ultra-small chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
-                        # Progressive Retry-Pause: 10ms, 20ms, 30ms, etc.
-                        time.sleep(0.01 * (attempt + 1))
+                        logger.warning(f"⚠️ Speed chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
+                        # KÜRZERE Retry-Pausen
+                        time.sleep(0.005 * (attempt + 1))  # 5ms, 10ms, 15ms
                 
                 if not chunk_success:
-                    logger.error(f"❌ Failed to send ultra-small chunk {chunks_sent} after 7 attempts")
+                    logger.error(f"❌ Failed to send speed chunk {chunks_sent} after 3 attempts")
                     return False
                 
                 chunks_sent += 1
                 total_bytes_sent += len(chunk)
                 
-                # Häufiger Progress für ultra-kleine Chunks
-                if chunks_sent % 5 == 0:  
+                # SELTENER Progress (bessere Performance)
+                if chunks_sent % 20 == 0:  
                     progress = (total_bytes_sent / len(image_data)) * 100
-                    logger.info(f"📊 Ultra-small progress: {chunks_sent} chunks ({progress:.1f}%)")
+                    logger.info(f"📊 Speed progress: {chunks_sent} chunks ({progress:.1f}%)")
                 
-                # BEWÄHRTE Pausen für kontinuierliche Sequenzen
-                time.sleep(0.03)  # Bewährte Pause
+                # VIEL KÜRZERE Pausen für Speed
+                time.sleep(0.005)  # Nur 5ms statt 30ms
                 
-                # BEWÄHRTE Extra-Pausen bei jedem 10. Chunk
-                if chunks_sent % 10 == 0:
-                    logger.info(f"🔄 Stabilization pause after {chunks_sent} chunks...")
-                    time.sleep(0.1)  # Bewährte Extra-Pause
+                # SELTENE Extra-Pausen für Stabilität
+                if chunks_sent % 50 == 0:
+                    logger.info(f"🔄 Speed stabilization after {chunks_sent} chunks...")
+                    time.sleep(0.02)  # Kurze 20ms Stabilisierung
 
-            # BEWÄHRTE POST-PRINT Stabilisierung
-            time.sleep(0.2)  # Pause nach Bild-Druck
+            # SPEED-OPTIMIERTE POST-PRINT Stabilisierung
+            time.sleep(0.1)  # Halbiert: 0.1s statt 0.2s
             
-            # Position nach Bild-Druck explizit zurücksetzen
-            logger.info("🔄 Post-image position stabilization...")
+            # Schnelle Position-Stabilisierung
+            logger.info("🚀 Speed-optimized position stabilization...")
             self.send_command(b'\x1b\x64\x00')  # Position reset
-            time.sleep(0.1)
+            time.sleep(0.05)  # Halbiert: 0.05s statt 0.1s
             
             # Zeitstempel für Anti-Drift tracking
             self.last_print_time = time.time()
