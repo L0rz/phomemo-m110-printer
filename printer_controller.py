@@ -807,98 +807,106 @@ class EnhancedPhomemoM110:
             return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
-        """Sendet Bitmap an Drucker mit korrekter ESC/POS-Initialisierung"""
+        """Sendet Bitmap an Drucker mit bewährter Enhanced Anti-Drift Methode (URSPRÜNGLICH FUNKTIONIEREND)"""
         try:
             width_bytes = self.bytes_per_line
             m = 0
-    
-            logger.info(f"📤 CORRECTED BITMAP: Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
+
+            logger.info(f"📤 RESTORED WORKING: Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
             
-            # VEREINFACHTE ESC/POS-SEQUENZ (weniger ist mehr)
-            logger.info("🔄 SIMPLIFIED: Essential ESC/POS initialization...")
+            # ENHANCED Anti-Drift: Immer eine Stabilisierungs-Pause, auch beim ersten Druck
+            min_interval = self.settings.get('anti_drift_interval', 2.0)
             
-            # 1. ESC @ - Initialize printer (ESSENTIAL!)
-            if not self.send_command(b'\x1b\x40'):
-                logger.error("❌ Failed to send ESC @ command")
-                return False
-            time.sleep(0.2)
+            if hasattr(self, 'last_print_time'):
+                time_since_last = time.time() - self.last_print_time
+                if time_since_last < min_interval:
+                    sleep_time = min_interval - time_since_last
+                    logger.info(f"⏱️ Anti-drift pause ({min_interval}s setting): {sleep_time:.2f}s")
+                    time.sleep(sleep_time)
+            else:
+                # ERSTE BILD-DRUCK: Extra-Stabilisierung
+                logger.info(f"🔄 First image print - initial stabilization pause: {min_interval}s")
+                time.sleep(min_interval)
             
-            # 2. ESC a - Select justification (left align) - ESSENTIAL!
-            if not self.send_command(b'\x1b\x61\x00'):  # 0=left, 1=center, 2=right
-                logger.warning("⚠️ Justification setting failed")
+            # DRUCKER-VORBEREITUNG für Bilder (kritisch!)
+            logger.info("🔧 Pre-image printer stabilization...")
+            
+            # Sanfte Drucker-Vorbereitung für Bilder
+            if not self.send_command(b'\x1b\x40'):  # ESC @ - Initialize printer
+                logger.warning("⚠️ Printer initialization failed")
+            time.sleep(0.2)  # Längere Pause für Bilder
+            
+            # Position-Konsistenz für Bilder
+            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Horizontal position to 0
+                logger.warning("⚠️ Position reset failed")
             time.sleep(0.1)
-            
-            # 3. NUR die wirklich kritische Phomemo-Sequenz
-            if not self.send_command(b'\x1f\x11\x02\x04'):
-                logger.warning("⚠️ Phomemo init sequence failed")
-            time.sleep(0.1)
-            
-            logger.info("✅ Simplified initialization finished")
-    
-            # KORREKTE BITMAP-HEADER basierend auf ESC/POS-Standard
-            # GS v 0 - Print raster bit image (aus vivier/phomemo-tools)
+
+            # BITMAP-HEADER mit korrekten Dimensionen
             xL = width_bytes & 0xFF
             xH = (width_bytes >> 8) & 0xFF
             yL = height & 0xFF
             yH = (height >> 8) & 0xFF
-            
-            # Korrekte ESC/POS GS v 0 Sequenz
             header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
-    
-            logger.info(f"📋 CORRECTED Bitmap header: GS v 0, mode={m}, width_bytes={width_bytes}, height={height}")
-            logger.info(f"📋 Header bytes: {' '.join(f'0x{b:02x}' for b in header)}")
-            
+
+            logger.info(f"📋 Bitmap header: width_bytes={width_bytes}, height={height}")
             if not self.send_command(header):
-                logger.error("❌ Failed to send corrected bitmap header")
+                logger.error("❌ Failed to send bitmap header")
                 return False
-            time.sleep(0.2)  # Längere Pause nach Header
-    
-            # FEINTUNING DER CHUNK-ÜBERTRAGUNG für bessere Qualität
-            # Problem: Chunk-Größe und Timing müssen perfekt abgestimmt sein
-            CHUNK = 128  # Mittelgröße für bessere Balance zwischen Speed und Qualität
+            time.sleep(0.1)  # Pause nach Header
+
+            # BEWÄHRTE ULTRA-KLEINE Chunks 
+            CHUNK = 64  # BEWÄHRTE Größe - funktionierte vorher
             chunks_sent = 0
             total_bytes_sent = 0
             
-            logger.info(f"📦 OPTIMIZED-CHUNKS: Sending {len(image_data)} bytes in {CHUNK}-byte chunks (quality-optimized)...")
+            logger.info(f"📦 PROVEN ULTRA-SMALL-CHUNKS: Sending {len(image_data)} bytes in {CHUNK}-byte chunks...")
             
             for i in range(0, len(image_data), CHUNK):
                 chunk = image_data[i:i+CHUNK]
                 
-                # Präzisere Retry-Logik für bessere Qualität
+                # BEWÄHRTE RETRY für kontinuierliche Sequenzen
                 chunk_success = False
-                for attempt in range(3):  # Weniger Versuche, schnellere Übertragung
+                for attempt in range(7):  # Bewährte Anzahl
                     if self.send_command(chunk):
                         chunk_success = True
                         break
                     else:
-                        logger.warning(f"⚠️ Quality chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
-                        # Kürzere, präzisere Retry-Pausen
-                        time.sleep(0.02 * (attempt + 1))
+                        logger.warning(f"⚠️ Ultra-small chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
+                        # Progressive Retry-Pause: 10ms, 20ms, 30ms, etc.
+                        time.sleep(0.01 * (attempt + 1))
                 
                 if not chunk_success:
-                    logger.error(f"❌ Failed to send quality chunk {chunks_sent} after 3 attempts")
+                    logger.error(f"❌ Failed to send ultra-small chunk {chunks_sent} after 7 attempts")
                     return False
                 
                 chunks_sent += 1
                 total_bytes_sent += len(chunk)
                 
-                # Progress alle 10 Chunks
-                if chunks_sent % 10 == 0:
+                # Häufiger Progress für ultra-kleine Chunks
+                if chunks_sent % 5 == 0:  
                     progress = (total_bytes_sent / len(image_data)) * 100
-                    logger.info(f"📊 Quality progress: {chunks_sent} chunks ({progress:.1f}%)")
+                    logger.info(f"📊 Ultra-small progress: {chunks_sent} chunks ({progress:.1f}%)")
                 
-                # KRITISCH: Sehr kurze, gleichmäßige Pausen für bessere Qualität
-                time.sleep(0.01)  # Kürzere 10ms Pause für flüssige Übertragung
+                # BEWÄHRTE Pausen für kontinuierliche Sequenzen
+                time.sleep(0.03)  # Bewährte Pause
                 
-                # Seltene Extra-Pausen nur alle 40 Chunks
-                if chunks_sent % 40 == 0:
-                    logger.info(f"🔄 Quality stabilization after {chunks_sent} chunks...")
-                    time.sleep(0.05)  # Kurze Stabilisierung
-    
-            # MINIMALE POST-PRINT-SEQUENZ (keine extra Zeilen)
-            time.sleep(0.3)  # Pause nach Daten-Übertragung für Stabilität
+                # BEWÄHRTE Extra-Pausen bei jedem 10. Chunk
+                if chunks_sent % 10 == 0:
+                    logger.info(f"🔄 Stabilization pause after {chunks_sent} chunks...")
+                    time.sleep(0.1)  # Bewährte Extra-Pause
+
+            # BEWÄHRTE POST-PRINT Stabilisierung
+            time.sleep(0.2)  # Pause nach Bild-Druck
             
-            logger.info(f"✅ CORRECTED BITMAP: Successfully sent {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
+            # Position nach Bild-Druck explizit zurücksetzen
+            logger.info("🔄 Post-image position stabilization...")
+            self.send_command(b'\x1b\x64\x00')  # Position reset
+            time.sleep(0.1)
+            
+            # Zeitstempel für Anti-Drift tracking
+            self.last_print_time = time.time()
+            
+            logger.info(f"✅ RESTORED WORKING: Bitmap sent successfully: {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
             
             # Validierung
             if total_bytes_sent != len(image_data):
@@ -907,7 +915,7 @@ class EnhancedPhomemoM110:
             return True
             
         except Exception as e:
-            logger.error(f"❌ FUNDAMENTAL REPAIR: Bitmap send error: {e}")
+            logger.error(f"❌ RESTORED WORKING: Bitmap send error: {e}")
             import traceback
             logger.error(f"Full traceback: {traceback.format_exc()}")
             return False

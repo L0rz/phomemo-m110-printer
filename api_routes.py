@@ -147,7 +147,7 @@ def setup_api_routes(app, printer):
 
     @app.route('/api/print-image', methods=['POST'])
     def api_print_image():
-        """Druckt hochgeladenes Bild (multipart Feld 'data' ODER 'image')."""
+        """Druckt hochgeladenes Bild MIT ALLEN Vorschau-Parametern"""
         try:
             # ---- Datei holen (data ODER image) ----
             file = _get_uploaded_file()
@@ -156,11 +156,20 @@ def setup_api_routes(app, printer):
             if (file.filename or '') == '':
                 return jsonify({'success': False, 'error': 'Keine Datei ausgewählt'}), 400
 
-            # ---- Einstellungen aus Form (bestehende Keys unverändert lassen) ----
+            # ---- ALLE Einstellungen aus Form (wie in der Vorschau) ----
             use_queue = request.form.get('use_queue', 'false').lower() == 'true'
             fit_to_label = request.form.get('fit_to_label', 'true').lower() == 'true'
             maintain_aspect = request.form.get('maintain_aspect', 'true').lower() == 'true'
-            dither = request.form.get('dither', 'true').lower() == 'true'
+            enable_dither = request.form.get('enable_dither', 'true').lower() == 'true'
+            
+            # ERWEITERTE Parameter (wie in preview) - KRITISCH!
+            dither_threshold = int(request.form.get('dither_threshold', '128'))
+            dither_strength = float(request.form.get('dither_strength', '1.0'))
+            scaling_mode = request.form.get('scaling_mode', 'fit_aspect')
+            
+            # Legacy-Support für 'dither' Parameter
+            if 'dither' in request.form:
+                enable_dither = request.form.get('dither', 'true').lower() == 'true'
 
             # ---- Datei lesen & Basis-Checks ----
             image_data = file.read()
@@ -177,34 +186,63 @@ def setup_api_routes(app, printer):
 
             # Für Log/Dateiname (optional)
             filename = secure_filename(file.filename or f"image.{detected_fmt.lower()}")
+            
+            logger.info(f"🖨️ Printing image with settings: fit_to_label={fit_to_label}, maintain_aspect={maintain_aspect}, dither={enable_dither}, threshold={dither_threshold}, strength={dither_strength}, scaling={scaling_mode}")
 
-            # ---- Drucken (wie gehabt) ----
+            # ---- Drucken MIT ALLEN PARAMETERN ----
             if use_queue:
-                # Verwende korrekte Queue-Methode
+                # Queue mit erweiterten Parametern
                 job_id = printer.queue_print_job('image', {
                     'image_data': image_data,
                     'filename': filename,
                     'fit_to_label': fit_to_label,
                     'maintain_aspect': maintain_aspect,
-                    'dither': dither
+                    'enable_dither': enable_dither,
+                    'dither_threshold': dither_threshold,
+                    'dither_strength': dither_strength,
+                    'scaling_mode': scaling_mode
                 })
                 return jsonify({
                     'success': True,
                     'job_id': job_id,
-                    'message': 'Image queued',
+                    'message': 'Image queued with settings',
                     'filename': filename,
                     'format': detected_fmt,
-                    'size_bytes': len(image_data)
+                    'size_bytes': len(image_data),
+                    'settings': {
+                        'fit_to_label': fit_to_label,
+                        'maintain_aspect': maintain_aspect,
+                        'enable_dither': enable_dither,
+                        'dither_threshold': dither_threshold,
+                        'dither_strength': dither_strength,
+                        'scaling_mode': scaling_mode
+                    }
                 })
             else:
-                # Verwende korrekte Methode für sofortigen Druck
-                success = printer.print_image_immediate(image_data)
+                # Sofortiger Druck MIT ALLEN PARAMETERN
+                success = printer.print_image_immediate(
+                    image_data, 
+                    fit_to_label=fit_to_label,
+                    maintain_aspect=maintain_aspect, 
+                    enable_dither=enable_dither,
+                    dither_threshold=dither_threshold,
+                    dither_strength=dither_strength,
+                    scaling_mode=scaling_mode
+                )
                 return jsonify({
                     'success': success,
                     'filename': filename,
                     'format': detected_fmt,
                     'size_bytes': len(image_data),
-                    'message': f'Bild {"erfolgreich gedruckt" if success else "Druck fehlgeschlagen"} ({detected_fmt}, {len(image_data)} bytes)'
+                    'message': f'Bild {"erfolgreich gedruckt" if success else "Druck fehlgeschlagen"} ({detected_fmt}, {len(image_data)} bytes)',
+                    'settings_applied': {
+                        'fit_to_label': fit_to_label,
+                        'maintain_aspect': maintain_aspect,
+                        'enable_dither': enable_dither,
+                        'dither_threshold': dither_threshold,
+                        'dither_strength': dither_strength,
+                        'scaling_mode': scaling_mode
+                    }
                 })
 
         except Exception as e:
