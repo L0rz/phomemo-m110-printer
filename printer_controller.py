@@ -614,76 +614,53 @@ class EnhancedPhomemoM110:
             return {'success': False, 'error': str(e)}
     
     def print_image_immediate(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=True, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect') -> bool:
-        """Druckt Bild sofort (bypass Queue) mit verbessertem Anti-Drift-Mechanismus"""
+        """Druckt Bild sofort mit FUNKTIONIERENDER TEXT-STRUKTUR"""
         try:
-            logger.info("🖨️ Starting immediate image print with enhanced anti-drift protection")
+            logger.info("🖨️ Starting immediate image print with PROVEN TEXT STRUCTURE")
             
-            # ENHANCED Anti-Drift: Immer eine Stabilisierungs-Pause, auch beim ersten Druck
-            min_interval = self.settings.get('anti_drift_interval', 2.0)
-            
-            if hasattr(self, 'last_print_time'):
-                time_since_last = time.time() - self.last_print_time
-                if time_since_last < min_interval:
-                    sleep_time = min_interval - time_since_last
-                    logger.info(f"⏱️ Anti-drift pause ({min_interval}s setting): {sleep_time:.2f}s")
-                    time.sleep(sleep_time)
-            else:
-                # ERSTE BILD-DRUCK: Extra-Stabilisierung
-                logger.info(f"🔄 First image print - initial stabilization pause: {min_interval}s")
-                time.sleep(min_interval)
-            
-            # DRUCKER-VORBEREITUNG für Bilder (kritisch!)
-            logger.info("🔧 Pre-image printer stabilization...")
-            
-            # Sanfte Drucker-Vorbereitung für Bilder
-            if not self.send_command(b'\x1b\x40'):  # ESC @ - Initialize printer
-                logger.warning("⚠️ Printer initialization failed")
-            time.sleep(0.2)  # Längere Pause für Bilder
-            
-            # Position-Konsistenz für Bilder
-            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Horizontal position to 0
-                logger.warning("⚠️ Position reset failed")
-            time.sleep(0.1)
-            
-            logger.info("📷 Processing image data...")
-            result = self.process_image_for_preview(image_data, fit_to_label, maintain_aspect, enable_dither, dither_threshold=dither_threshold, dither_strength=dither_strength, scaling_mode=scaling_mode)
+            logger.info("📷 Processing image data with all parameters...")
+            # GENAU WIE BEI TEXT: Erst verarbeiten, dann direkt drucken
+            result = self.process_image_for_preview(
+                image_data, 
+                fit_to_label, 
+                maintain_aspect, 
+                enable_dither, 
+                dither_threshold=dither_threshold, 
+                dither_strength=dither_strength, 
+                scaling_mode=scaling_mode
+            )
             
             if result:
-                logger.info(f"📐 Image processed: {result.processed_image.size}")
+                logger.info(f"✅ Image processed, size: {result.processed_image.size}")
+                
+                # GENAU WIE BEI TEXT: Offsets anwenden
                 printer_img = self.apply_offsets_to_image(result.processed_image)
+                logger.info(f"✅ Offsets applied, final size: {printer_img.width}x{printer_img.height}")
+                
+                # GENAU WIE BEI TEXT: Zu Drucker-Format konvertieren
+                logger.info("🔄 Converting image to printer format...")
                 final_image_data = self.image_to_printer_format(printer_img)
                 
                 if final_image_data:
-                    logger.info(f"📤 Sending bitmap: {len(final_image_data)} bytes, {printer_img.height}px high")
+                    logger.info(f"✅ Image converted to printer format ({len(final_image_data)} bytes)")
                     
-                    # Kritisch: Extra-Pause vor Bitmap-Übertragung
-                    time.sleep(0.1)
-                    
+                    # GENAU WIE BEI TEXT: Bitmap senden
+                    logger.info("📤 Sending bitmap to printer...")
                     success = self.send_bitmap(final_image_data, printer_img.height)
                     
-                    # POST-PRINT Stabilisierung für Bilder
                     if success:
-                        time.sleep(0.2)  # Pause nach Bild-Druck
-                        
-                        # Position nach Bild-Druck explizit zurücksetzen
-                        logger.info("🔄 Post-image position stabilization...")
-                        self.send_command(b'\x1b\x64\x00')  # Position reset
-                        time.sleep(0.1)
-                    
-                    # Zeitstempel für Anti-Drift tracking
-                    self.last_print_time = time.time()
-                    
-                    if success:
+                        logger.info("✅ Image printed successfully with TEXT STRUCTURE!")
                         self.stats['successful_jobs'] += 1
-                        logger.info("✅ Image printed successfully with enhanced anti-drift protection")
+                        return True
                     else:
-                        logger.error("❌ Image print failed")
-                    return success
+                        logger.error("❌ Failed to send bitmap to printer")
+                        return False
                 else:
-                    logger.error("❌ Image data conversion failed")
+                    logger.error("❌ Failed to convert image to printer format")
+                    return False
             else:
-                logger.error("❌ Image processing failed")
-            return False
+                logger.error("❌ Failed to process image")
+                return False
             
         except Exception as e:
             logger.error(f"❌ Immediate image print error: {e}")
