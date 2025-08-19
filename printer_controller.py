@@ -811,24 +811,24 @@ class EnhancedPhomemoM110:
                 return False
             time.sleep(0.005)  # 5ms Header-Pause
             
-            # INTELLIGENT STREAMING
+            # SAFE CHUNKS statt Mega-Chunks
             if len(image_data) <= 1024:  # Kleine Bilder: DIREKT
                 logger.info("📤 DIRECT: Complete data stream")
                 success = self.send_command(image_data)
-            else:  # Große Bilder: MEGA-CHUNKS
-                logger.info("📦 MEGA-CHUNKS: 4096-byte chunks")
-                MEGA_CHUNK = 4096  # NOCH GRÖßER für maximale Speed
+            else:  # Große Bilder: BEWÄHRTE CHUNKS
+                logger.info("📦 SAFE-CHUNKS: 512-byte chunks")
+                SAFE_CHUNK = 512  # Bewährte Größe statt 4096
                 success = True
                 
-                for i in range(0, len(image_data), MEGA_CHUNK):
-                    chunk = image_data[i:i+MEGA_CHUNK]
+                for i in range(0, len(image_data), SAFE_CHUNK):
+                    chunk = image_data[i:i+SAFE_CHUNK]
                     if not self.send_command(chunk):
                         # SINGLE Retry
-                        time.sleep(0.005)
+                        time.sleep(0.01)  # 10ms Retry statt 5ms
                         if not self.send_command(chunk):
                             success = False
                             break
-                    time.sleep(0.001)  # 1ms zwischen Mega-Chunks
+                    time.sleep(0.005)  # 5ms zwischen Chunks statt 1ms
             
             # MINIMAL Post
             time.sleep(0.01)  # 10ms Post-Processing
