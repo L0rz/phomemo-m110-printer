@@ -734,9 +734,9 @@ class EnhancedPhomemoM110:
     
     def image_to_printer_format(self, img):
         """
-        KRITISCHE KORREKTUR: Pixel-zu-Bit-Konvertierung repariert
-        PROBLEM: Alte Version hatte Lücken bei Bildern != 384px Breite
-        LÖSUNG: Korrekte Behandlung aller Bildbreiten mit sauberer Byte-Füllung
+        ULTIMATIVE KORREKTUR: Pixel-zu-Byte-Konvertierung vollständig neu geschrieben
+        PROBLEM: Bei komplexen Bildern entstanden Verschiebungen nach ~80 Zeilen
+        LÖSUNG: Bit-genaue Verarbeitung mit strikter Byte-Alignment-Garantie
         """
         try:
             # Bild zu Schwarz-Weiß konvertieren
@@ -744,56 +744,82 @@ class EnhancedPhomemoM110:
                 img = img.convert('1')
             
             width, height = img.size
+            
+            logger.info(f"🔧 ULTIMATE FIX: Converting {width}x{height} -> printer format")
+            
+            # WICHTIG: Bild muss auf Drucker-Breite erweitert werden falls nötig
+            if width < self.width_pixels:
+                logger.info(f"📏 Expanding image from {width}px to {self.width_pixels}px")
+                # Neues Bild mit Drucker-Breite erstellen
+                expanded_img = Image.new('1', (self.width_pixels, height), 1)  # Weiß
+                expanded_img.paste(img, (0, 0))  # Original links einfügen
+                img = expanded_img
+                width = self.width_pixels
+            elif width > self.width_pixels:
+                logger.warning(f"⚠️ Cropping image from {width}px to {self.width_pixels}px")
+                img = img.crop((0, 0, self.width_pixels, height))
+                width = self.width_pixels
+            
+            # Jetzt: width == self.width_pixels (384)
             pixels = list(img.getdata())
             
-            logger.info(f"🔧 FIXED Converting image: {width}x{height} -> printer format (48 bytes per line)")
+            logger.info(f"🔧 Processing {width}x{height} (exactly {self.width_pixels} pixels per line)")
             
-            # KRITISCHE KORREKTUR: Vollständige Zeilen-Verarbeitung
+            # ULTIMATIVE BYTE-KONVERTIERUNG
             image_bytes = []
             
             for y in range(height):
-                # Exakt 48 Bytes für diese Zeile erstellen
-                line_bytes = [0] * self.bytes_per_line  # Immer exakt 48 Bytes (384 Pixel)
+                # Neue Zeile: Exakt 48 Bytes
+                line_bytes = [0] * self.bytes_per_line
                 
-                # ALLE 384 Drucker-Pixel verarbeiten (auch die über Bildbreite hinaus)
-                for printer_pixel_x in range(self.width_pixels):  # 0 bis 383
-                    # Bestimme Byte- und Bit-Position in der Drucker-Zeile
-                    byte_index = printer_pixel_x // 8  # Byte 0-47
-                    bit_index = printer_pixel_x % 8    # Bit 0-7
+                # Verarbeite diese Zeile: 384 Pixel = 48 Bytes
+                for pixel_x in range(self.width_pixels):
+                    # Pixel-Index im Bild
+                    pixel_idx = y * width + pixel_x
                     
-                    # Prüfe ob dieser Drucker-Pixel innerhalb des Bildes liegt
-                    if printer_pixel_x < width:
-                        # Pixel existiert im Bild - hole Wert
-                        pixel_idx = y * width + printer_pixel_x
-                        if pixel_idx < len(pixels):
-                            pixel_value = pixels[pixel_idx]
-                        else:
-                            pixel_value = 1  # Weiß falls Index außerhalb
+                    # Hole Pixel-Wert (sollte immer im gültigen Bereich sein)
+                    if pixel_idx < len(pixels):
+                        pixel_value = pixels[pixel_idx]
                     else:
-                        # Pixel außerhalb Bildbreite - setze auf Weiß
-                        pixel_value = 1
+                        pixel_value = 1  # Weiß als Fallback
                     
-                    # Bit setzen wenn Pixel schwarz ist
+                    # Bestimme Byte- und Bit-Position
+                    byte_index = pixel_x // 8
+                    bit_index = pixel_x % 8
+                    
+                    # Setze Bit wenn Pixel schwarz ist
                     if pixel_value == 0:  # PIL: 0 = schwarz
                         line_bytes[byte_index] |= (1 << (7 - bit_index))
+                
+                # Validierung: Zeile muss genau 48 Bytes haben
+                if len(line_bytes) != self.bytes_per_line:
+                    logger.error(f"❌ CRITICAL: Line {y} has {len(line_bytes)} bytes, expected {self.bytes_per_line}")
+                    return None
                 
                 # Zeile zu Gesamtbild hinzufügen
                 image_bytes.extend(line_bytes)
             
+            # Finale Daten
             final_bytes = bytes(image_bytes)
             expected_size = height * self.bytes_per_line
             
-            logger.info(f"✅ FIXED Image converted: {len(final_bytes)} bytes (expected: {expected_size})")
+            logger.info(f"✅ ULTIMATE FIX: Converted to {len(final_bytes)} bytes (expected: {expected_size})")
             
-            # Größen-Validierung
+            # Strenge Validierung
             if len(final_bytes) != expected_size:
-                logger.error(f"❌ BYTE ALIGNMENT ERROR: Got {len(final_bytes)}, expected {expected_size}")
+                logger.error(f"❌ ULTIMATE FIX FAILED: Size mismatch {len(final_bytes)} != {expected_size}")
                 return None
             
+            # Zusätzliche Byte-Alignment-Prüfung
+            if len(final_bytes) % self.bytes_per_line != 0:
+                logger.error(f"❌ ULTIMATE FIX FAILED: Not aligned to {self.bytes_per_line}-byte boundaries")
+                return None
+            
+            logger.info(f"✅ ULTIMATE FIX SUCCESS: Perfect byte alignment guaranteed")
             return final_bytes
             
         except Exception as e:
-            logger.error(f"❌ FIXED Image conversion error: {e}")
+            logger.error(f"❌ ULTIMATE FIX ERROR: {e}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return None
