@@ -784,117 +784,62 @@ class EnhancedPhomemoM110:
             return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
-        """Sendet Bitmap an Drucker mit bewährter Enhanced Anti-Drift Methode (URSPRÜNGLICH FUNKTIONIEREND)"""
+        """🚀 ULTRA-FAST STREAMING - Basierend auf vivier/phomemo-tools Optimierungen"""
         try:
             width_bytes = self.bytes_per_line
-            m = 0
-
-            logger.info(f"📤 RESTORED WORKING: Starting bitmap transmission: {len(image_data)} bytes, {height}px high")
             
-            # SPEED-OPTIMIERTE Anti-Drift: Kürzere Pausen
-            min_interval = self.settings.get('anti_drift_interval', 1.0)  # Halbiert: 1s statt 2s
+            logger.info(f"🚀 ULTRA-FAST: {len(image_data)} bytes, {height}px")
             
+            # MINIMAL Anti-Drift (0.2s statt 1s+)
             if hasattr(self, 'last_print_time'):
                 time_since_last = time.time() - self.last_print_time
-                if time_since_last < min_interval:
-                    sleep_time = min_interval - time_since_last
-                    logger.info(f"⏱️ Anti-drift pause ({min_interval}s setting): {sleep_time:.2f}s")
-                    time.sleep(sleep_time)
-            else:
-                # ERSTE BILD-DRUCK: Extra-Stabilisierung
-                logger.info(f"🔄 First image print - initial stabilization pause: {min_interval}s")
-                time.sleep(min_interval)
+                if time_since_last < 0.2:
+                    time.sleep(0.2 - time_since_last)
             
-            # SPEED-OPTIMIERTE DRUCKER-VORBEREITUNG
-            logger.info("🚀 Speed-optimized printer preparation...")
-            
-            # Schnelle Drucker-Vorbereitung
-            if not self.send_command(b'\x1b\x40'):  # ESC @ - Initialize printer
-                logger.warning("⚠️ Printer initialization failed")
-            time.sleep(0.1)  # Halbiert: 0.1s statt 0.2s
-            
-            # Schnelle Position-Konsistenz
-            if not self.send_command(b'\x1b\x64\x00'):  # ESC d 0 - Horizontal position to 0
-                logger.warning("⚠️ Position reset failed")
-            time.sleep(0.05)  # Halbiert: 0.05s statt 0.1s
-
-            # BITMAP-HEADER mit korrekten Dimensionen
-            xL = width_bytes & 0xFF
-            xH = (width_bytes >> 8) & 0xFF
-            yL = height & 0xFF
-            yH = (height >> 8) & 0xFF
-            header = bytes([0x1D, 0x76, 0x30, m, xL, xH, yL, yH])
-
-            logger.info(f"📋 Speed bitmap header: width_bytes={width_bytes}, height={height}")
-            if not self.send_command(header):
-                logger.error("❌ Failed to send bitmap header")
+            # FAST Init
+            if not self.send_command(b'\x1b\x40'):  # ESC @
                 return False
-            time.sleep(0.05)  # Halbiert: 0.05s statt 0.1s
-
-            # SPEED-OPTIMIERTE Chunks bei gleicher Struktur
-            CHUNK = 256  # DEUTLICH größere Chunks für bessere Geschwindigkeit
-            chunks_sent = 0
-            total_bytes_sent = 0
+            time.sleep(0.01)  # 10ms statt 100ms
             
-            logger.info(f"📦 SPEED-OPTIMIZED: Sending {len(image_data)} bytes in {CHUNK}-byte chunks (fast transmission)...")
+            # HEADER
+            m = 0
+            header = bytes([0x1D, 0x76, 0x30, m, 
+                           width_bytes & 0xFF, (width_bytes >> 8) & 0xFF,
+                           height & 0xFF, (height >> 8) & 0xFF])
             
-            for i in range(0, len(image_data), CHUNK):
-                chunk = image_data[i:i+CHUNK]
-                
-                # SCHNELLERE Retry-Logik
-                chunk_success = False
-                for attempt in range(3):  # Weniger Versuche für Speed
-                    if self.send_command(chunk):
-                        chunk_success = True
-                        break
-                    else:
-                        logger.warning(f"⚠️ Speed chunk {chunks_sent} attempt {attempt+1} failed, retrying...")
-                        # KÜRZERE Retry-Pausen
-                        time.sleep(0.005 * (attempt + 1))  # 5ms, 10ms, 15ms
-                
-                if not chunk_success:
-                    logger.error(f"❌ Failed to send speed chunk {chunks_sent} after 3 attempts")
-                    return False
-                
-                chunks_sent += 1
-                total_bytes_sent += len(chunk)
-                
-                # SELTENER Progress (bessere Performance)
-                if chunks_sent % 20 == 0:  
-                    progress = (total_bytes_sent / len(image_data)) * 100
-                    logger.info(f"📊 Speed progress: {chunks_sent} chunks ({progress:.1f}%)")
-                
-                # VIEL KÜRZERE Pausen für Speed
-                time.sleep(0.005)  # Nur 5ms statt 30ms
-                
-                # SELTENE Extra-Pausen für Stabilität
-                if chunks_sent % 50 == 0:
-                    logger.info(f"🔄 Speed stabilization after {chunks_sent} chunks...")
-                    time.sleep(0.02)  # Kurze 20ms Stabilisierung
-
-            # SPEED-OPTIMIERTE POST-PRINT Stabilisierung
-            time.sleep(0.1)  # Halbiert: 0.1s statt 0.2s
+            if not self.send_command(header):
+                return False
+            time.sleep(0.005)  # 5ms Header-Pause
             
-            # Schnelle Position-Stabilisierung
-            logger.info("🚀 Speed-optimized position stabilization...")
-            self.send_command(b'\x1b\x64\x00')  # Position reset
-            time.sleep(0.05)  # Halbiert: 0.05s statt 0.1s
+            # INTELLIGENT STREAMING
+            if len(image_data) <= 1024:  # Kleine Bilder: DIREKT
+                logger.info("📤 DIRECT: Complete data stream")
+                success = self.send_command(image_data)
+            else:  # Große Bilder: MEGA-CHUNKS
+                logger.info("📦 MEGA-CHUNKS: 4096-byte chunks")
+                MEGA_CHUNK = 4096  # NOCH GRÖßER für maximale Speed
+                success = True
+                
+                for i in range(0, len(image_data), MEGA_CHUNK):
+                    chunk = image_data[i:i+MEGA_CHUNK]
+                    if not self.send_command(chunk):
+                        # SINGLE Retry
+                        time.sleep(0.005)
+                        if not self.send_command(chunk):
+                            success = False
+                            break
+                    time.sleep(0.001)  # 1ms zwischen Mega-Chunks
             
-            # Zeitstempel für Anti-Drift tracking
+            # MINIMAL Post
+            time.sleep(0.01)  # 10ms Post-Processing
             self.last_print_time = time.time()
             
-            logger.info(f"✅ RESTORED WORKING: Bitmap sent successfully: {chunks_sent} chunks, {total_bytes_sent}/{len(image_data)} bytes")
-            
-            # Validierung
-            if total_bytes_sent != len(image_data):
-                logger.warning(f"⚠️ Byte count mismatch: sent {total_bytes_sent}, expected {len(image_data)}")
-            
-            return True
+            if success:
+                logger.info("✅ ULTRA-FAST: Success!")
+            return success
             
         except Exception as e:
-            logger.error(f"❌ RESTORED WORKING: Bitmap send error: {e}")
-            import traceback
-            logger.error(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"❌ ULTRA-FAST error: {e}")
             return False
     
     def create_text_image_with_offsets(self, text, font_size, alignment='center'):
