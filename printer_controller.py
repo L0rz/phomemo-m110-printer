@@ -518,61 +518,51 @@ class EnhancedPhomemoM110:
     
     def apply_offsets_to_image(self, img: Image.Image) -> Image.Image:
         """
-        Wendet X- und Y-Offsets auf ein Bild an - KORRIGIERT gegen Wrap-Around
-        WICHTIG: Verhindert, dass Bilder über den Druckerrand hinaus geschoben werden
+        TESTVERSION: X-Offset komplett deaktiviert - nur Y-Offset
+        ZWECK: Wrap-Around-Problem isolieren und beheben
         """
         try:
-            x_offset = self.settings.get('x_offset', DEFAULT_X_OFFSET)
+            # X-OFFSET KOMPLETT DEAKTIVIERT FÜR TESTS
+            x_offset = 0  # FEST auf 0 gesetzt!
             y_offset = self.settings.get('y_offset', DEFAULT_Y_OFFSET)
             
             logger.info(f"📐 Original image size: {img.width}x{img.height}")
-            logger.info(f"⚙️ Current offset settings: X={x_offset}, Y={y_offset}")
+            logger.info(f"⚙️ TESTING MODE: X-Offset=0 (DISABLED), Y-Offset={y_offset}")
             logger.info(f"📏 Printer width: {self.width_pixels}px")
-            
-            # KRITISCHE KORREKTUR: Bild darf NIEMALS über Druckerbreite hinaus
-            max_allowed_width = min(img.width, self.width_pixels)
             
             # Falls Bild breiter als Drucker ist: beschneiden!
             if img.width > self.width_pixels:
                 logger.warning(f"⚠️ Image too wide ({img.width}px), cropping to {self.width_pixels}px")
                 img = img.crop((0, 0, self.width_pixels, img.height))
+                logger.info(f"✂️ Image cropped to: {img.width}x{img.height}")
             
             # Drucker-Bild erstellen (volle Breite)
             printer_height = max(img.height + abs(y_offset), img.height)
             printer_img = Image.new('1', (self.width_pixels, printer_height), 1)  # Weiß
             
-            # X-Position berechnen - KEIN WRAP-AROUND!
-            # Max X-Position so berechnen, dass Bild komplett in Druckerbreite passt
-            max_x_position = self.width_pixels - img.width
-            
-            if x_offset > max_x_position:
-                logger.warning(f"⚠️ X-Offset too large ({x_offset}), limiting to {max_x_position}")
-                paste_x = max_x_position
-            else:
-                paste_x = max(0, x_offset)
+            # X-Position: IMMER 0 (links ausgerichtet)
+            paste_x = 0
             
             # Y-Position berechnen  
             paste_y = max(0, y_offset) if y_offset >= 0 else 0
             
-            # SICHERHEITSPRÜFUNG vor dem Einfügen
-            if paste_x + img.width > self.width_pixels:
-                logger.error(f"❌ WRAP-AROUND DETECTED! paste_x={paste_x}, img_width={img.width}, total={paste_x + img.width}")
-                logger.error(f"❌ This would exceed printer width of {self.width_pixels}px")
-                # Erzwinge sichere Position
-                paste_x = max(0, self.width_pixels - img.width)
-                logger.info(f"🔧 CORRECTED to safe position: X={paste_x}")
-            
-            logger.info(f"📍 Final paste position: X={paste_x}, Y={paste_y}")
+            logger.info(f"📍 TESTING paste position: X={paste_x} (FIXED), Y={paste_y}")
             logger.info(f"📊 Image will occupy: X={paste_x} to {paste_x + img.width} (max: {self.width_pixels})")
+            
+            # SICHERHEITSPRÜFUNG
+            if paste_x + img.width > self.width_pixels:
+                logger.error(f"❌ CRITICAL ERROR: This should never happen with X=0!")
+                logger.error(f"❌ paste_x={paste_x}, img_width={img.width}, total={paste_x + img.width}")
+                return img  # Original zurückgeben bei Fehler
             
             # Bild einfügen
             printer_img.paste(img, (paste_x, paste_y))
             
-            logger.info(f"✅ Applied offsets safely: X={paste_x}, Y={paste_y}, Size={printer_img.size}")
+            logger.info(f"✅ TESTING: Applied X=0, Y={paste_y}, Size={printer_img.size}")
             return printer_img
             
         except Exception as e:
-            logger.error(f"❌ Error applying offsets: {e}")
+            logger.error(f"❌ Error in testing mode: {e}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return img
