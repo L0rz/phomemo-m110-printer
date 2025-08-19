@@ -331,19 +331,6 @@ class EnhancedPhomemoM110:
             config['description'] += " (aggressive)"
         
         return config
-                'description': 'Slow (komplexe Bilder)'
-            },
-            TransmissionSpeed.ULTRA_SLOW: {
-                'block_delay': 0.1,        # 100ms zwischen Blöcken
-                'line_delay': 0.02,        # 20ms pro Zeile
-                'init_delay': 0.1,         # 100ms für Init
-                'header_delay': 0.05,      # 50ms für Header
-                'post_delay': 0.1,         # 100ms Post-Processing
-                'description': 'Ultra Slow (sehr komplexe Bilder)'
-            }
-        }
-        
-        return speed_configs.get(speed, speed_configs[TransmissionSpeed.NORMAL])
     
     def analyze_and_determine_speed(self, image_data: bytes) -> Tuple[TransmissionSpeed, Dict[str, float]]:
         """
