@@ -518,53 +518,19 @@ class EnhancedPhomemoM110:
     
     def apply_offsets_to_image(self, img: Image.Image) -> Image.Image:
         """
-        TESTVERSION: X-Offset komplett deaktiviert - nur Y-Offset
-        ZWECK: Wrap-Around-Problem isolieren und beheben
+        TESTVERSION: KOMPLETT DEAKTIVIERT - Gibt Bild 1:1 zurück
+        ZWECK: Ausschließen dass das Offset-System das Problem verursacht
         """
         try:
-            # X-OFFSET KOMPLETT DEAKTIVIERT FÜR TESTS
-            x_offset = 0  # FEST auf 0 gesetzt!
-            y_offset = self.settings.get('y_offset', DEFAULT_Y_OFFSET)
+            logger.info(f"🔧 BYPASS: apply_offsets_to_image DEACTIVATED")
+            logger.info(f"📐 Input image size: {img.width}x{img.height}")
+            logger.info(f"📤 Output: UNCHANGED (no offset processing)")
             
-            logger.info(f"📐 Original image size: {img.width}x{img.height}")
-            logger.info(f"⚙️ TESTING MODE: X-Offset=0 (DISABLED), Y-Offset={y_offset}")
-            logger.info(f"📏 Printer width: {self.width_pixels}px")
-            
-            # Falls Bild breiter als Drucker ist: beschneiden!
-            if img.width > self.width_pixels:
-                logger.warning(f"⚠️ Image too wide ({img.width}px), cropping to {self.width_pixels}px")
-                img = img.crop((0, 0, self.width_pixels, img.height))
-                logger.info(f"✂️ Image cropped to: {img.width}x{img.height}")
-            
-            # Drucker-Bild erstellen (volle Breite)
-            printer_height = max(img.height + abs(y_offset), img.height)
-            printer_img = Image.new('1', (self.width_pixels, printer_height), 1)  # Weiß
-            
-            # X-Position: IMMER 0 (links ausgerichtet)
-            paste_x = 0
-            
-            # Y-Position berechnen  
-            paste_y = max(0, y_offset) if y_offset >= 0 else 0
-            
-            logger.info(f"📍 TESTING paste position: X={paste_x} (FIXED), Y={paste_y}")
-            logger.info(f"📊 Image will occupy: X={paste_x} to {paste_x + img.width} (max: {self.width_pixels})")
-            
-            # SICHERHEITSPRÜFUNG
-            if paste_x + img.width > self.width_pixels:
-                logger.error(f"❌ CRITICAL ERROR: This should never happen with X=0!")
-                logger.error(f"❌ paste_x={paste_x}, img_width={img.width}, total={paste_x + img.width}")
-                return img  # Original zurückgeben bei Fehler
-            
-            # Bild einfügen
-            printer_img.paste(img, (paste_x, paste_y))
-            
-            logger.info(f"✅ TESTING: Applied X=0, Y={paste_y}, Size={printer_img.size}")
-            return printer_img
+            # KOMPLETT AUSSCHALTEN - Bild unverändert zurückgeben
+            return img
             
         except Exception as e:
-            logger.error(f"❌ Error in testing mode: {e}")
-            import traceback
-            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            logger.error(f"❌ Error in bypass mode: {e}")
             return img
     
     def print_image_with_preview(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=None, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect'):
