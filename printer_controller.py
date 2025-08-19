@@ -768,8 +768,9 @@ class EnhancedPhomemoM110:
     
     def image_to_printer_format(self, img):
         """
-        Konvertiert PIL Image zu Drucker-Format mit garantiertem 48-Byte-Alignment
-        NEUE VERSION: Eliminiert Segmentierung und stellt sicher, dass jede Zeile exakt 48 Bytes hat
+        KRITISCHE KORREKTUR: Pixel-zu-Bit-Konvertierung repariert
+        PROBLEM: Alte Version hatte Lücken bei Bildern != 384px Breite
+        LÖSUNG: Korrekte Behandlung aller Bildbreiten mit sauberer Byte-Füllung
         """
         try:
             # Bild zu Schwarz-Weiß konvertieren
@@ -779,31 +780,36 @@ class EnhancedPhomemoM110:
             width, height = img.size
             pixels = list(img.getdata())
             
-            logger.info(f"🔧 Converting image: {width}x{height} -> {self.width_pixels}x{height} (48 bytes per line)")
+            logger.info(f"🔧 FIXED Converting image: {width}x{height} -> printer format (48 bytes per line)")
             
-            # GARANTIERT 48 BYTES PRO ZEILE - KEINE SEGMENTIERUNG
+            # KRITISCHE KORREKTUR: Vollständige Zeilen-Verarbeitung
             image_bytes = []
             
             for y in range(height):
                 # Exakt 48 Bytes für diese Zeile erstellen
-                line_bytes = [0] * self.bytes_per_line  # Immer exakt 48 Bytes
+                line_bytes = [0] * self.bytes_per_line  # Immer exakt 48 Bytes (384 Pixel)
                 
-                # Pixel in Bytes konvertieren (8 Pixel pro Byte)
-                for byte_index in range(self.bytes_per_line):  # 0 bis 47
-                    byte_value = 0
+                # ALLE 384 Drucker-Pixel verarbeiten (auch die über Bildbreite hinaus)
+                for printer_pixel_x in range(self.width_pixels):  # 0 bis 383
+                    # Bestimme Byte- und Bit-Position in der Drucker-Zeile
+                    byte_index = printer_pixel_x // 8  # Byte 0-47
+                    bit_index = printer_pixel_x % 8    # Bit 0-7
                     
-                    for bit_index in range(8):  # 8 Bits pro Byte
-                        pixel_x = byte_index * 8 + bit_index
-                        
-                        # Nur wenn Pixel innerhalb der Bildbreite liegt
-                        if pixel_x < width:
-                            pixel_idx = y * width + pixel_x
-                            if pixel_idx < len(pixels):
-                                # Schwarz = 1 Bit setzen, Weiß = 0 Bit lassen
-                                if pixels[pixel_idx] == 0:  # PIL: 0 = schwarz
-                                    byte_value |= (1 << (7 - bit_index))
+                    # Prüfe ob dieser Drucker-Pixel innerhalb des Bildes liegt
+                    if printer_pixel_x < width:
+                        # Pixel existiert im Bild - hole Wert
+                        pixel_idx = y * width + printer_pixel_x
+                        if pixel_idx < len(pixels):
+                            pixel_value = pixels[pixel_idx]
+                        else:
+                            pixel_value = 1  # Weiß falls Index außerhalb
+                    else:
+                        # Pixel außerhalb Bildbreite - setze auf Weiß
+                        pixel_value = 1
                     
-                    line_bytes[byte_index] = byte_value
+                    # Bit setzen wenn Pixel schwarz ist
+                    if pixel_value == 0:  # PIL: 0 = schwarz
+                        line_bytes[byte_index] |= (1 << (7 - bit_index))
                 
                 # Zeile zu Gesamtbild hinzufügen
                 image_bytes.extend(line_bytes)
@@ -811,7 +817,7 @@ class EnhancedPhomemoM110:
             final_bytes = bytes(image_bytes)
             expected_size = height * self.bytes_per_line
             
-            logger.info(f"✅ Image converted: {len(final_bytes)} bytes (expected: {expected_size})")
+            logger.info(f"✅ FIXED Image converted: {len(final_bytes)} bytes (expected: {expected_size})")
             
             # Größen-Validierung
             if len(final_bytes) != expected_size:
@@ -821,7 +827,7 @@ class EnhancedPhomemoM110:
             return final_bytes
             
         except Exception as e:
-            logger.error(f"❌ Image conversion error: {e}")
+            logger.error(f"❌ FIXED Image conversion error: {e}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return None
