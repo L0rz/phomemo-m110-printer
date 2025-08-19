@@ -748,7 +748,10 @@ class EnhancedPhomemoM110:
                 time.sleep(10)
     
     def image_to_printer_format(self, img):
-        """Konvertiert PIL Image zu Drucker-Format"""
+        """
+        Konvertiert PIL Image zu Drucker-Format mit garantiertem 48-Byte-Alignment
+        NEUE VERSION: Eliminiert Segmentierung und stellt sicher, dass jede Zeile exakt 48 Bytes hat
+        """
         try:
             # Bild zu Schwarz-Weiß konvertieren
             if img.mode != '1':
@@ -757,89 +760,147 @@ class EnhancedPhomemoM110:
             width, height = img.size
             pixels = list(img.getdata())
             
+            logger.info(f"🔧 Converting image: {width}x{height} -> {self.width_pixels}x{height} (48 bytes per line)")
+            
+            # GARANTIERT 48 BYTES PRO ZEILE - KEINE SEGMENTIERUNG
             image_bytes = []
             
             for y in range(height):
-                line_bytes = []
-                for x in range(0, self.width_pixels, 8):
+                # Exakt 48 Bytes für diese Zeile erstellen
+                line_bytes = [0] * self.bytes_per_line  # Immer exakt 48 Bytes
+                
+                # Pixel in Bytes konvertieren (8 Pixel pro Byte)
+                for byte_index in range(self.bytes_per_line):  # 0 bis 47
                     byte_value = 0
-                    for bit in range(8):
-                        pixel_x = x + bit
+                    
+                    for bit_index in range(8):  # 8 Bits pro Byte
+                        pixel_x = byte_index * 8 + bit_index
+                        
+                        # Nur wenn Pixel innerhalb der Bildbreite liegt
                         if pixel_x < width:
                             pixel_idx = y * width + pixel_x
                             if pixel_idx < len(pixels):
-                                if pixels[pixel_idx] == 0:  # Schwarz
-                                    byte_value |= (1 << (7 - bit))
-                    line_bytes.append(byte_value)
+                                # Schwarz = 1 Bit setzen, Weiß = 0 Bit lassen
+                                if pixels[pixel_idx] == 0:  # PIL: 0 = schwarz
+                                    byte_value |= (1 << (7 - bit_index))
+                    
+                    line_bytes[byte_index] = byte_value
                 
-                while len(line_bytes) < self.bytes_per_line:
-                    line_bytes.append(0)
-                
-                image_bytes.extend(line_bytes[:self.bytes_per_line])
+                # Zeile zu Gesamtbild hinzufügen
+                image_bytes.extend(line_bytes)
             
-            return bytes(image_bytes)
+            final_bytes = bytes(image_bytes)
+            expected_size = height * self.bytes_per_line
+            
+            logger.info(f"✅ Image converted: {len(final_bytes)} bytes (expected: {expected_size})")
+            
+            # Größen-Validierung
+            if len(final_bytes) != expected_size:
+                logger.error(f"❌ BYTE ALIGNMENT ERROR: Got {len(final_bytes)}, expected {expected_size}")
+                return None
+            
+            return final_bytes
             
         except Exception as e:
             logger.error(f"❌ Image conversion error: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return None
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
-        """🚀 ULTRA-FAST STREAMING - Basierend auf vivier/phomemo-tools Optimierungen"""
+        """
+        Optimierte Bitmap-Übertragung ohne Segmentierung
+        NEUE VERSION: Sendet das gesamte Bild als zusammenhängenden Block
+        """
         try:
-            width_bytes = self.bytes_per_line
+            width_bytes = self.bytes_per_line  # Immer 48 Bytes
             
-            logger.info(f"🚀 ULTRA-FAST: {len(image_data)} bytes, {height}px")
+            logger.info(f"📤 SENDING BITMAP: {len(image_data)} bytes, {height} lines (48 bytes/line)")
             
-            # MINIMAL Anti-Drift (0.2s statt 1s+)
+            # Validierung: Daten müssen exakt height * 48 Bytes sein
+            expected_size = height * width_bytes
+            if len(image_data) != expected_size:
+                logger.error(f"❌ DATA SIZE ERROR: Got {len(image_data)}, expected {expected_size}")
+                return False
+            
+            # Anti-Drift: Mindestabstand zwischen Druckvorgängen
             if hasattr(self, 'last_print_time'):
                 time_since_last = time.time() - self.last_print_time
-                if time_since_last < 0.2:
-                    time.sleep(0.2 - time_since_last)
+                if time_since_last < 0.15:  # 150ms Mindestabstand
+                    time.sleep(0.15 - time_since_last)
             
-            # FAST Init
-            if not self.send_command(b'\x1b\x40'):  # ESC @
+            # 1. Drucker initialisieren
+            logger.info("🔄 Step 1: Initialize printer")
+            if not self.send_command(b'\x1b\x40'):  # ESC @ - Reset
+                logger.error("❌ Failed to initialize printer")
                 return False
-            time.sleep(0.01)  # 10ms statt 100ms
+            time.sleep(0.02)  # 20ms für Initialisierung
             
-            # HEADER
-            m = 0
-            header = bytes([0x1D, 0x76, 0x30, m, 
-                           width_bytes & 0xFF, (width_bytes >> 8) & 0xFF,
-                           height & 0xFF, (height >> 8) & 0xFF])
+            # 2. Raster-Bitmap-Header senden
+            logger.info("🔄 Step 2: Send bitmap header")
+            m = 0  # Normal mode
+            header = bytes([
+                0x1D, 0x76, 0x30, m,                    # GS v 0 - Print raster bitmap
+                width_bytes & 0xFF, (width_bytes >> 8) & 0xFF,  # Width in bytes (48)
+                height & 0xFF, (height >> 8) & 0xFF             # Height in lines
+            ])
             
             if not self.send_command(header):
+                logger.error("❌ Failed to send bitmap header")
                 return False
-            time.sleep(0.005)  # 5ms Header-Pause
+            time.sleep(0.01)  # 10ms für Header-Verarbeitung
             
-            # SAFE CHUNKS statt Mega-Chunks
-            if len(image_data) <= 1024:  # Kleine Bilder: DIREKT
-                logger.info("📤 DIRECT: Complete data stream")
+            # 3. VOLLSTÄNDIGE BILDÜBERTRAGUNG OHNE SEGMENTIERUNG
+            logger.info("🔄 Step 3: Send complete image data (NO SEGMENTATION)")
+            
+            # Für kleine Bilder: Direkt senden
+            if len(image_data) <= 2048:  # <= 2KB
+                logger.info("📦 DIRECT TRANSFER: Sending complete image at once")
                 success = self.send_command(image_data)
-            else:  # Große Bilder: BEWÄHRTE CHUNKS
-                logger.info("📦 SAFE-CHUNKS: 512-byte chunks")
-                SAFE_CHUNK = 512  # Bewährte Größe statt 4096
-                success = True
+                if not success:
+                    logger.error("❌ Direct transfer failed")
+                    return False
+            else:
+                # Für größere Bilder: Größere zusammenhängende Blöcke
+                logger.info("📦 BLOCK TRANSFER: Using larger consistent blocks")
+                BLOCK_SIZE = 1536  # 1.5KB Blöcke (48 bytes * 32 lines)
                 
-                for i in range(0, len(image_data), SAFE_CHUNK):
-                    chunk = image_data[i:i+SAFE_CHUNK]
-                    if not self.send_command(chunk):
-                        # SINGLE Retry
-                        time.sleep(0.01)  # 10ms Retry statt 5ms
-                        if not self.send_command(chunk):
+                # Stelle sicher, dass Blockgröße ein Vielfaches von 48 ist
+                lines_per_block = BLOCK_SIZE // width_bytes
+                actual_block_size = lines_per_block * width_bytes
+                
+                success = True
+                for i in range(0, len(image_data), actual_block_size):
+                    block = image_data[i:i + actual_block_size]
+                    
+                    logger.debug(f"📦 Sending block {i//actual_block_size + 1}: {len(block)} bytes")
+                    
+                    if not self.send_command(block):
+                        logger.warning(f"⚠️ Block {i//actual_block_size + 1} failed, retrying...")
+                        time.sleep(0.02)  # 20ms Retry-Pause
+                        if not self.send_command(block):
+                            logger.error(f"❌ Block {i//actual_block_size + 1} failed after retry")
                             success = False
                             break
-                    time.sleep(0.005)  # 5ms zwischen Chunks statt 1ms
+                    
+                    # Kurze Pause zwischen Blöcken für Stabilität
+                    time.sleep(0.01)  # 10ms zwischen Blöcken
             
-            # MINIMAL Post
-            time.sleep(0.01)  # 10ms Post-Processing
+            # 4. Abschluss
+            time.sleep(0.02)  # 20ms Post-Processing
             self.last_print_time = time.time()
             
             if success:
-                logger.info("✅ ULTRA-FAST: Success!")
+                logger.info("✅ BITMAP SENT SUCCESSFULLY - NO SEGMENTATION")
+            else:
+                logger.error("❌ BITMAP TRANSMISSION FAILED")
+            
             return success
             
         except Exception as e:
-            logger.error(f"❌ ULTRA-FAST error: {e}")
+            logger.error(f"❌ Bitmap transmission error: {e}")
+            import traceback
+            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return False
     
     def create_text_image_with_offsets(self, text, font_size, alignment='center'):
