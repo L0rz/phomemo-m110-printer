@@ -178,5 +178,14 @@ DEFAULT_SETTINGS = {
     'auto_connect': True,
     'debug_mode': False,
     'label_size': DEFAULT_LABEL_SIZE,  # Neue Einstellung für Label-Größe
+    
+    # =================== ADAPTIVE SPEED CONTROL ===================
+    'adaptive_speed_enabled': True,        # Adaptive Geschwindigkeit aktiviert
+    'adaptive_speed_aggressive': False,    # Aggressive Optimierung (noch schneller bei einfachen Bildern)
+    'min_complexity_for_slow': 0.08,      # Komplexitäts-Schwellenwert für langsame Übertragung (8%)
+    'max_complexity_for_fast': 0.02,      # Komplexitäts-Schwellenwert für schnelle Übertragung (2%)
+    'force_slow_for_complex': True,       # Immer langsam bei sehr komplexen Bildern (>12%)
+    'timing_multiplier': 1.0,             # Globaler Timing-Multiplikator (1.0 = normal, 1.5 = 50% langsamer)
+    # =================== END ADAPTIVE SPEED CONFIG =================
     'anti_drift_interval': 2.0  # Anti-Drift-Pause in Sekunden (basierend auf erfolgreichen Tests)
 }

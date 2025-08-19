@@ -49,6 +49,14 @@ class ConnectionStatus(Enum):
     RECONNECTING = "reconnecting"
     FAILED = "failed"
 
+class TransmissionSpeed(Enum):
+    """Übertragungsgeschwindigkeiten basierend auf Datenkomplexität"""
+    ULTRA_FAST = "ultra_fast"    # Für sehr einfache Bilder (<2% non-zero)
+    FAST = "fast"                # Für einfache Bilder (<5% non-zero)
+    NORMAL = "normal"            # Für mittlere Komplexität (<8% non-zero)
+    SLOW = "slow"                # Für komplexe Bilder (<12% non-zero)
+    ULTRA_SLOW = "ultra_slow"    # Für sehr komplexe Bilder (>12% non-zero)
+
 @dataclass
 class PrintJob:
     """Repräsentiert einen Druckauftrag in der Queue"""
@@ -177,6 +185,188 @@ class EnhancedPhomemoM110:
     def get_settings(self) -> Dict[str, Any]:
         """Gibt aktuelle Einstellungen zurück"""
         return self.settings.copy()
+    
+    # =================== ADAPTIVE SPEED CONTROL ===================
+    
+    def calculate_image_complexity(self, image_data: bytes) -> float:
+        """
+        Berechnet die Komplexität der Bilddaten als Prozentsatz non-zero bytes
+        
+        Args:
+            image_data: Raw image bytes vom printer format
+            
+        Returns:
+            float: Komplexität als Dezimalzahl (0.0 = 0%, 1.0 = 100%)
+        """
+        try:
+            if not image_data:
+                return 0.0
+            
+            total_bytes = len(image_data)
+            zero_bytes = image_data.count(0)
+            non_zero_bytes = total_bytes - zero_bytes
+            
+            complexity = non_zero_bytes / total_bytes
+            
+            logger.info(f"📊 Image complexity: {complexity*100:.1f}% ({non_zero_bytes}/{total_bytes} non-zero bytes)")
+            
+            return complexity
+            
+        except Exception as e:
+            logger.error(f"❌ Error calculating image complexity: {e}")
+            return 0.1  # Fallback zu niedriger Komplexität
+    
+    def determine_transmission_speed(self, complexity: float) -> TransmissionSpeed:
+        """
+        Bestimmt die optimale Übertragungsgeschwindigkeit basierend auf Komplexität
+        Verwendet konfigurierbare Schwellenwerte aus den Settings
+        
+        Args:
+            complexity: Bildkomplexität als Dezimalzahl (0.0-1.0)
+            
+        Returns:
+            TransmissionSpeed: Empfohlene Geschwindigkeit
+        """
+        # Prüfe, ob adaptive Speed überhaupt aktiviert ist
+        if not self.settings.get('adaptive_speed_enabled', True):
+            return TransmissionSpeed.NORMAL  # Fallback zur normalen Geschwindigkeit
+        
+        # Konfigurierbare Schwellenwerte aus Settings
+        max_for_fast = self.settings.get('max_complexity_for_fast', 0.02)  # 2%
+        min_for_slow = self.settings.get('min_complexity_for_slow', 0.08)  # 8%
+        force_slow_threshold = 0.12  # 12% - immer ultra slow bei sehr komplexen Bildern
+        
+        # Schwellenwerte-basierte Entscheidung
+        if complexity < max_for_fast:           # < 2% non-zero (default)
+            return TransmissionSpeed.ULTRA_FAST
+        elif complexity < 0.05:                # < 5% non-zero (fest)
+            return TransmissionSpeed.FAST
+        elif complexity < min_for_slow:        # < 8% non-zero (default, konfigurierbar)
+            return TransmissionSpeed.NORMAL
+        elif complexity < force_slow_threshold: # < 12% non-zero
+            return TransmissionSpeed.SLOW
+        else:                                   # >= 12% non-zero
+            if self.settings.get('force_slow_for_complex', True):
+                return TransmissionSpeed.ULTRA_SLOW
+            else:
+                return TransmissionSpeed.SLOW  # Weniger aggressiv, falls konfiguriert
+    
+    def get_speed_config(self, speed: TransmissionSpeed) -> Dict[str, float]:
+        """
+        Gibt die Timing-Konfiguration für eine bestimmte Geschwindigkeit zurück
+        Berücksichtigt Benutzereinstellungen wie timing_multiplier
+        
+        Args:
+            speed: TransmissionSpeed enum
+            
+        Returns:
+            dict: Timing-Konfiguration mit delays in Sekunden
+        """
+        # Basis-Konfigurationen
+        base_configs = {
+            TransmissionSpeed.ULTRA_FAST: {
+                'block_delay': 0.005,      # 5ms zwischen Blöcken
+                'line_delay': 0.001,       # 1ms pro Zeile
+                'init_delay': 0.01,        # 10ms für Init
+                'header_delay': 0.005,     # 5ms für Header
+                'post_delay': 0.01,        # 10ms Post-Processing
+                'description': 'Ultra Fast (sehr einfache Bilder)'
+            },
+            TransmissionSpeed.FAST: {
+                'block_delay': 0.01,       # 10ms zwischen Blöcken
+                'line_delay': 0.002,       # 2ms pro Zeile
+                'init_delay': 0.02,        # 20ms für Init
+                'header_delay': 0.01,      # 10ms für Header
+                'post_delay': 0.02,        # 20ms Post-Processing
+                'description': 'Fast (einfache Bilder)'
+            },
+            TransmissionSpeed.NORMAL: {
+                'block_delay': 0.02,       # 20ms zwischen Blöcken (aktueller Standard)
+                'line_delay': 0.005,       # 5ms pro Zeile
+                'init_delay': 0.02,        # 20ms für Init
+                'header_delay': 0.01,      # 10ms für Header
+                'post_delay': 0.02,        # 20ms Post-Processing
+                'description': 'Normal (mittlere Komplexität)'
+            },
+            TransmissionSpeed.SLOW: {
+                'block_delay': 0.05,       # 50ms zwischen Blöcken
+                'line_delay': 0.01,        # 10ms pro Zeile
+                'init_delay': 0.05,        # 50ms für Init
+                'header_delay': 0.02,      # 20ms für Header
+                'post_delay': 0.05,        # 50ms Post-Processing
+                'description': 'Slow (komplexe Bilder)'
+            },
+            TransmissionSpeed.ULTRA_SLOW: {
+                'block_delay': 0.1,        # 100ms zwischen Blöcken
+                'line_delay': 0.02,        # 20ms pro Zeile
+                'init_delay': 0.1,         # 100ms für Init
+                'header_delay': 0.05,      # 50ms für Header
+                'post_delay': 0.1,         # 100ms Post-Processing
+                'description': 'Ultra Slow (sehr komplexe Bilder)'
+            }
+        }
+        
+        # Basis-Konfiguration holen
+        config = base_configs.get(speed, base_configs[TransmissionSpeed.NORMAL]).copy()
+        
+        # Timing-Multiplikator aus Settings anwenden
+        timing_multiplier = self.settings.get('timing_multiplier', 1.0)
+        
+        if timing_multiplier != 1.0:
+            # Alle Timing-Werte mit Multiplikator anpassen
+            for key in ['block_delay', 'line_delay', 'init_delay', 'header_delay', 'post_delay']:
+                if key in config:
+                    config[key] *= timing_multiplier
+            
+            # Beschreibung erweitern
+            if timing_multiplier > 1.0:
+                config['description'] += f" (×{timing_multiplier:.1f} slower)"
+            elif timing_multiplier < 1.0:
+                config['description'] += f" (×{1/timing_multiplier:.1f} faster)"
+        
+        # Aggressive Optimierung für sehr einfache Bilder
+        if speed == TransmissionSpeed.ULTRA_FAST and self.settings.get('adaptive_speed_aggressive', False):
+            config['block_delay'] *= 0.5    # Noch schneller
+            config['line_delay'] *= 0.5
+            config['description'] += " (aggressive)"
+        
+        return config
+                'description': 'Slow (komplexe Bilder)'
+            },
+            TransmissionSpeed.ULTRA_SLOW: {
+                'block_delay': 0.1,        # 100ms zwischen Blöcken
+                'line_delay': 0.02,        # 20ms pro Zeile
+                'init_delay': 0.1,         # 100ms für Init
+                'header_delay': 0.05,      # 50ms für Header
+                'post_delay': 0.1,         # 100ms Post-Processing
+                'description': 'Ultra Slow (sehr komplexe Bilder)'
+            }
+        }
+        
+        return speed_configs.get(speed, speed_configs[TransmissionSpeed.NORMAL])
+    
+    def analyze_and_determine_speed(self, image_data: bytes) -> Tuple[TransmissionSpeed, Dict[str, float]]:
+        """
+        Analysiert Bilddaten und bestimmt optimale Übertragungsgeschwindigkeit
+        
+        Args:
+            image_data: Raw image bytes
+            
+        Returns:
+            Tuple[TransmissionSpeed, Dict]: Speed enum und Config dict
+        """
+        complexity = self.calculate_image_complexity(image_data)
+        speed = self.determine_transmission_speed(complexity)
+        config = self.get_speed_config(speed)
+        
+        logger.info(f"🚀 Adaptive Speed Control:")
+        logger.info(f"   Complexity: {complexity*100:.1f}%")
+        logger.info(f"   Speed: {speed.value}")
+        logger.info(f"   Config: {config['description']}")
+        
+        return speed, config
+    
+    # =================== END ADAPTIVE SPEED CONTROL ===================
     
     def get_available_label_sizes(self) -> Dict[str, Any]:
         """Gibt verfügbare Label-Größen zurück"""
@@ -826,13 +1016,13 @@ class EnhancedPhomemoM110:
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
         """
-        Optimierte Bitmap-Übertragung ohne Segmentierung
-        NEUE VERSION: Sendet das gesamte Bild als zusammenhängenden Block
+        ADAPTIVE SPEED Bitmap-Übertragung basierend auf Datenkomplexität
+        LÖSUNG: Automatische Geschwindigkeitsanpassung verhindert Bluetooth-Timing-Probleme
         """
         try:
             width_bytes = self.bytes_per_line  # Immer 48 Bytes
             
-            logger.info(f"📤 SENDING BITMAP: {len(image_data)} bytes, {height} lines (48 bytes/line)")
+            logger.info(f"📤 ADAPTIVE BITMAP TRANSMISSION: {len(image_data)} bytes, {height} lines")
             
             # Validierung: Daten müssen exakt height * 48 Bytes sein
             expected_size = height * width_bytes
@@ -840,20 +1030,25 @@ class EnhancedPhomemoM110:
                 logger.error(f"❌ DATA SIZE ERROR: Got {len(image_data)}, expected {expected_size}")
                 return False
             
+            # ========== ADAPTIVE SPEED ANALYSIS ==========
+            speed, timing_config = self.analyze_and_determine_speed(image_data)
+            logger.info(f"🚀 Using {timing_config['description']}")
+            
             # Anti-Drift: Mindestabstand zwischen Druckvorgängen
             if hasattr(self, 'last_print_time'):
                 time_since_last = time.time() - self.last_print_time
-                if time_since_last < 0.15:  # 150ms Mindestabstand
-                    time.sleep(0.15 - time_since_last)
+                min_delay = max(0.15, timing_config['post_delay'] * 2)  # Mindestens 150ms oder 2x post_delay
+                if time_since_last < min_delay:
+                    time.sleep(min_delay - time_since_last)
             
-            # 1. Drucker initialisieren
+            # 1. Drucker initialisieren (adaptive Geschwindigkeit)
             logger.info("🔄 Step 1: Initialize printer")
             if not self.send_command(b'\x1b\x40'):  # ESC @ - Reset
                 logger.error("❌ Failed to initialize printer")
                 return False
-            time.sleep(0.02)  # 20ms für Initialisierung
+            time.sleep(timing_config['init_delay'])  # Adaptive Init-Delay
             
-            # 2. Raster-Bitmap-Header senden
+            # 2. Raster-Bitmap-Header senden (adaptive Geschwindigkeit)
             logger.info("🔄 Step 2: Send bitmap header")
             m = 0  # Normal mode
             header = bytes([
@@ -865,57 +1060,74 @@ class EnhancedPhomemoM110:
             if not self.send_command(header):
                 logger.error("❌ Failed to send bitmap header")
                 return False
-            time.sleep(0.01)  # 10ms für Header-Verarbeitung
+            time.sleep(timing_config['header_delay'])  # Adaptive Header-Delay
             
-            # 3. VOLLSTÄNDIGE BILDÜBERTRAGUNG OHNE SEGMENTIERUNG
-            logger.info("🔄 Step 3: Send complete image data (NO SEGMENTATION)")
+            # 3. ADAPTIVE BILDÜBERTRAGUNG
+            logger.info(f"🔄 Step 3: Adaptive image transmission ({speed.value})")
             
-            # Für kleine Bilder: Direkt senden
-            if len(image_data) <= 2048:  # <= 2KB
-                logger.info("📦 DIRECT TRANSFER: Sending complete image at once")
+            # Für sehr kleine/einfache Bilder: Direkt senden
+            if len(image_data) <= 1024 and speed in [TransmissionSpeed.ULTRA_FAST, TransmissionSpeed.FAST]:
+                logger.info("📦 DIRECT TRANSFER: Sending complete simple image at once")
                 success = self.send_command(image_data)
                 if not success:
                     logger.error("❌ Direct transfer failed")
                     return False
             else:
-                # Für größere Bilder: Größere zusammenhängende Blöcke
-                logger.info("📦 BLOCK TRANSFER: Using larger consistent blocks")
-                BLOCK_SIZE = 1536  # 1.5KB Blöcke (48 bytes * 32 lines)
+                # Adaptive Block-Übertragung
+                logger.info("📦 ADAPTIVE BLOCK TRANSFER")
+                
+                # Block-Größe basierend auf Geschwindigkeit anpassen
+                if speed == TransmissionSpeed.ULTRA_FAST:
+                    BLOCK_SIZE = 2400  # 50 Zeilen (2400 bytes)
+                elif speed == TransmissionSpeed.FAST:
+                    BLOCK_SIZE = 1440  # 30 Zeilen (1440 bytes)
+                elif speed == TransmissionSpeed.NORMAL:
+                    BLOCK_SIZE = 960   # 20 Zeilen (960 bytes)
+                elif speed == TransmissionSpeed.SLOW:
+                    BLOCK_SIZE = 480   # 10 Zeilen (480 bytes)
+                else:  # ULTRA_SLOW
+                    BLOCK_SIZE = 240   # 5 Zeilen (240 bytes)
                 
                 # Stelle sicher, dass Blockgröße ein Vielfaches von 48 ist
                 lines_per_block = BLOCK_SIZE // width_bytes
                 actual_block_size = lines_per_block * width_bytes
                 
+                logger.info(f"📦 Block size: {actual_block_size} bytes ({lines_per_block} lines)")
+                
                 success = True
+                total_blocks = (len(image_data) + actual_block_size - 1) // actual_block_size
+                
                 for i in range(0, len(image_data), actual_block_size):
+                    block_num = i // actual_block_size + 1
                     block = image_data[i:i + actual_block_size]
                     
-                    logger.debug(f"📦 Sending block {i//actual_block_size + 1}: {len(block)} bytes")
+                    logger.debug(f"📦 Sending block {block_num}/{total_blocks}: {len(block)} bytes")
                     
                     if not self.send_command(block):
-                        logger.warning(f"⚠️ Block {i//actual_block_size + 1} failed, retrying...")
-                        time.sleep(0.02)  # 20ms Retry-Pause
+                        logger.warning(f"⚠️ Block {block_num} failed, retrying...")
+                        time.sleep(timing_config['block_delay'] * 2)  # Doppelte Pause für Retry
                         if not self.send_command(block):
-                            logger.error(f"❌ Block {i//actual_block_size + 1} failed after retry")
+                            logger.error(f"❌ Block {block_num} failed after retry")
                             success = False
                             break
                     
-                    # Kurze Pause zwischen Blöcken für Stabilität
-                    time.sleep(0.01)  # 10ms zwischen Blöcken
+                    # Adaptive Pause zwischen Blöcken
+                    if i + actual_block_size < len(image_data):  # Nicht nach dem letzten Block
+                        time.sleep(timing_config['block_delay'])
             
-            # 4. Abschluss
-            time.sleep(0.02)  # 20ms Post-Processing
+            # 4. Adaptive Abschluss
+            time.sleep(timing_config['post_delay'])  # Adaptive Post-Processing
             self.last_print_time = time.time()
             
             if success:
-                logger.info("✅ BITMAP SENT SUCCESSFULLY - NO SEGMENTATION")
+                logger.info(f"✅ ADAPTIVE BITMAP SENT SUCCESSFULLY using {speed.value}")
             else:
-                logger.error("❌ BITMAP TRANSMISSION FAILED")
+                logger.error("❌ ADAPTIVE BITMAP TRANSMISSION FAILED")
             
             return success
             
         except Exception as e:
-            logger.error(f"❌ Bitmap transmission error: {e}")
+            logger.error(f"❌ Adaptive bitmap transmission error: {e}")
             import traceback
             logger.error(f"❌ Full traceback: {traceback.format_exc()}")
             return False
@@ -1506,6 +1718,171 @@ class EnhancedPhomemoM110:
         except Exception as e:
             logger.error(f"❌ Execute text with codes job error: {e}")
             return False
+    
+    # =================== ADAPTIVE SPEED TESTING ===================
+    
+    def test_adaptive_speed_with_images(self) -> Dict[str, Any]:
+        """
+        Testet die adaptive Geschwindigkeitssteuerung mit verschiedenen Komplexitätsgraden
+        Erstellt Testbilder und zeigt die automatische Geschwindigkeitsanpassung
+        """
+        logger.info("🧪 TESTING ADAPTIVE SPEED CONTROL")
+        
+        test_results = {
+            'tests_run': 0,
+            'successful_tests': 0,
+            'results': []
+        }
+        
+        try:
+            # Test 1: Ultra-einfaches Bild (< 2% non-zero)
+            logger.info("\n🧪 Test 1: Ultra-Simple Image")
+            simple_img = Image.new('1', (320, 240), 1)  # Weiß
+            draw = ImageDraw.Draw(simple_img)
+            draw.line([160, 0, 160, 239], fill=0, width=1)  # Eine dünne Linie
+            
+            simple_data = self.image_to_printer_format(simple_img)
+            if simple_data:
+                speed, config = self.analyze_and_determine_speed(simple_data)
+                test_results['results'].append({
+                    'test': 'Ultra-Simple',
+                    'complexity': self.calculate_image_complexity(simple_data),
+                    'speed': speed.value,
+                    'description': config['description']
+                })
+                test_results['tests_run'] += 1
+                test_results['successful_tests'] += 1
+            
+            # Test 2: Mittlere Komplexität (~ 5-8% non-zero)
+            logger.info("\n🧪 Test 2: Medium Complexity Image")
+            medium_img = Image.new('1', (320, 240), 1)
+            draw = ImageDraw.Draw(medium_img)
+            # Mehrere Linien und Text
+            for y in range(20, 220, 20):
+                draw.line([10, y, 310, y], fill=0, width=1)
+            draw.text((50, 100), "MEDIUM TEST", fill=0)
+            draw.rectangle([20, 20, 300, 220], outline=0, width=2)
+            
+            medium_data = self.image_to_printer_format(medium_img)
+            if medium_data:
+                speed, config = self.analyze_and_determine_speed(medium_data)
+                test_results['results'].append({
+                    'test': 'Medium Complexity',
+                    'complexity': self.calculate_image_complexity(medium_data),
+                    'speed': speed.value,
+                    'description': config['description']
+                })
+                test_results['tests_run'] += 1
+                test_results['successful_tests'] += 1
+            
+            # Test 3: Hohe Komplexität (> 12% non-zero)
+            logger.info("\n🧪 Test 3: High Complexity Image")
+            complex_img = Image.new('1', (320, 240), 1)
+            draw = ImageDraw.Draw(complex_img)
+            # Viel komplexerer Inhalt
+            # Dichtes Gitter
+            for x in range(0, 320, 10):
+                draw.line([x, 0, x, 239], fill=0, width=1)
+            for y in range(0, 240, 10):
+                draw.line([0, y, 319, y], fill=0, width=1)
+            # Mehrere gefüllte Bereiche
+            for i in range(0, 300, 40):
+                draw.rectangle([i, 50, i+20, 70], fill=0)
+                draw.ellipse([i, 150, i+30, 180], fill=0)
+            # Text
+            draw.text((10, 200), "VERY COMPLEX IMAGE TEST", fill=0)
+            
+            complex_data = self.image_to_printer_format(complex_img)
+            if complex_data:
+                speed, config = self.analyze_and_determine_speed(complex_data)
+                test_results['results'].append({
+                    'test': 'High Complexity',
+                    'complexity': self.calculate_image_complexity(complex_data),
+                    'speed': speed.value,
+                    'description': config['description']
+                })
+                test_results['tests_run'] += 1
+                test_results['successful_tests'] += 1
+            
+            # Test 4: Verwende die Raw-Daten aus deinem Debug (falls verfügbar)
+            try:
+                problem_path = r'C:\Users\marcu\Downloads\problem_image_raw.bin'
+                if os.path.exists(problem_path):
+                    logger.info("\n🧪 Test 4: Real Problem Image Data")
+                    with open(problem_path, 'rb') as f:
+                        problem_data = f.read()
+                    
+                    speed, config = self.analyze_and_determine_speed(problem_data)
+                    test_results['results'].append({
+                        'test': 'Real Problem Image',
+                        'complexity': self.calculate_image_complexity(problem_data),
+                        'speed': speed.value,
+                        'description': config['description']
+                    })
+                    test_results['tests_run'] += 1
+                    test_results['successful_tests'] += 1
+                else:
+                    logger.info("🧪 Test 4: Skipped (problem_image_raw.bin not found)")
+            except Exception as e:
+                logger.warning(f"🧪 Test 4 failed: {e}")
+            
+            # Zusammenfassung
+            logger.info(f"\n✅ ADAPTIVE SPEED TEST SUMMARY:")
+            logger.info(f"   Tests run: {test_results['tests_run']}")
+            logger.info(f"   Successful: {test_results['successful_tests']}")
+            
+            for result in test_results['results']:
+                logger.info(f"   {result['test']}: {result['complexity']*100:.1f}% complexity → {result['speed']} ({result['description']})")
+            
+            return test_results
+            
+        except Exception as e:
+            logger.error(f"❌ Adaptive speed test error: {e}")
+            return test_results
+    
+    def force_speed_test_print(self, complexity_level: str = 'medium') -> bool:
+        """
+        Forciert einen Testdruck mit bestimmter Komplexität
+        
+        Args:
+            complexity_level: 'simple', 'medium', 'complex'
+        """
+        try:
+            logger.info(f"🎯 FORCE SPEED TEST: {complexity_level}")
+            
+            if complexity_level == 'simple':
+                img = Image.new('1', (320, 240), 1)
+                draw = ImageDraw.Draw(img)
+                draw.text((100, 100), "SIMPLE TEST", fill=0)
+                draw.line([160, 0, 160, 239], fill=0, width=2)
+            elif complexity_level == 'complex':
+                img = Image.new('1', (320, 240), 1)
+                draw = ImageDraw.Draw(img)
+                # Sehr komplex
+                for x in range(0, 320, 8):
+                    draw.line([x, 0, x, 239], fill=0, width=1)
+                for y in range(0, 240, 8):
+                    draw.line([0, y, 319, y], fill=0, width=1)
+                draw.text((10, 100), "ULTRA COMPLEX", fill=0)
+            else:  # medium
+                img = Image.new('1', (320, 240), 1)
+                draw = ImageDraw.Draw(img)
+                draw.rectangle([10, 10, 310, 230], outline=0, width=3)
+                draw.text((50, 100), "MEDIUM COMPLEXITY", fill=0)
+                for y in range(50, 200, 20):
+                    draw.line([30, y, 290, y], fill=0, width=1)
+            
+            if not self.is_connected():
+                logger.error("❌ Printer not connected")
+                return False
+            
+            return self._print_image_direct(img)
+            
+        except Exception as e:
+            logger.error(f"❌ Force speed test error: {e}")
+            return False
+    
+    # =================== END ADAPTIVE SPEED TESTING ===================
 
 # Alias für Kompatibilität mit bestehenden Modulen
 RobustPhomemoM110 = EnhancedPhomemoM110
