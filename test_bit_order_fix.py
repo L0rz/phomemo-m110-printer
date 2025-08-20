@@ -151,10 +151,16 @@ def test_different_bit_orders():
         # Originale Methode wiederherstellen
         printer.image_to_printer_format = original_method
         
-        print(f"\n🔍 ANALYSIS:")
-        print(f"If LSB-first version is CORRECT (no shifting),")
-        print(f"then we found the bug and need to fix the bit order!")
-        print(f"If MSB-first is correct, the problem is elsewhere.")
+        print(f"\n🔍 CRITICAL ANALYSIS:")
+        print(f"Compare the two printed labels:")
+        print(f"")
+        print(f"Label 1 (MSB-first): Should show SHIFTING in bottom part")  
+        print(f"Label 2 (LSB-first):  Should be PERFECTLY aligned")
+        print(f"")
+        print(f"If Label 2 is perfect → WE FOUND THE BUG!")
+        print(f"If both are wrong → Problem is deeper")
+        print(f"")
+        print(f"EXPECTED: Label 2 fixes the shifting problem completely!")
         
         return True
         
