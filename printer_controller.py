@@ -924,18 +924,14 @@ class EnhancedPhomemoM110:
             
             logger.info(f"🔧 ULTIMATE FIX: Converting {width}x{height} -> printer format")
             
-            # WICHTIG: Bild muss auf Drucker-Breite erweitert werden falls nötig
-            if width < self.width_pixels:
-                logger.info(f"📏 Expanding image from {width}px to {self.width_pixels}px")
-                # Neues Bild mit Drucker-Breite erstellen
-                expanded_img = Image.new('1', (self.width_pixels, height), 1)  # Weiß
-                expanded_img.paste(img, (0, 0))  # Original links einfügen
-                img = expanded_img
+            # *** KRITISCHE ÄNDERUNG: Direct 384px Resize (Test 3) ***
+            # LÖSUNG: Direkte Größenanpassung verhindert Verschiebungen komplett
+            if width != self.width_pixels:
+                logger.info(f"🔧 DIRECT RESIZE FIX: {width}px -> {self.width_pixels}px (Test 3 approach)")
+                img = img.resize((self.width_pixels, height), Image.NEAREST)
                 width = self.width_pixels
-            elif width > self.width_pixels:
-                logger.warning(f"⚠️ Cropping image from {width}px to {self.width_pixels}px")
-                img = img.crop((0, 0, self.width_pixels, height))
-                width = self.width_pixels
+            else:
+                logger.info(f"✅ Image already correct width: {width}px")
             
             # Jetzt: width == self.width_pixels (384)
             pixels = list(img.getdata())
