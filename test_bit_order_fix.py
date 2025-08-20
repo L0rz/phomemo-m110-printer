@@ -16,23 +16,48 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 def create_bit_test_pattern():
-    """Erstellt ein spezifisches Testmuster um Bit-Reihenfolge zu testen"""
-    img = Image.new('1', (320, 240), 1)  # Weiß
-    draw = ImageDraw.Draw(img)
-    
-    # Spezifisches Bit-Test-Muster
-    # Vertikale Linien alle 8 Pixel (Byte-Grenzen)
-    for x in range(0, 320, 8):
-        draw.line([x, 0, x, 239], fill=0, width=1)
-    
-    # Text oben
-    draw.text((10, 10), "BIT ORDER TEST", fill=0)
-    
-    # Horizontale Linien um Verschiebung zu zeigen
-    for y in range(50, 200, 20):
-        draw.line([10, y, 310, y], fill=0, width=1)
-    
-    return img
+    """Erstellt das EXAKTE komplexe Bild aus test_zero_offset.py"""
+    try:
+        # EXAKT das gleiche komplexe Bild das die Verschiebung verursacht
+        img = Image.new('1', (320, 240), 1)  # Weiß
+        draw = ImageDraw.Draw(img)
+        
+        # Rahmen
+        draw.rectangle([0, 0, 319, 239], outline=0, width=2)
+        
+        # Text-ähnliche Elemente
+        draw.text((10, 20), "TEST IMAGE", fill=0)
+        draw.text((10, 50), "X-OFFSET = 0", fill=0)
+        draw.text((10, 80), "NO WRAPPING", fill=0)
+        
+        # Visuelle Marker für Links/Rechts
+        # Links-Marker
+        draw.rectangle([5, 5, 25, 25], outline=0, width=3)
+        draw.text((8, 8), "L", fill=0)
+        
+        # Rechts-Marker
+        draw.rectangle([295, 5, 315, 25], outline=0, width=3)
+        draw.text((298, 8), "R", fill=0)
+        
+        # Zentrale Struktur (wie die Gesichter)
+        center_x, center_y = 160, 120
+        
+        # "Gesicht" simulation
+        draw.ellipse([center_x-40, center_y-40, center_x+40, center_y+40], outline=0, width=2)
+        draw.ellipse([center_x-15, center_y-15, center_x-5, center_y-5], fill=0)  # Auge
+        draw.ellipse([center_x+5, center_y-15, center_x+15, center_y-5], fill=0)   # Auge
+        draw.arc([center_x-20, center_y, center_x+20, center_y+20], 0, 180, fill=0)  # Mund
+        
+        # Horizontale Linien zum Erkennen von Verschiebungen
+        for y in [160, 180, 200, 220]:
+            draw.line([30, y, 290, y], fill=0, width=1)
+        
+        logger.info(f"✅ Created COMPLEX test image: {img.width}x{img.height} (this should show shifting)")
+        return img
+        
+    except Exception as e:
+        logger.error(f"❌ Error creating complex test image: {e}")
+        return None
 
 def test_different_bit_orders():
     """Testet beide Bit-Reihenfolgen"""
@@ -47,18 +72,20 @@ def test_different_bit_orders():
                 return False
         
         # Teste aktuell (MSB-first)
-        logger.info("📤 Test 1: Current bit order (MSB-first)")
+        logger.info("📤 Test 1: Current bit order (MSB-first) - SHOULD HAVE SHIFTING")
         img = create_bit_test_pattern()
         
-        print("Print current bit order test? (y/n): ", end="")
+        print("Print current bit order test (the one with shifting)? (y/n): ", end="")
         if input().lower().startswith('y'):
             success1 = printer._print_image_direct(img)
             logger.info(f"Current bit order result: {'✅' if success1 else '❌'}")
             
-            input("Check the printed result, then press Enter to continue...")
+            print("⚠️ This label should show SHIFTING in the lower parts!")
+            input("Check the printed result (should have shifting), then press Enter to continue...")
         
         # Patch für LSB-first Test
         logger.info("🔧 Patching for LSB-first bit order test...")
+        logger.info("📤 Test 2: LSB-first bit order - SHOULD BE PERFECT")
         
         # Backup der originalen Methode
         original_method = printer.image_to_printer_format
@@ -113,10 +140,13 @@ def test_different_bit_orders():
         printer.image_to_printer_format = lsb_first_image_to_printer_format
         
         logger.info("📤 Test 2: LSB-first bit order")
-        print("Print LSB-first bit order test? (y/n): ", end="")
+        print("Print LSB-first bit order test (should be PERFECT)? (y/n): ", end="")
         if input().lower().startswith('y'):
             success2 = printer._print_image_direct(img)
             logger.info(f"LSB-first bit order result: {'✅' if success2 else '❌'}")
+            
+            print("✅ This label should be PERFECTLY aligned (no shifting)!")
+            input("Check the result - is it perfect? Press Enter to continue...")
         
         # Originale Methode wiederherstellen
         printer.image_to_printer_format = original_method
