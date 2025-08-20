@@ -228,7 +228,7 @@ def test_ultra_extreme_approaches():
                     success = printer.send_bitmap(raw_bytes, height)
                 
                 elif approach_config == "raw_ultra_slow":
-                    # Raw Bitmap Ultra-Slow
+                    # Raw Bitmap Ultra-Slow (korrigierte Methoden)
                     logger.info("🐌 Raw bitmap ultra-slow mode")
                     
                     if real_img.width != 384:
@@ -253,16 +253,23 @@ def test_ultra_extreme_approaches():
                     
                     raw_bytes = bytes(raw_data)
                     
-                    # ULTRA-ULTRA-SLOW (100x langsamer)
+                    # ULTRA-ULTRA-SLOW (100x langsamer) mit korrekten Methoden
                     logger.info(f"🐌 Using 100x slower transmission")
                     
                     # Manuell mit extremen Delays
-                    if not printer.send_init_sequence():
+                    if not printer.send_command(b'\x1b\x40'):  # ESC @ - Reset
                         continue
                     
                     time.sleep(0.5)  # 500ms init delay
                     
-                    if not printer.send_bitmap_header(height):
+                    # Header senden
+                    header = bytes([
+                        0x1D, 0x76, 0x30, 0,                    # GS v 0 - Print raster bitmap
+                        48, 0,                                   # Width in bytes (48)
+                        height & 0xFF, (height >> 8) & 0xFF     # Height in lines
+                    ])
+                    
+                    if not printer.send_command(header):
                         continue
                     
                     time.sleep(0.5)  # 500ms header delay
@@ -271,13 +278,13 @@ def test_ultra_extreme_approaches():
                     block_size = 48  # Eine Zeile
                     for i in range(0, len(raw_bytes), block_size):
                         block = raw_bytes[i:i+block_size]
-                        printer.send_data_to_printer(block)
+                        printer.send_command(block)
                         time.sleep(0.5)  # 500ms pro Zeile!
                         
                         if i % (block_size * 10) == 0:
                             logger.info(f"📤 Sent {i//block_size} lines")
                     
-                    printer.send_finalize_sequence()
+                    printer.send_command(b'\x0A')  # Line feed
                     success = True
                 
                 if success:
