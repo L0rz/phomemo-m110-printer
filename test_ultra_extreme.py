@@ -116,16 +116,25 @@ def test_ultra_extreme_approaches():
                     
                     logger.info(f"📤 Sending {total_lines} lines individually...")
                     
-                    # Drucker initialisieren
-                    if not printer.send_init_sequence():
+                    # Drucker initialisieren (korrekte Methode)
+                    if not printer.send_command(b'\x1b\x40'):  # ESC @ - Reset
                         logger.error("❌ Init failed")
                         continue
                     
-                    # Header senden
-                    success = printer.send_bitmap_header(total_lines)
-                    if not success:
+                    time.sleep(0.5)  # 500ms init delay
+                    
+                    # Header senden (korrekte Methode)
+                    header = bytes([
+                        0x1D, 0x76, 0x30, 0,                    # GS v 0 - Print raster bitmap
+                        48, 0,                                   # Width in bytes (48)
+                        total_lines & 0xFF, (total_lines >> 8) & 0xFF  # Height in lines
+                    ])
+                    
+                    if not printer.send_command(header):
                         logger.error("❌ Header failed")
                         continue
+                    
+                    time.sleep(0.5)  # 500ms header delay
                     
                     # Zeilen einzeln senden mit extremen Delays
                     for line_num in range(total_lines):
@@ -133,9 +142,8 @@ def test_ultra_extreme_approaches():
                         line_end = line_start + bytes_per_line
                         line_data = image_data[line_start:line_end]
                         
-                        # Sende eine Zeile
-                        success = printer.send_line_data(line_data, line_num)
-                        if not success:
+                        # Sende eine Zeile (korrekte Methode)
+                        if not printer.send_command(line_data):
                             logger.error(f"❌ Line {line_num} failed")
                             break
                         
@@ -145,8 +153,8 @@ def test_ultra_extreme_approaches():
                         if line_num % 20 == 0:
                             logger.info(f"📤 Sent line {line_num}/{total_lines}")
                     
-                    # Finalize
-                    printer.send_finalize_sequence()
+                    # Finalize (korrekte Methode)
+                    printer.send_command(b'\x0A')  # Line feed
                     success = True
                 
                 elif approach_config == "reduce_complexity":
