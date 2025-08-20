@@ -16,18 +16,33 @@ from config import *
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
-# Pfad zum echten Test-PNG
-TEST_PNG_PATH = r"C:\Users\marcu\OneDrive\Dokumente\GitHub\phomemo-m110-printer\phomemo-m110-printer\2025-08-15 16_49_38-Kamera (Benutzerdefiniert).png"
+# Pfad zum echten Test-PNG (relativ)
+TEST_PNG_PATH = "2025-08-15 16_49_38-Kamera (Benutzerdefiniert).png"
 
 def load_real_test_image():
     """Lädt das echte Test-PNG aus dem Git Repository"""
     try:
-        if not os.path.exists(TEST_PNG_PATH):
-            logger.error(f"❌ Test PNG not found: {TEST_PNG_PATH}")
+        # Prüfe verschiedene mögliche Pfade
+        possible_paths = [
+            TEST_PNG_PATH,  # Direkter relativer Pfad
+            os.path.join(".", TEST_PNG_PATH),  # Aktuelles Verzeichnis
+            os.path.join(os.path.dirname(__file__), TEST_PNG_PATH),  # Skript-Verzeichnis
+        ]
+        
+        img_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                img_path = path
+                break
+        
+        if not img_path:
+            logger.error(f"❌ Test PNG not found in any of these locations:")
+            for path in possible_paths:
+                logger.error(f"   - {os.path.abspath(path)}")
             return None
         
-        img = Image.open(TEST_PNG_PATH)
-        logger.info(f"✅ Loaded real test PNG: {img.size} ({img.mode})")
+        img = Image.open(img_path)
+        logger.info(f"✅ Loaded real test PNG: {img.size} ({img.mode}) from {img_path}")
         
         # Zu Schwarz-Weiß konvertieren
         if img.mode != '1':
