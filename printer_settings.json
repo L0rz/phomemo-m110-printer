@@ -1,0 +1,20 @@
+{
+  "x_offset": 0,
+  "y_offset": 0,
+  "dither_threshold": 128,
+  "dither_enabled": true,
+  "dither_strength": 1.0,
+  "contrast_boost": 1.0,
+  "fit_to_label_default": true,
+  "maintain_aspect_default": true,
+  "auto_connect": true,
+  "debug_mode": false,
+  "label_size": "40x30",
+  "adaptive_speed_enabled": true,
+  "adaptive_speed_aggressive": false,
+  "min_complexity_for_slow": 0.08,
+  "max_complexity_for_fast": 0.02,
+  "force_slow_for_complex": true,
+  "timing_multiplier": 1.0,
+  "anti_drift_interval": 2.0
+}

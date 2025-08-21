@@ -569,8 +569,14 @@ class EnhancedPhomemoM110:
             
             # Größe anpassen basierend auf Skalierungsmodus
             if fit_to_label:
-                target_width = self.label_width_px
+                # KRITISCHER FIX: Verwende DRUCKER-Breite statt Label-Breite für Dithering-Erhaltung!
+                # Problem: Bild wird auf Label-Breite (320px) skaliert, dann in image_to_printer_format 
+                # nochmal auf Drucker-Breite (384px) gestretcht -> Dithering zerstört
+                # Lösung: Direkt auf Drucker-Breite skalieren
+                target_width = self.width_pixels  # 384px statt self.label_width_px (320px)
                 target_height = self.label_height_px
+                
+                logger.info(f"🔧 DITHERING PRESERVATION: Scaling to printer width {target_width}px instead of label width {self.label_width_px}px")
                 
                 if scaling_mode == 'fit_aspect':
                     # Original-Verhalten: Seitenverhältnis beibehalten
@@ -685,7 +691,9 @@ class EnhancedPhomemoM110:
                     'dither_strength': dither_strength,
                     'contrast_boost': self.settings.get('contrast_boost', DEFAULT_CONTRAST_BOOST),
                     'x_offset': self.settings.get('x_offset', DEFAULT_X_OFFSET),
-                    'y_offset': self.settings.get('y_offset', DEFAULT_Y_OFFSET)
+                    'y_offset': self.settings.get('y_offset', DEFAULT_Y_OFFSET),
+                    'dithering_preservation_active': True,  # Zeigt an, dass Dithering-Erhaltung aktiviert ist
+                    'scaled_to_printer_width': True  # Bild wurde direkt auf Drucker-Breite skaliert
                 }
             )
             
@@ -924,14 +932,23 @@ class EnhancedPhomemoM110:
             
             logger.info(f"🔧 ULTIMATE FIX: Converting {width}x{height} -> printer format")
             
-            # *** KRITISCHE ÄNDERUNG: Direct 384px Resize (Test 3) ***
-            # LÖSUNG: Direkte Größenanpassung verhindert Verschiebungen komplett
+            # *** KRITISCHE ÄNDERUNG: Direct 384px Resize ABER mit Dithering-Erhaltung ***
+            # PROBLEM: Image.NEAREST zerstört das Dithering komplett!
+            # LÖSUNG: Nur resizen wenn nötig UND mit Dithering-erhaltendem Algorithmus
             if width != self.width_pixels:
-                logger.info(f"🔧 DIRECT RESIZE FIX: {width}px -> {self.width_pixels}px (Test 3 approach)")
-                img = img.resize((self.width_pixels, height), Image.NEAREST)
+                logger.info(f"🔧 DITHER-SAFE RESIZE: {width}px -> {self.width_pixels}px (preserving dithering)")
+                # ANTILOPE-FIX: Image.NEAREST -> Image.Resampling.LANCZOS für Dithering-Erhaltung
+                # Aber ACHTUNG: Nur für kleine Unterschiede, sonst kann es das Dithering trotzdem beeinträchtigen
+                if abs(width - self.width_pixels) <= 10:
+                    # Kleine Anpassung: Verwende besseren Algorithmus
+                    img = img.resize((self.width_pixels, height), Image.Resampling.LANCZOS)
+                else:
+                    # Große Änderung: Warnung, dass Dithering beeinträchtigt werden könnte
+                    logger.warning(f"⚠️ Large resize {width} -> {self.width_pixels} may affect dithering quality")
+                    img = img.resize((self.width_pixels, height), Image.Resampling.LANCZOS)
                 width = self.width_pixels
             else:
-                logger.info(f"✅ Image already correct width: {width}px")
+                logger.info(f"✅ Image already correct width: {width}px - preserving dithering")
             
             # Jetzt: width == self.width_pixels (384)
             pixels = list(img.getdata())
