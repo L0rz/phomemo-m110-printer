@@ -17,6 +17,23 @@ DEBUG_MODE = False
 PRINTER_WIDTH_PIXELS = 384
 PRINTER_BYTES_PER_LINE = 48  # 384 / 8
 
+# Transport / Write tuning (experiment safely by changing these values)
+# CHUNK_SIZE_BYTES: maximum write() chunk size when sending to /dev/rfcomm0.
+#   Smaller chunks reduce the risk of overflowing adapter buffers but increase
+#   syscall overhead. A sensible starting value is 672 (multiple of L2CAP MTU).
+CHUNK_SIZE_BYTES = 672
+
+# INTER_CHUNK_SLEEP_MS: milliseconds to sleep between write() chunks. Small
+# sleeps (1-5 ms) help pace the host-to-controller buffer without large delays.
+INTER_CHUNK_SLEEP_MS = 2
+
+# BLOCK_WRITE_RETRIES: how many attempts to try writing a block before failing.
+BLOCK_WRITE_RETRIES = 2
+
+# DEFAULT_BLOCK_DELAY_MS: additional delay (ms) to wait after each block is
+# written. The adaptive speed controller may override this via timing_multiplier.
+DEFAULT_BLOCK_DELAY_MS = 0
+
 # Neue Features: Offset-Konfiguration
 DEFAULT_X_OFFSET = 0   # Standard X-Offset (kein Offset)
 DEFAULT_Y_OFFSET = 0   # Standard Y-Offset

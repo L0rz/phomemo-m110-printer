@@ -542,7 +542,9 @@ class EnhancedPhomemoM110:
                     # Robust write: ensure all bytes are written
                     total = len(command_bytes)
                     written = 0
-                    CHUNK_SIZE = 672  # approx HCI ACL payload to avoid host buffer overrun
+                    # Use configurable chunk size and inter-chunk sleep from config.py
+                    CHUNK_SIZE = int(CHUNK_SIZE_BYTES)
+                    INTER_CHUNK_SLEEP = float(INTER_CHUNK_SLEEP_MS) / 1000.0
                     while written < total:
                         chunk = command_bytes[written:written+CHUNK_SIZE]
                         n = printer.write(chunk)
@@ -553,10 +555,11 @@ class EnhancedPhomemoM110:
                         written += n
                         printer.flush()
                         # small pause between chunks to give controller time
-                        time.sleep(0.002)
+                        if INTER_CHUNK_SLEEP > 0:
+                            time.sleep(INTER_CHUNK_SLEEP)
                     # small pause to allow device to process after full write
                     time.sleep(0.01)
-                    logger.debug(f"🔁 send_command: wrote {written}/{total} bytes to {self.rfcomm_device}")
+                    logger.debug(f"🔁 send_command: wrote {written}/{total} bytes to {self.rfcomm_device} (chunks={CHUNK_SIZE})")
             return True
         except Exception as e:
             logger.error(f"Send command error: {e}")
@@ -1191,9 +1194,12 @@ class EnhancedPhomemoM110:
                                 total = len(block)
                                 try_count = 0
                                 ok = False
-                                while try_count < 2 and not ok:
+                                # configurable retries and chunk pacing
+                                MAX_RETRIES = int(BLOCK_WRITE_RETRIES)
+                                CHUNK_SIZE = int(CHUNK_SIZE_BYTES)
+                                INTER_CHUNK_SLEEP = float(INTER_CHUNK_SLEEP_MS) / 1000.0
+                                while try_count < MAX_RETRIES and not ok:
                                     try:
-                                        CHUNK_SIZE = 672
                                         while written < total:
                                             chunk = block[written:written+CHUNK_SIZE]
                                             n = printer_fd.write(chunk)
@@ -1202,13 +1208,16 @@ class EnhancedPhomemoM110:
                                             written += n
                                             printer_fd.flush()
                                             # small sleep between HCI-sized chunks
-                                            time.sleep(0.002)
+                                            if INTER_CHUNK_SLEEP > 0:
+                                                time.sleep(INTER_CHUNK_SLEEP)
                                         ok = True
                                     except Exception as e:
                                         logger.warning(f"⚠️ Write error on block {block_num}: {e}")
                                         try_count += 1
                                         written = 0
-                                        time.sleep(timing_config['block_delay'] * 2)
+                                        # Back off before retrying (respect adaptive block_delay + optional default)
+                                        backoff = timing_config.get('block_delay', 0.02) * 2 + (DEFAULT_BLOCK_DELAY_MS / 1000.0)
+                                        time.sleep(backoff)
 
                                 # Log successful write details
                                 if ok:
