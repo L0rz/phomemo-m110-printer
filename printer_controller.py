@@ -646,13 +646,37 @@ class EnhancedPhomemoM110:
                 estimated_black = sum(1 for p in pixels if p < threshold_preview)
                 estimated_complexity = estimated_black / len(pixels)
                 
+                # KRITISCH: Bei Dithering wird Komplexität DEUTLICH höher!
+                # Floyd-Steinberg kann Komplexität 2-3x erhöhen
+                if enable_dither:
+                    # Schätze Dithering-Effekt: ~2.5x mehr schwarze Pixel
+                    estimated_complexity *= 2.5
+                    logger.info(f"📊 Estimated complexity with dithering: {estimated_complexity*100:.1f}%")
+                
                 if estimated_complexity > self.settings.get('auto_reduce_threshold', 0.10):
                     logger.warning(f"⚠️ High complexity detected (estimated): {estimated_complexity*100:.1f}%")
                     logger.info(f"🔧 AUTO-REDUCING complexity BEFORE dithering...")
                     
-                    # Helligkeit erhöhen um Komplexität zu reduzieren
-                    factor = 1.4 if estimated_complexity > 0.15 else 1.2
-                    logger.info(f"   → Using: Brightness +{(factor-1)*100:.0f}%")
+                    # AGGRESSIVE Helligkeit basierend auf Ziel-Komplexität
+                    # Ziel: Finale Komplexität < 25% (nach Dithering)
+                    target_complexity = 0.20  # 20% finale Ziel-Komplexität
+                    
+                    if enable_dither:
+                        # Mit Dithering: Sehr aggressiv reduzieren
+                        # Wir müssen auf ~8% VOR Dithering, um 20% NACH Dithering zu erreichen
+                        if estimated_complexity > 0.50:  # >50%: Extrem hell
+                            factor = 1.8
+                        elif estimated_complexity > 0.30:  # >30%: Sehr hell
+                            factor = 1.6
+                        elif estimated_complexity > 0.20:  # >20%: Stark hell
+                            factor = 1.4
+                        else:  # >10%: Moderat hell
+                            factor = 1.2
+                    else:
+                        # Ohne Dithering: Normale Reduktion
+                        factor = 1.4 if estimated_complexity > 0.15 else 1.2
+                    
+                    logger.info(f"   → Using: Brightness +{(factor-1)*100:.0f}% (Dithering: {enable_dither})")
                     enhancer = ImageEnhance.Brightness(img)
                     img = enhancer.enhance(factor)
                     
@@ -661,6 +685,9 @@ class EnhancedPhomemoM110:
                     pixels = list(gray_preview.getdata())
                     new_estimated_black = sum(1 for p in pixels if p < threshold_preview)
                     new_estimated_complexity = new_estimated_black / len(pixels)
+                    if enable_dither:
+                        new_estimated_complexity *= 2.5
+                    
                     reduction = (estimated_complexity - new_estimated_complexity) * 100
                     logger.info(f"✅ Estimated complexity reduced: {estimated_complexity*100:.1f}% → {new_estimated_complexity*100:.1f}% (-{reduction:.1f}%)")
             # ===============================================================
