@@ -13,7 +13,16 @@ Exit codes:
     2 - failure
 """
 import sys
+import os
 from PIL import Image
+
+# If the script is executed from the tools/ folder, Python may not
+# find top-level modules. Add project root to sys.path so
+# `from printer_controller import EnhancedPhomemoM110` works.
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
 from printer_controller import EnhancedPhomemoM110
 
 
