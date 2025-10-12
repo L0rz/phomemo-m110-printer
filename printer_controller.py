@@ -31,6 +31,9 @@ except ImportError:
 # Konfiguration importieren
 from config import *
 
+# Komplexitäts-Reduktion importieren
+from complexity_reducer import auto_reduce_complexity_if_needed
+
 # Code Generator import mit Fallback
 try:
     from code_generator import CodeGenerator
@@ -659,6 +662,11 @@ class EnhancedPhomemoM110:
                 # Einfacher Threshold
                 gray_img = img.convert('L')
                 bw_img = gray_img.point(lambda x: 0 if x < dither_threshold else 255, '1')
+            
+            # ============= AUTOMATISCHE KOMPLEXITÄTS-REDUKTION =============
+            if self.settings.get('auto_reduce_complexity', True):
+                bw_img = auto_reduce_complexity_if_needed(bw_img, self.settings)
+            # ===============================================================
             
             # Base64 für Web-Vorschau erstellen
             preview_buffer = io.BytesIO()

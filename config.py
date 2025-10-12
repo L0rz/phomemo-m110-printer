@@ -187,5 +187,13 @@ DEFAULT_SETTINGS = {
     'force_slow_for_complex': True,       # Immer langsam bei sehr komplexen Bildern (>12%)
     'timing_multiplier': 1.0,             # Globaler Timing-Multiplikator (1.0 = normal, 1.5 = 50% langsamer)
     # =================== END ADAPTIVE SPEED CONFIG =================
-    'anti_drift_interval': 2.0  # Anti-Drift-Pause in Sekunden (basierend auf erfolgreichen Tests)
+    'anti_drift_interval': 2.0,  # Anti-Drift-Pause in Sekunden (basierend auf erfolgreichen Tests)
+    
+    # =================== AUTOMATISCHE KOMPLEXITÄTS-REDUKTION ===================
+    'auto_reduce_complexity': True,           # Aktiviert automatische Reduktion bei hoher Komplexität
+    'auto_reduce_threshold': 0.10,            # Schwellwert: Ab 10% Komplexität reduzieren
+    'auto_reduce_method': 'adaptive',         # Methode: 'adaptive', 'threshold', 'brightness'
+    'auto_reduce_threshold_value': 140,       # Threshold-Wert für threshold-Methode (80-200)
+    'auto_reduce_brightness_factor': 1.3,     # Helligkeitsfaktor für brightness-Methode (1.0-2.0)
+    # =================== END AUTO-REDUCE CONFIG ===================
 }
