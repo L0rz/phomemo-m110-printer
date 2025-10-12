@@ -635,6 +635,36 @@ class EnhancedPhomemoM110:
                     new_img.paste(img, (paste_x, paste_y))
                     img = new_img
             
+            # ============= AUTOMATISCHE KOMPLEXITÄTS-REDUKTION =============
+            # WICHTIG: VOR dem Dithering, damit es wirken kann!
+            if self.settings.get('auto_reduce_complexity', True):
+                # Schätze Komplexität aus RGB-Bild
+                gray_preview = img.convert('L')
+                pixels = list(gray_preview.getdata())
+                # Schätze wie viele schwarze Pixel nach Dithering entstehen würden
+                threshold_preview = self.settings.get('dither_threshold', DEFAULT_DITHER_THRESHOLD)
+                estimated_black = sum(1 for p in pixels if p < threshold_preview)
+                estimated_complexity = estimated_black / len(pixels)
+                
+                if estimated_complexity > self.settings.get('auto_reduce_threshold', 0.10):
+                    logger.warning(f"⚠️ High complexity detected (estimated): {estimated_complexity*100:.1f}%")
+                    logger.info(f"🔧 AUTO-REDUCING complexity BEFORE dithering...")
+                    
+                    # Helligkeit erhöhen um Komplexität zu reduzieren
+                    factor = 1.4 if estimated_complexity > 0.15 else 1.2
+                    logger.info(f"   → Using: Brightness +{(factor-1)*100:.0f}%")
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(factor)
+                    
+                    # Neue Komplexität schätzen
+                    gray_preview = img.convert('L')
+                    pixels = list(gray_preview.getdata())
+                    new_estimated_black = sum(1 for p in pixels if p < threshold_preview)
+                    new_estimated_complexity = new_estimated_black / len(pixels)
+                    reduction = (estimated_complexity - new_estimated_complexity) * 100
+                    logger.info(f"✅ Estimated complexity reduced: {estimated_complexity*100:.1f}% → {new_estimated_complexity*100:.1f}% (-{reduction:.1f}%)")
+            # ===============================================================
+            
             # Schwarz-Weiß konvertieren mit erweiterten Dithering-Optionen
             if enable_dither:
                 # Kontrast-Verstärkung anwenden falls konfiguriert
@@ -662,11 +692,6 @@ class EnhancedPhomemoM110:
                 # Einfacher Threshold
                 gray_img = img.convert('L')
                 bw_img = gray_img.point(lambda x: 0 if x < dither_threshold else 255, '1')
-            
-            # ============= AUTOMATISCHE KOMPLEXITÄTS-REDUKTION =============
-            if self.settings.get('auto_reduce_complexity', True):
-                bw_img = auto_reduce_complexity_if_needed(bw_img, self.settings)
-            # ===============================================================
             
             # Base64 für Web-Vorschau erstellen
             preview_buffer = io.BytesIO()
