@@ -542,8 +542,9 @@ class EnhancedPhomemoM110:
                     # Robust write: ensure all bytes are written
                     total = len(command_bytes)
                     written = 0
+                    CHUNK_SIZE = 672  # approx HCI ACL payload to avoid host buffer overrun
                     while written < total:
-                        chunk = command_bytes[written:written+4096]
+                        chunk = command_bytes[written:written+CHUNK_SIZE]
                         n = printer.write(chunk)
                         # On file-like devices, write() should return number of bytes written or None
                         if n is None:
@@ -551,8 +552,11 @@ class EnhancedPhomemoM110:
                             n = len(chunk)
                         written += n
                         printer.flush()
-                    # small pause to allow device to process
+                        # small pause between chunks to give controller time
+                        time.sleep(0.002)
+                    # small pause to allow device to process after full write
                     time.sleep(0.01)
+                    logger.debug(f"🔁 send_command: wrote {written}/{total} bytes to {self.rfcomm_device}")
             return True
         except Exception as e:
             logger.error(f"Send command error: {e}")
@@ -1189,19 +1193,26 @@ class EnhancedPhomemoM110:
                                 ok = False
                                 while try_count < 2 and not ok:
                                     try:
+                                        CHUNK_SIZE = 672
                                         while written < total:
-                                            chunk = block[written:written+4096]
+                                            chunk = block[written:written+CHUNK_SIZE]
                                             n = printer_fd.write(chunk)
                                             if n is None:
                                                 n = len(chunk)
                                             written += n
                                             printer_fd.flush()
+                                            # small sleep between HCI-sized chunks
+                                            time.sleep(0.002)
                                         ok = True
                                     except Exception as e:
                                         logger.warning(f"⚠️ Write error on block {block_num}: {e}")
                                         try_count += 1
                                         written = 0
                                         time.sleep(timing_config['block_delay'] * 2)
+
+                                # Log successful write details
+                                if ok:
+                                    logger.info(f"✅ Block {block_num} written: {written}/{total} bytes (tries={try_count+1})")
 
                                 if not ok:
                                     logger.error(f"❌ Block {block_num} failed after retry")
