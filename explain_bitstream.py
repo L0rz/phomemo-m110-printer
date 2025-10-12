@@ -33,35 +33,58 @@ class BitstreamExplainer:
             with open(stats_file, 'r', encoding='utf-8') as f:
                 content = f.read()
             
-            data = {}
+            data = {
+                'width': 0,
+                'height': 0,
+                'size_bytes': 0,
+                'complexity': 0.0,
+                'set_bits': 0,
+                'total_bits': 0,
+                'null_bytes': 0,
+                'full_bytes': 0,
+                'recommendation': 'UNKNOWN'
+            }
             
             # Extrahiere wichtige Werte
             for line in content.split('\n'):
-                if 'Bildgröße:' in line and 'Pixel' in line:
-                    # "Bildgröße:           384x240 Pixel"
-                    parts = line.split(':')[1].strip().split('x')
-                    data['width'] = int(parts[0])
-                    data['height'] = int(parts[1].split()[0])
+                line = line.strip()
                 
-                elif 'Datengröße:' in line and 'Bytes' in line:
-                    # "Datengröße:          11520 Bytes"
-                    data['size_bytes'] = int(line.split(':')[1].strip().split()[0])
-                
-                elif 'Komplexität:' in line and '%' in line and 'ÜBERSICHT' not in line and 'Durchschnitt' not in line:
-                    # "Komplexität:         8.45%"
-                    data['complexity'] = float(line.split(':')[1].strip().replace('%', ''))
-                
-                elif 'Gesetzte Bits:' in line:
-                    # "Gesetzte Bits:       7812"
-                    parts = line.split(':')[1].strip().split('/')
-                    data['set_bits'] = int(parts[0])
-                    data['total_bits'] = int(parts[1])
-                
-                elif 'NULL-Bytes (0x00):' in line:
-                    data['null_bytes'] = int(line.split(':')[1].strip())
-                
-                elif 'VOLL-Bytes (0xFF):' in line:
-                    data['full_bytes'] = int(line.split(':')[1].strip())
+                try:
+                    if 'Bildgröße:' in line and 'Pixel' in line:
+                        # "Bildgröße:           384x240 Pixel"
+                        parts = line.split(':')[1].strip().split('x')
+                        if len(parts) >= 2:
+                            data['width'] = int(parts[0])
+                            data['height'] = int(parts[1].split()[0])
+                    
+                    elif 'Datengröße:' in line and 'Bytes' in line:
+                        # "Datengröße:          11520 Bytes"
+                        value_str = line.split(':')[1].strip().split()[0]
+                        data['size_bytes'] = int(value_str)
+                    
+                    elif 'Komplexität:' in line and '%' in line and 'ÜBERSICHT' not in line and 'Durchschnitt' not in line:
+                        # "Komplexität:         8.45%"
+                        value_str = line.split(':')[1].strip().replace('%', '')
+                        data['complexity'] = float(value_str)
+                    
+                    elif 'Gesetzte Bits:' in line and '/' in line:
+                        # "Gesetzte Bits:       7812/92160"
+                        parts = line.split(':')[1].strip().split('/')
+                        if len(parts) >= 2:
+                            data['set_bits'] = int(parts[0])
+                            data['total_bits'] = int(parts[1])
+                    
+                    elif 'NULL-Bytes (0x00):' in line:
+                        value_str = line.split(':')[1].strip()
+                        data['null_bytes'] = int(value_str)
+                    
+                    elif 'VOLL-Bytes (0xFF):' in line:
+                        value_str = line.split(':')[1].strip()
+                        data['full_bytes'] = int(value_str)
+                        
+                except (ValueError, IndexError) as e:
+                    # Einzelne Zeile konnte nicht geparst werden - ignorieren
+                    pass
             
             # Extrahiere Empfehlung
             if 'ULTRA_FAST' in content:
@@ -74,13 +97,22 @@ class BitstreamExplainer:
                 data['recommendation'] = 'SLOW'
             elif 'ULTRA_SLOW' in content:
                 data['recommendation'] = 'ULTRA_SLOW'
-            else:
-                data['recommendation'] = 'UNKNOWN'
+            
+            # Validierung: Mindestens Bildgröße sollte gefunden werden
+            if data['width'] == 0 or data['height'] == 0:
+                print(f"⚠️  Warnung: Bildgröße konnte nicht extrahiert werden")
+                print(f"   Erste Zeilen der Datei:")
+                lines = content.split('\n')[:10]
+                for i, line in enumerate(lines, 1):
+                    print(f"   {i}: {line}")
             
             return data
             
         except Exception as e:
             print(f"❌ Fehler beim Parsen: {e}")
+            print(f"   Datei: {stats_file}")
+            import traceback
+            print(f"   Details: {traceback.format_exc()}")
             return None
     
     def explain_single_analysis(self, stats_file):
