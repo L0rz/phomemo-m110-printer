@@ -138,6 +138,8 @@ class EnhancedPhomemoM110:
         }
         
         self._lock = threading.Lock()
+        # Lock for serializing writes to the rfcomm device
+        self._comm_lock = threading.Lock()
         self.start_services()
     
     def load_settings(self):
@@ -533,11 +535,24 @@ class EnhancedPhomemoM110:
             if not self.is_connected():
                 if not self.connect_bluetooth():
                     return False
-            
-            with open(self.rfcomm_device, 'wb') as printer:
-                printer.write(command_bytes)
-                printer.flush()
-                time.sleep(0.1)
+
+            # Serialize access to the device to avoid concurrent writes
+            with self._comm_lock:
+                with open(self.rfcomm_device, 'wb') as printer:
+                    # Robust write: ensure all bytes are written
+                    total = len(command_bytes)
+                    written = 0
+                    while written < total:
+                        chunk = command_bytes[written:written+4096]
+                        n = printer.write(chunk)
+                        # On file-like devices, write() should return number of bytes written or None
+                        if n is None:
+                            # Fallback: assume whole chunk written
+                            n = len(chunk)
+                        written += n
+                        printer.flush()
+                    # small pause to allow device to process
+                    time.sleep(0.01)
             return True
         except Exception as e:
             logger.error(f"Send command error: {e}")
@@ -1157,23 +1172,48 @@ class EnhancedPhomemoM110:
                 success = True
                 total_blocks = (len(image_data) + actual_block_size - 1) // actual_block_size
                 
-                for i in range(0, len(image_data), actual_block_size):
-                    block_num = i // actual_block_size + 1
-                    block = image_data[i:i + actual_block_size]
-                    
-                    logger.debug(f"📦 Sending block {block_num}/{total_blocks}: {len(block)} bytes")
-                    
-                    if not self.send_command(block):
-                        logger.warning(f"⚠️ Block {block_num} failed, retrying...")
-                        time.sleep(timing_config['block_delay'] * 2)  # Doppelte Pause für Retry
-                        if not self.send_command(block):
-                            logger.error(f"❌ Block {block_num} failed after retry")
-                            success = False
-                            break
-                    
-                    # Adaptive Pause zwischen Blöcken
-                    if i + actual_block_size < len(image_data):  # Nicht nach dem letzten Block
-                        time.sleep(timing_config['block_delay'])
+                # Open device once and write all blocks under comm lock to avoid partial writes/races
+                with self._comm_lock:
+                    try:
+                        with open(self.rfcomm_device, 'wb') as printer_fd:
+                            for i in range(0, len(image_data), actual_block_size):
+                                block_num = i // actual_block_size + 1
+                                block = image_data[i:i + actual_block_size]
+
+                                logger.debug(f"📦 Sending block {block_num}/{total_blocks}: {len(block)} bytes")
+
+                                # robust write for this block
+                                written = 0
+                                total = len(block)
+                                try_count = 0
+                                ok = False
+                                while try_count < 2 and not ok:
+                                    try:
+                                        while written < total:
+                                            chunk = block[written:written+4096]
+                                            n = printer_fd.write(chunk)
+                                            if n is None:
+                                                n = len(chunk)
+                                            written += n
+                                            printer_fd.flush()
+                                        ok = True
+                                    except Exception as e:
+                                        logger.warning(f"⚠️ Write error on block {block_num}: {e}")
+                                        try_count += 1
+                                        written = 0
+                                        time.sleep(timing_config['block_delay'] * 2)
+
+                                if not ok:
+                                    logger.error(f"❌ Block {block_num} failed after retry")
+                                    success = False
+                                    break
+
+                                # Adaptive Pause zwischen Blöcken
+                                if i + actual_block_size < len(image_data):  # Nicht nach dem letzten Block
+                                    time.sleep(timing_config['block_delay'])
+                    except Exception as e:
+                        logger.error(f"❌ Error opening/writing device: {e}")
+                        success = False
             
             # 4. Adaptive Abschluss
             time.sleep(timing_config['post_delay'])  # Adaptive Post-Processing
