@@ -34,6 +34,14 @@ BLOCK_WRITE_RETRIES = 2
 # written. The adaptive speed controller may override this via timing_multiplier.
 DEFAULT_BLOCK_DELAY_MS = 0
 
+# Option to use Python RFCOMM socket instead of writing to /dev/rfcomm0.
+# Some systems behave differently between the rfcomm device node and a raw
+# RFCOMM socket. Enable this for testing if file-based writes keep failing.
+USE_SOCKET_TRANSPORT = False
+
+# Socket connect timeout in seconds
+SOCKET_CONNECT_TIMEOUT = 10.0
+
 # Neue Features: Offset-Konfiguration
 DEFAULT_X_OFFSET = 0   # Standard X-Offset (kein Offset)
 DEFAULT_Y_OFFSET = 0   # Standard Y-Offset

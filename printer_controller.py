@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from enum import Enum
 from datetime import datetime
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance
+import socket
+import errno
 
 # Optional numpy import für erweiterte Bildverarbeitung
 try:
@@ -528,6 +530,23 @@ class EnhancedPhomemoM110:
             return self.send_command(b'\x1b\x40')  # ESC @ Reset command
         except Exception:
             return False
+
+    def _open_rfcomm_socket(self):
+        """Öffnet ein RFCOMM Socket zum Drucker (falls konfiguriert).
+
+        Returns a connected socket.socket or raises.
+        """
+        # AF_BLUETOOTH and BTPROTO_RFCOMM are Linux-specific constants
+        try:
+            s = socket.socket(socket.AF_BLUETOOTH, socket.SOCK_STREAM, socket.BTPROTO_RFCOMM)
+            s.settimeout(float(SOCKET_CONNECT_TIMEOUT))
+            s.connect((self.mac_address, int(RFCOMM_CHANNEL)))
+            # Set blocking mode after connect
+            s.settimeout(None)
+            return s
+        except Exception as e:
+            logger.error(f"❌ RFCOMM socket connect failed: {e}")
+            raise
     
     def send_command(self, command_bytes):
         """Sendet Kommando an Drucker"""
@@ -538,7 +557,32 @@ class EnhancedPhomemoM110:
 
             # Serialize access to the device to avoid concurrent writes
             with self._comm_lock:
-                with open(self.rfcomm_device, 'wb') as printer:
+                # Optionally use RFCOMM socket transport
+                if USE_SOCKET_TRANSPORT:
+                    try:
+                        s = self._open_rfcomm_socket()
+                    except Exception:
+                        return False
+                    try:
+                        total = len(command_bytes)
+                        sent = 0
+                        CHUNK_SIZE = int(CHUNK_SIZE_BYTES)
+                        INTER_CHUNK_SLEEP = float(INTER_CHUNK_SLEEP_MS) / 1000.0
+                        while sent < total:
+                            chunk = command_bytes[sent:sent+CHUNK_SIZE]
+                            n = s.send(chunk)
+                            sent += n
+                            if INTER_CHUNK_SLEEP > 0:
+                                time.sleep(INTER_CHUNK_SLEEP)
+                        logger.debug(f"🔁 send_command(socket): sent {sent}/{total} bytes to {self.mac_address}:{RFCOMM_CHANNEL}")
+                        return True
+                    finally:
+                        try:
+                            s.close()
+                        except Exception:
+                            pass
+                else:
+                    with open(self.rfcomm_device, 'wb') as printer:
                     # Robust write: ensure all bytes are written
                     total = len(command_bytes)
                     written = 0
