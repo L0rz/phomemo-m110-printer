@@ -583,27 +583,27 @@ class EnhancedPhomemoM110:
                             pass
                 else:
                     with open(self.rfcomm_device, 'wb') as printer:
-                    # Robust write: ensure all bytes are written
-                    total = len(command_bytes)
-                    written = 0
-                    # Use configurable chunk size and inter-chunk sleep from config.py
-                    CHUNK_SIZE = int(CHUNK_SIZE_BYTES)
-                    INTER_CHUNK_SLEEP = float(INTER_CHUNK_SLEEP_MS) / 1000.0
-                    while written < total:
-                        chunk = command_bytes[written:written+CHUNK_SIZE]
-                        n = printer.write(chunk)
-                        # On file-like devices, write() should return number of bytes written or None
-                        if n is None:
-                            # Fallback: assume whole chunk written
-                            n = len(chunk)
-                        written += n
-                        printer.flush()
-                        # small pause between chunks to give controller time
-                        if INTER_CHUNK_SLEEP > 0:
-                            time.sleep(INTER_CHUNK_SLEEP)
-                    # small pause to allow device to process after full write
-                    time.sleep(0.01)
-                    logger.debug(f"🔁 send_command: wrote {written}/{total} bytes to {self.rfcomm_device} (chunks={CHUNK_SIZE})")
+                        # Robust write: ensure all bytes are written
+                        total = len(command_bytes)
+                        written = 0
+                        # Use configurable chunk size and inter-chunk sleep from config.py
+                        CHUNK_SIZE = int(CHUNK_SIZE_BYTES)
+                        INTER_CHUNK_SLEEP = float(INTER_CHUNK_SLEEP_MS) / 1000.0
+                        while written < total:
+                            chunk = command_bytes[written:written+CHUNK_SIZE]
+                            n = printer.write(chunk)
+                            # On file-like devices, write() should return number of bytes written or None
+                            if n is None:
+                                # Fallback: assume whole chunk written
+                                n = len(chunk)
+                            written += n
+                            printer.flush()
+                            # small pause between chunks to give controller time
+                            if INTER_CHUNK_SLEEP > 0:
+                                time.sleep(INTER_CHUNK_SLEEP)
+                        # small pause to allow device to process after full write
+                        time.sleep(0.01)
+                        logger.debug(f"🔁 send_command: wrote {written}/{total} bytes to {self.rfcomm_device} (chunks={CHUNK_SIZE})")
             return True
         except Exception as e:
             logger.error(f"Send command error: {e}")
