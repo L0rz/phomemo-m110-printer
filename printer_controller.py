@@ -492,6 +492,18 @@ class EnhancedPhomemoM110:
                     self.connection_attempts = 0
                     self.stats['reconnections'] += 1
                     
+                    # CRITICAL FIX: Set rfcomm TTY to raw mode to prevent
+                    # output post-processing (OPOST/ONLCR) which converts 0x0a
+                    # bytes in binary image data to 0x0d 0x0a, causing diagonal
+                    # drift/staircase pattern in printed images.
+                    try:
+                        import subprocess as _sp
+                        _sp.run(['stty', '-F', self.rfcomm_device, 'raw', '-echo', '-opost'],
+                                capture_output=True, timeout=5)
+                        logger.info(f"✅ TTY raw mode set on {self.rfcomm_device}")
+                    except Exception as e:
+                        logger.warning(f"⚠️ Could not set TTY raw mode: {e}")
+
                     # Test with heartbeat
                     heartbeat_success = self._send_heartbeat()
                     logger.info(f"Manual connection successful, heartbeat: {heartbeat_success}")
