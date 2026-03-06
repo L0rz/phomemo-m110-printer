@@ -43,7 +43,7 @@ USE_SOCKET_TRANSPORT = False
 SOCKET_CONNECT_TIMEOUT = 10.0
 
 # Neue Features: Offset-Konfiguration
-DEFAULT_X_OFFSET = 0   # Standard X-Offset (kein Offset)
+DEFAULT_X_OFFSET = 55   # Standard X-Offset (kein Offset)
 DEFAULT_Y_OFFSET = 0   # Standard Y-Offset
 MIN_X_OFFSET = 0       # Minimum X-Offset
 MAX_X_OFFSET = 100     # Maximum X-Offset
@@ -192,7 +192,7 @@ CONFIG_FILE = "printer_settings.json"
 
 # Standard-Konfiguration für neue Installationen
 DEFAULT_SETTINGS = {
-    'x_offset': DEFAULT_X_OFFSET,
+    'x_offset': 55,
     'y_offset': DEFAULT_Y_OFFSET,
     'dither_threshold': DEFAULT_DITHER_THRESHOLD,
     'dither_enabled': DEFAULT_DITHER_ENABLED,

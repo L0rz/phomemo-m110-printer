@@ -840,20 +840,32 @@ class EnhancedPhomemoM110:
             return None
     
     def apply_offsets_to_image(self, img: Image.Image) -> Image.Image:
-        """
-        TESTVERSION: KOMPLETT DEAKTIVIERT - Gibt Bild 1:1 zurück
-        ZWECK: Ausschließen dass das Offset-System das Problem verursacht
-        """
+        """Apply X/Y offset: shift image right/down by adding white padding"""
         try:
-            logger.info(f"🔧 BYPASS: apply_offsets_to_image DEACTIVATED")
-            logger.info(f"📐 Input image size: {img.width}x{img.height}")
-            logger.info(f"📤 Output: UNCHANGED (no offset processing)")
+            x_off = self.settings.get('x_offset', 0)
+            y_off = self.settings.get('y_offset', 0)
             
-            # KOMPLETT AUSSCHALTEN - Bild unverändert zurückgeben
-            return img
+            if x_off == 0 and y_off == 0:
+                return img
+            
+            # Create new image at printer width, paste original shifted
+            w, h = img.size
+            new_img = Image.new(img.mode, (w, h), 1 if img.mode == '1' else 255)
+            
+            # Crop source if offset would push it beyond bounds
+            paste_x = max(0, x_off)
+            paste_y = max(0, y_off)
+            # Crop right/bottom if shifted image exceeds label
+            src_w = min(w - paste_x, w)
+            src_h = min(h - paste_y, h)
+            cropped = img.crop((0, 0, src_w, src_h))
+            new_img.paste(cropped, (paste_x, paste_y))
+            
+            logger.info(f"📐 Offset applied: X={x_off}, Y={y_off} ({w}x{h})")
+            return new_img
             
         except Exception as e:
-            logger.error(f"❌ Error in bypass mode: {e}")
+            logger.error(f"❌ Offset error: {e}")
             return img
     
     def print_image_with_preview(self, image_data, fit_to_label=True, maintain_aspect=True, enable_dither=None, dither_threshold=None, dither_strength=None, scaling_mode='fit_aspect'):
