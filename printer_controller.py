@@ -1034,13 +1034,17 @@ class EnhancedPhomemoM110:
                 except queue.Empty:
                     continue
 
-                # Wait until printer is connected
+                # Wait until printer is connected, trigger reconnect if needed
                 wait_logged = False
                 while self.queue_processor_running and not self.is_connected():
                     if not wait_logged:
                         logger.info(f"📋 Queue: waiting for printer connection (job {job.job_id}, queue size: {self.print_queue.qsize() + 1})")
                         wait_logged = True
-                    time.sleep(3)
+                    # Trigger reconnect if monitor isn't already trying
+                    if self.connection_status not in (ConnectionStatus.CONNECTING, ConnectionStatus.RECONNECTING):
+                        logger.info("📋 Queue: triggering reconnect...")
+                        self.manual_connect_bluetooth()
+                    time.sleep(5)
 
                 if not self.queue_processor_running:
                     # Put job back before exiting
@@ -1118,23 +1122,35 @@ class EnhancedPhomemoM110:
             return False
     
     def _connection_monitor(self):
-        """Background Thread für Connection Monitoring mit stabiler Verbindungsmethode"""
+        """Background Thread für Connection Monitoring mit Retry-Loop"""
+        reconnect_backoff = 5  # Start with 5s between retries
         while self.monitor_running:
             try:
-                if self.connection_status == ConnectionStatus.CONNECTED:
-                    if not self.is_connected():
-                        logger.warning("Connection lost, attempting reconnect with manual method...")
-                        self.connection_status = ConnectionStatus.RECONNECTING
-                        self.stats['reconnections'] += 1
-                        
-                        if self.manual_connect_bluetooth():
-                            logger.info("Automatic reconnection successful")
-                        else:
-                            logger.error("Automatic reconnection failed")
-                
-                # Heartbeat senden wenn verbunden
-                if self.connection_status == ConnectionStatus.CONNECTED:
+                if self.is_connected():
+                    # Connected — reset backoff, update heartbeat
+                    if self.connection_status != ConnectionStatus.CONNECTED:
+                        logger.info("✅ Connection restored")
+                        self.connection_status = ConnectionStatus.CONNECTED
+                    reconnect_backoff = 5
                     self.last_heartbeat = time.time()
+                    time.sleep(self.heartbeat_interval)
+                else:
+                    # Disconnected — try to reconnect with backoff
+                    if self.connection_status == ConnectionStatus.CONNECTED:
+                        logger.warning("Connection lost, starting reconnect loop...")
+                        self.stats['reconnections'] += 1
+                    self.connection_status = ConnectionStatus.RECONNECTING
+                    
+                    logger.info(f"🔄 Reconnect attempt (backoff: {reconnect_backoff}s)...")
+                    if self.manual_connect_bluetooth():
+                        logger.info("✅ Automatic reconnection successful")
+                        self.connection_status = ConnectionStatus.CONNECTED
+                        reconnect_backoff = 5
+                    else:
+                        logger.warning(f"⚠️ Reconnect failed, retrying in {reconnect_backoff}s...")
+                        time.sleep(reconnect_backoff)
+                        reconnect_backoff = min(reconnect_backoff * 1.5, 60)  # Max 60s backoff
+                        continue
                 
                 time.sleep(self.heartbeat_interval)
                 
