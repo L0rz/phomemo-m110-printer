@@ -18,11 +18,12 @@ from web_template import WEB_INTERFACE
 from config import *
 
 # Logging konfigurieren
+from logging.handlers import RotatingFileHandler
 logging.basicConfig(
     level=logging.INFO,
     format=LOG_FORMAT,
     handlers=[
-        logging.FileHandler(LOG_FILE),
+        RotatingFileHandler(LOG_FILE, maxBytes=5*1024*1024, backupCount=3),
         logging.StreamHandler()
     ]
 )

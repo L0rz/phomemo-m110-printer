@@ -987,6 +987,7 @@ class EnhancedPhomemoM110:
             'last_heartbeat': self.last_heartbeat,
             'connection_attempts': self.connection_attempts,
             'queue_size': self.print_queue.qsize(),
+            'queue_pending': self.print_queue.qsize(),
             'rfcomm_process_running': self.rfcomm_process.poll() is None if self.rfcomm_process else False,
             'settings': self.get_settings(),
             'stats': self.stats.copy()
@@ -1023,12 +1024,98 @@ class EnhancedPhomemoM110:
         return job_id
     
     def _process_print_queue(self):
-        """Background Thread für Print Queue Processing - Placeholder"""
+        """Background Thread für Print Queue Processing"""
+        logger.info("📋 Print Queue processor started")
         while self.queue_processor_running:
             try:
-                time.sleep(1)  # Simplified for now
+                # Wait for a job (timeout so we can check queue_processor_running)
+                try:
+                    job = self.print_queue.get(timeout=2)
+                except queue.Empty:
+                    continue
+
+                # Wait until printer is connected
+                wait_logged = False
+                while self.queue_processor_running and not self.is_connected():
+                    if not wait_logged:
+                        logger.info(f"📋 Queue: waiting for printer connection (job {job.job_id}, queue size: {self.print_queue.qsize() + 1})")
+                        wait_logged = True
+                    time.sleep(3)
+
+                if not self.queue_processor_running:
+                    # Put job back before exiting
+                    self.print_queue.put(job)
+                    break
+
+                # Execute the job
+                logger.info(f"📋 Queue: executing job {job.job_id} (type={job.job_type}, attempt={job.retry_count + 1}/{job.max_retries})")
+                success = self._execute_print_job(job)
+
+                if success:
+                    self.stats['successful_jobs'] += 1
+                    logger.info(f"✅ Queue: job {job.job_id} completed successfully")
+                else:
+                    job.retry_count += 1
+                    if job.retry_count < job.max_retries:
+                        logger.warning(f"⚠️ Queue: job {job.job_id} failed, retrying ({job.retry_count}/{job.max_retries})")
+                        self.print_queue.put(job)
+                        time.sleep(2)  # Back off before retry
+                    else:
+                        self.stats['failed_jobs'] += 1
+                        logger.error(f"❌ Queue: job {job.job_id} failed after {job.max_retries} attempts, discarding")
+
+                self.print_queue.task_done()
+
             except Exception as e:
                 logger.error(f"Queue processor error: {e}")
+                time.sleep(2)
+
+        logger.info("📋 Print Queue processor stopped")
+
+    def _execute_print_job(self, job: PrintJob) -> bool:
+        """Execute a single print job from the queue"""
+        try:
+            if job.job_type == 'text':
+                data = job.data
+                result = self.print_text_immediate(
+                    data.get('text', ''),
+                    data.get('font_size', 24),
+                    data.get('alignment', 'center')
+                )
+                return result.get('success', False) if isinstance(result, dict) else bool(result)
+
+            elif job.job_type == 'image':
+                data = job.data
+                image_data = data.get('image_data')
+                if not image_data:
+                    logger.error(f"❌ Job {job.job_id}: no image data")
+                    return False
+                return self.print_image_immediate(
+                    image_data,
+                    fit_to_label=data.get('fit_to_label', True),
+                    maintain_aspect=data.get('maintain_aspect', True),
+                    enable_dither=data.get('enable_dither', True),
+                    dither_threshold=data.get('dither_threshold'),
+                    dither_strength=data.get('dither_strength'),
+                    scaling_mode=data.get('scaling_mode', 'fit_aspect')
+                )
+
+            elif job.job_type == 'calibration':
+                # Run calibration print
+                data = job.data
+                return bool(self.print_text_immediate(
+                    data.get('text', 'Calibration Test'),
+                    data.get('font_size', 24),
+                    data.get('alignment', 'center')
+                ))
+
+            else:
+                logger.warning(f"⚠️ Unknown job type: {job.job_type}")
+                return False
+
+        except Exception as e:
+            logger.error(f"❌ Job execution error ({job.job_id}): {e}")
+            return False
     
     def _connection_monitor(self):
         """Background Thread für Connection Monitoring mit stabiler Verbindungsmethode"""

@@ -1,1124 +1,496 @@
 """
-Erweitertes Web Interface Template für Phomemo M110
-Mit Bildvorschau, X-Offset-Konfiguration und erweiterten Features
+Phomemo M110 Web Interface — Clean Edition
 """
 
 WEB_INTERFACE = '''
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Phomemo M110 - Enhanced Edition</title>
+    <title>Phomemo M110</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
-        .container { max-width: 1200px; margin: 0 auto; }
-        .card { background: white; padding: 20px; margin: 20px 0; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h1 { color: #333; text-align: center; margin-bottom: 10px; }
-        .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
-        
-        /* Buttons */
-        .btn { background: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; transition: background 0.3s; }
-        .btn:hover { background: #0056b3; }
-        .btn-success { background: #28a745; }
-        .btn-success:hover { background: #1e7e34; }
-        .btn-warning { background: #ffc107; color: #212529; }
-        .btn-warning:hover { background: #e0a800; }
-        .btn-danger { background: #dc3545; }
-        .btn-danger:hover { background: #c82333; }
-        .btn:disabled { background: #6c757d; cursor: not-allowed; }
-        
-        /* Form Elements */
-        textarea, input, select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
-        input[type="checkbox"] { width: auto; margin: 5px; }
-        input[type="number"] { width: 80px; }
-        input[type="file"] { padding: 5px; }
-        
-        /* Status Messages */
-        .status { padding: 15px; margin: 10px 0; border-radius: 5px; }
-        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
-        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
-        
-        /* Grid Layout */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
-        @media (max-width: 768px) { .grid, .grid-3 { grid-template-columns: 1fr; } }
-        
-        /* Debug Info */
-        .debug { background: #f8f9fa; border: 1px solid #dee2e6; padding: 10px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px; }
-        
-        /* ==================== DARK MODE ==================== */
-        /* Dark Mode Toggle */
-        .theme-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: #007bff;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
-            cursor: pointer;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
+        :root {
+            --bg: #f0f2f5; --card: #fff; --text: #1a1a2e; --text2: #555;
+            --border: #e0e0e0; --accent: #4361ee; --accent2: #3a0ca3;
+            --success: #06d6a0; --error: #ef476f; --warn: #ffd166;
+            --radius: 12px; --shadow: 0 2px 12px rgba(0,0,0,.08);
         }
-        .theme-toggle:hover {
-            background: #0056b3;
-            transform: scale(1.1);
-        }
-        
-        /* Smooth transitions for all elements */
-        * {
-            transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-        }
-        
-        /* Dark mode styles */
         [data-theme="dark"] {
-            color-scheme: dark;
+            --bg: #0f0f1a; --card: #1a1a2e; --text: #e0e0e0; --text2: #999;
+            --border: #2a2a3e; --shadow: 0 2px 12px rgba(0,0,0,.3);
         }
-        
-        [data-theme="dark"] body {
-            background: #121212;
-            color: #e0e0e0;
-        }
-        
-        [data-theme="dark"] .card {
-            background: #1e1e1e;
-            border: 1px solid #333;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-        }
-        
-        [data-theme="dark"] h1 {
-            color: #e0e0e0;
-        }
-        
-        [data-theme="dark"] .subtitle {
-            color: #b0b0b0;
-        }
-        
-        [data-theme="dark"] textarea,
-        [data-theme="dark"] input,
-        [data-theme="dark"] select {
-            background: #2a2a2a;
-            color: #e0e0e0;
-            border: 1px solid #444;
-        }
-        
-        [data-theme="dark"] textarea:focus,
-        [data-theme="dark"] input:focus,
-        [data-theme="dark"] select:focus {
-            border-color: #007bff;
-            box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
-        }
-        
-        [data-theme="dark"] .debug {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #e0e0e0;
-        }
-        
-        [data-theme="dark"] .config-section {
-            background: #2a2a2a;
-            border: 1px solid #444;
-        }
-        
-        [data-theme="dark"] .config-title {
-            color: #e0e0e0;
-        }
-        
-        [data-theme="dark"] .offset-control label {
-            color: #b0b0b0;
-        }
-        
-        [data-theme="dark"] .stat-label {
-            color: #b0b0b0;
-        }
-        
-        [data-theme="dark"] .preview-container {
-            background: #2a2a2a;
-            border: 2px dashed #555;
-        }
-        
-        [data-theme="dark"] .preview-image {
-            border: 1px solid #555;
-            background: #1a1a1a;
-        }
-        
-        [data-theme="dark"] .image-info {
-            background: #2a2a2a;
-            border: 1px solid #444;
-            color: #e0e0e0;
-        }
-        
-        /* Dark mode status messages */
-        [data-theme="dark"] .success {
-            background: #1a4d2e;
-            color: #4ade80;
-            border: 1px solid #166534;
-        }
-        
-        [data-theme="dark"] .error {
-            background: #4d1a1a;
-            color: #f87171;
-            border: 1px solid #991b1b;
-        }
-        
-        [data-theme="dark"] .info {
-            background: #1a3a4d;
-            color: #60a5fa;
-            border: 1px solid #1e40af;
-        }
-        
-        [data-theme="dark"] .warning {
-            background: #4d3a1a;
-            color: #fbbf24;
-            border: 1px solid #b45309;
-        }
-        
-        /* Dark mode für Markdown-Hilfe */
-        [data-theme="dark"] .markdown-help {
-            background: #2a2a2a !important;
-            border: 1px solid #444 !important;
-            color: #e0e0e0 !important;
-        }
-        
-        /* Statistics */
-        .stats { display: flex; justify-content: space-around; text-align: center; flex-wrap: wrap; }
-        .stat-item { flex: 1; min-width: 80px; margin: 5px; }
-        .stat-value { font-size: 20px; font-weight: bold; color: #007bff; }
-        .stat-label { font-size: 12px; color: #666; }
-        
-        /* Connection Status */
-        .status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
-        .status-connected { background: #28a745; }
-        .status-connecting { background: #ffc107; }
-        .status-disconnected { background: #dc3545; }
-        .status-failed { background: #6c757d; }
-        
-        /* Image Preview */
-        .preview-container { 
-            border: 2px dashed #ddd; 
-            border-radius: 10px; 
-            padding: 20px; 
-            text-align: center; 
-            min-height: 200px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: #fafafa;
-        }
-        .preview-image { 
-            max-width: 100%; 
-            max-height: 300px; 
-            border: 1px solid #ccc; 
-            border-radius: 5px;
-            image-rendering: pixelated;
-            background: white;
-        }
-        .image-info { 
-            background: #e9ecef; 
-            padding: 10px; 
-            margin: 10px 0; 
-            border-radius: 5px; 
-            font-size: 12px; 
-            text-align: left;
-        }
-        .preview-info { 
-            background: #e9ecef; 
-            padding: 10px; 
-            margin: 10px 0; 
-            border-radius: 5px; 
-            font-size: 12px; 
-            text-align: left;
-        }
-        .code-help {
-            background: linear-gradient(135deg, #e8f4fd 0%, #f0f8ff 100%);
-            border-left: 4px solid #2196F3;
-            position: relative;
-        }
-        #codeTextInput {
-            font-family: 'Courier New', monospace;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            transition: border-color 0.3s;
-        }
-        #codeTextInput:focus {
-            border-color: #2196F3;
-            box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
-        }
-        
-        /* Configuration Sections */
-        .config-section {
-            background: #e9ecef;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 10px 0;
-        }
-        .config-title {
-            font-weight: bold;
-            margin-bottom: 10px;
-            color: #495057;
-        }
-        
-        /* Offset Controls */
-        .offset-controls {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .offset-control {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 100px;
-        }
-        .offset-control label {
-            font-size: 12px;
-            margin-bottom: 5px;
-            color: #666;
-        }
-        .offset-control input {
-            width: 70px;
-            margin: 5px 0;
-            text-align: center;
-        }
-        
-        /* Slider Controls */
-        .slider-control {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 150px;
-        }
-        .slider-control input[type="range"] {
-            width: 120px;
-            margin: 5px 0;
-        }
-        .slider-value {
-            font-weight: bold;
-            color: #007bff;
-            font-size: 14px;
-        }
-        
-        /* Custom slider styling */
-        input[type="range"] {
-            -webkit-appearance: none;
-            appearance: none;
-            height: 6px;
-            border-radius: 3px;
-            background: #ddd;
-            outline: none;
-            opacity: 0.7;
-            transition: opacity 0.2s;
-        }
-        input[type="range"]:hover {
-            opacity: 1;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #007bff;
-            cursor: pointer;
-        }
-        input[type="range"]::-moz-range-thumb {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #007bff;
-            cursor: pointer;
-            border: none;
-        }
-        
-        /* Image Options */
-        .image-options {
-            display: flex;
-            gap: 20px;
-            flex-wrap: wrap;
-            align-items: center;
-            margin: 10px 0;
-        }
-        .image-options label {
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            font-size: 14px;
+        * { margin: 0; padding: 0; box-sizing: border-box; transition: background .2s, color .2s; }
+        body { font-family: -apple-system, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+        .wrap { max-width: 800px; margin: 0 auto; padding: 16px; }
+
+        /* Header */
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+        .header h1 { font-size: 1.4em; }
+        .header-right { display: flex; gap: 8px; align-items: center; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .status-dot.on { background: var(--success); box-shadow: 0 0 6px var(--success); }
+        .status-dot.off { background: var(--error); }
+        .icon-btn { background: none; border: 1px solid var(--border); color: var(--text); width: 36px; height: 36px;
+            border-radius: 50%; cursor: pointer; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+        .icon-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+        /* Cards */
+        .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow);
+            border: 1px solid var(--border); margin-bottom: 16px; overflow: hidden; }
+        .card-header { padding: 14px 18px; font-weight: 600; font-size: .95em; display: flex;
+            align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+        .card-body { padding: 18px; }
+
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 2px solid var(--border); margin-bottom: 16px; }
+        .tab { padding: 10px 20px; cursor: pointer; font-weight: 500; color: var(--text2);
+            border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .tab:hover { color: var(--accent); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Form */
+        textarea { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px;
+            font-family: inherit; font-size: 14px; resize: vertical; background: var(--bg); color: var(--text); }
+        textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(67,97,238,.15); }
+        select, input[type="number"] { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--bg); color: var(--text); font-size: 14px; }
+        input[type="file"] { font-size: 14px; }
+
+        /* Buttons */
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer;
+            font-size: 14px; display: inline-flex; align-items: center; gap: 6px; }
+        .btn-primary { background: var(--accent); color: #fff; }
+        .btn-primary:hover { background: var(--accent2); }
+        .btn-outline { background: none; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+        .btn-sm { padding: 6px 12px; font-size: 12px; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+        /* Preview */
+        .preview-box { border: 2px dashed var(--border); border-radius: 8px; padding: 24px;
+            text-align: center; color: var(--text2); font-size: 14px; min-height: 120px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .preview-box img { max-width: 100%; max-height: 240px; image-rendering: pixelated;
+            border-radius: 4px; border: 1px solid var(--border); background: #fff; }
+        .preview-info { font-size: 12px; color: var(--text2); margin-top: 8px; }
+
+        /* Collapsible settings */
+        .collapsible { cursor: pointer; user-select: none; }
+        .collapsible::after { content: '▸'; margin-left: 8px; font-size: 12px; }
+        .collapsible.open::after { content: '▾'; }
+        .collapse-body { display: none; padding: 14px 0 0; }
+        .collapse-body.open { display: block; }
+        .setting-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+        .setting-row label { font-size: 13px; color: var(--text2); min-width: 100px; }
+        .setting-row input[type="range"] { flex: 1; max-width: 200px; }
+
+        /* Image options */
+        .img-opts { display: flex; gap: 16px; flex-wrap: wrap; margin: 12px 0; }
+        .img-opts label { font-size: 13px; display: flex; align-items: center; gap: 4px; }
+
+        /* Toast */
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 10px 24px; border-radius: 8px; font-size: 14px; font-weight: 500;
+            box-shadow: 0 4px 16px rgba(0,0,0,.15); z-index: 100; opacity: 0;
+            transition: opacity .3s; pointer-events: none; }
+        .toast.show { opacity: 1; }
+        .toast.success { background: var(--success); color: #000; }
+        .toast.error { background: var(--error); color: #fff; }
+        .toast.info { background: var(--accent); color: #fff; }
+
+        /* Grid helpers */
+        .row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .row > * { flex: 1; min-width: 140px; }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .wrap { padding: 8px; }
+            .tabs { overflow-x: auto; }
+            .tab { padding: 8px 14px; font-size: 14px; white-space: nowrap; }
         }
     </style>
 </head>
 <body>
-    <!-- Dark Mode Toggle Button -->
-    <button class="theme-toggle" onclick="toggleTheme()" title="Theme wechseln">
-        🌙
-    </button>
-    
-    <div class="container">
-        <h1>🖨️ Phomemo M110 Enhanced</h1>
-        <div class="subtitle">Mit Bildvorschau und X-Offset Konfiguration</div>
-        
-        <!-- Connection Status & Settings -->
-        <div class="card">
-            <h2>🔗 Verbindung & Konfiguration</h2>
-            <div class="grid">
-                <div>
-                    <h3>Status</h3>
-                    <div id="connectionStatus"></div>
-                    <button class="btn btn-success" onclick="checkConnection()">🔍 Status prüfen</button>
-                    <button class="btn btn-warning" onclick="forceReconnect()">🔄 Force Reconnect</button>
-                    <button class="btn" onclick="manualConnect()">🔧 Manual Connect</button>
-                </div>
-                <div class="config-section">
-                    <div class="config-title">⚙️ Druckeinstellungen</div>
-                    <div class="offset-controls">
-                        <div class="offset-control">
-                            <label>X-Offset (px)</label>
-                            <input type="number" id="xOffset" value="40" min="0" max="100" step="1">
-                        </div>
-                        <div class="offset-control">
-                            <label>Y-Offset (px)</label>
-                            <input type="number" id="yOffset" value="0" min="-50" max="50" step="1">
-                        </div>
-                        <div class="slider-control">
-                            <label>Dither Threshold</label>
-                            <input type="range" id="ditherThreshold" value="128" min="0" max="255" step="1" oninput="updateDitherValue()">
-                            <div class="slider-value" id="ditherValue">128</div>
-                        </div>
-                    </div>
-                    <div style="margin-top: 15px;">
-                        <label><input type="checkbox" id="enableDitherGlobal" checked onchange="toggleDitherControls()"> Floyd-Steinberg Dithering aktivieren</label>
-                        <div id="ditherControls" style="margin-top: 10px;">
-                            <div class="slider-control" style="display: inline-block; margin-right: 20px;">
-                                <label>Dithering-Stärke</label>
-                                <input type="range" id="ditherStrength" value="1.0" min="0.1" max="2.0" step="0.1" oninput="updateDitherStrengthValue()">
-                                <div class="slider-value" id="ditherStrengthValue">1.0</div>
-                            </div>
-                            <div class="slider-control" style="display: inline-block;">
-                                <label>Kontrast-Verstärkung</label>
-                                <input type="range" id="contrastBoost" value="1.0" min="0.5" max="2.0" step="0.1" oninput="updateContrastValue()">
-                                <div class="slider-value" id="contrastValue">1.0</div>
-                            </div>
-                        </div>
-                    </div>
-                    <button class="btn" onclick="saveSettings()">💾 Einstellungen speichern</button>
-                    <button class="btn btn-warning" onclick="testOffsets()">📐 Offsets testen</button>
-                    <button class="btn" onclick="window.open('/label-sizes', '_blank')">📏 Label-Größen verwalten</button>
-                </div>
-            </div>
+<div class="wrap">
+    <!-- Header -->
+    <div class="header">
+        <h1>🖨️ Phomemo M110</h1>
+        <div class="header-right">
+            <span class="status-dot off" id="statusDot" title="Nicht verbunden"></span>
+            <span id="queueBadge" style="display:none;background:var(--warn);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer" onclick="switchTab('settings')" title="Jobs in Queue"></span>
+            <button class="icon-btn" onclick="reconnect()" title="Reconnect">🔄</button>
+            <button class="icon-btn" onclick="toggleTheme()" id="themeBtn" title="Theme">🌙</button>
         </div>
-        
-        <!-- Main Content -->
-        <div class="grid">
-            <!-- Text Printing -->
-            <div class="card">
-                <h2>📝 Text drucken (mit Markdown)</h2>
-                <textarea id="textInput" rows="6" placeholder="Text eingeben... (Markdown möglich)" oninput="debouncedTextPreview()"># PHOMEMO M110
-## Enhanced Edition  
-**QR & Barcode Test**
-
-QR-Code:
-#qr#https://example.com#qr#
-
-Barcode:
-#bar#ART-12345#bar#
-
-Zeit: $TIME$</textarea>
-                
-                <div class="markdown-help" style="margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 5px; font-size: 12px;">
-                    <strong>📖 Markdown-Hilfe:</strong><br>
-                    <code>**fett**</code> → <strong>fett</strong> | 
-                    <code># Überschrift</code> → große Schrift | 
-                    <code>## Unterüberschrift</code> → mittlere Schrift<br>
-                    <strong>🔲 QR/Barcode:</strong> 
-                    <code>#qr#Inhalt#qr#</code> → QR-Code | 
-                    <code>#bar#12345#bar#</code> → Barcode | 
-                    <code>#qr:150#Größer#qr#</code> → 150px QR
-                </div>
-                
-                <div class="grid" style="gap: 10px; margin: 10px 0;">
-                    <div>
-                        <label>Schriftgröße:</label>
-                        <select id="fontSize" onchange="updateTextPreview()">
-                            <option value="18">Klein (18px)</option>
-                            <option value="22" selected>Normal (22px)</option>
-                            <option value="26">Groß (26px)</option>
-                            <option value="30">Extra Groß (30px)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>Textausrichtung:</label>
-                        <select id="textAlignment" onchange="updateTextPreview()">
-                            <option value="left">📍 Linksbündig</option>
-                            <option value="center" selected>📄 Zentriert</option>
-                            <option value="right">📍 Rechtsbündig</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <!-- Text Preview -->
-                <div class="preview-container" id="textPreviewContainer" style="margin: 15px 0;">
-                    <div id="textPreviewPlaceholder">
-                        📝 Text-Vorschau<br>
-                        <small>Tippe Text ein, um Vorschau zu sehen</small><br>
-                        <small style="color: #888;">Vorschau ohne Offsets - zeigt perfekte Positionierung</small>
-                    </div>
-                    <img id="textPreviewImage" class="preview-image" style="display: none;">
-                    <div id="textInfo" class="image-info" style="display: none;"></div>
-                </div>
-                
-                <button class="btn" onclick="printText(false)">🖨️ Sofort drucken</button>
-                <button class="btn btn-success" onclick="printText(true)">📤 In Queue</button>
-                <button onclick="showCodeSyntaxHelp()" class="btn" style="background: #4CAF50; color: white; margin-left: 10px;">📖 QR/Barcode Hilfe</button>
-            </div>
-            
-            <!-- Image Printing with Preview -->
-            <div class="card">
-                <h2>🖼️ Bild drucken mit Vorschau</h2>
-                <input type="file" id="imageFile" accept="image/*" onchange="uploadAndPreview()">
-                
-                <div class="preview-container" id="previewContainer">
-                    <div id="previewPlaceholder">
-                        📁 Bild auswählen für Schwarz-Weiß-Vorschau<br>
-                        <small>Unterstützte Formate: PNG, JPEG, BMP, GIF, WebP</small><br>
-                        <small style="color: #888;">Vorschau ohne Offsets - zeigt perfekte Positionierung</small>
-                    </div>
-                    <img id="previewImage" class="preview-image" style="display: none;">
-                </div>
-                
-                <div id="imageInfo" class="image-info" style="display: none;"></div>
-                
-                <div class="config-section">
-                    <div class="config-title">🎛️ Bildoptionen</div>
-                    <div class="image-options">
-                        <label><input type="checkbox" id="fitToLabel" checked onchange="updatePreview()"> An Label anpassen (40×30mm)</label>
-                        <label><input type="checkbox" id="maintainAspect" checked onchange="updatePreview()"> Seitenverhältnis beibehalten</label>
-                        <label><input type="checkbox" id="enableDither" checked onchange="toggleImageDither()"> Dithering aktivieren</label>
-                    </div>
-                    
-                    <div style="margin-top: 15px;">
-                        <label style="display: block; margin-bottom: 10px;"><strong>📐 Skalierungsmodus:</strong></label>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <label><input type="radio" name="scalingMode" value="fit_aspect" checked onchange="updatePreview(); updateScalingModeHelp();"> 📏 Seitenverhältnis beibehalten</label>
-                            <label><input type="radio" name="scalingMode" value="stretch_full" onchange="updatePreview(); updateScalingModeHelp();"> 🔄 Volle Größe (stretchen)</label>
-                            <label><input type="radio" name="scalingMode" value="crop_center" onchange="updatePreview(); updateScalingModeHelp();"> ✂️ Zentriert zuschneiden</label>
-                            <label><input type="radio" name="scalingMode" value="pad_center" onchange="updatePreview(); updateScalingModeHelp();"> 🖼️ Zentriert mit Rand</label>
-                        </div>
-                        <div style="margin-top: 5px; font-size: 12px; color: #666;">
-                            <div id="scalingModeHelp">📏 Behält Seitenverhältnis bei, kann Ränder hinterlassen</div>
-                        </div>
-                    </div>
-                    
-                    <div id="imageDitherControls" style="margin-top: 15px;">
-                        <div class="grid" style="gap: 10px;">
-                            <div class="slider-control">
-                                <label>🎚️ Dither Threshold</label>
-                                <input type="range" id="imageDitherThreshold" value="128" min="0" max="255" step="1" oninput="updateImageDitherValue(); updatePreview();">
-                                <div class="slider-value" id="imageDitherValue">128</div>
-                            </div>
-                            <div class="slider-control">
-                                <label>⚡ Dither Stärke</label>
-                                <input type="range" id="imageDitherStrength" value="1.0" min="0.1" max="2.0" step="0.1" oninput="updateImageDitherStrengthValue(); updatePreview();">
-                                <div class="slider-value" id="imageDitherStrengthValue">1.0</div>
-                            </div>
-                        </div>
-                        <div style="margin-top: 10px;">
-                            <button class="btn" onclick="presetDither('soft')" style="font-size: 12px; padding: 5px 10px;">🌙 Weich</button>
-                            <button class="btn" onclick="presetDither('normal')" style="font-size: 12px; padding: 5px 10px;">⚖️ Normal</button>
-                            <button class="btn" onclick="presetDither('sharp')" style="font-size: 12px; padding: 5px 10px;">🔪 Scharf</button>
-                            <button class="btn" onclick="presetDither('high_contrast')" style="font-size: 12px; padding: 5px 10px;">🔥 Kontrast</button>
-                        </div>
-                    </div>
-                </div>
-                
-                <button class="btn" onclick="printImage(false)" id="printImageBtn" disabled>🖨️ Sofort drucken</button>
-                <button class="btn btn-success" onclick="printImage(true)" id="queueImageBtn" disabled>📤 In Queue</button>
-            </div>
-        </div>
-        
-        <div id="status"></div>
     </div>
 
-    <script>
-        let currentImageData = null;
-        
-        // ==================== THEME MANAGEMENT ====================
-        // Theme initialization
-        function initTheme() {
-            const savedTheme = localStorage.getItem('phomemo-theme');
-            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            const theme = savedTheme || (prefersDark ? 'dark' : 'light');
-            
-            document.documentElement.setAttribute('data-theme', theme);
-            updateThemeButton(theme);
-        }
-        
-        // Toggle theme
-        function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('phomemo-theme', newTheme);
-            updateThemeButton(newTheme);
-            
-            // Show feedback
-            showStatus(newTheme === 'dark' ? '🌙 Dark Mode aktiviert' : '☀️ Light Mode aktiviert', 'info');
-        }
-        
-        // Update theme button appearance
-        function updateThemeButton(theme) {
-            const button = document.querySelector('.theme-toggle');
-            if (button) {
-                button.textContent = theme === 'dark' ? '☀️' : '🌙';
-                button.title = theme === 'dark' ? 'Light Mode aktivieren' : 'Dark Mode aktivieren';
-            }
-        }
-        
-        // Listen for system theme changes
-        if (window.matchMedia) {
-            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
-                if (!localStorage.getItem('phomemo-theme')) {
-                    const theme = e.matches ? 'dark' : 'light';
-                    document.documentElement.setAttribute('data-theme', theme);
-                    updateThemeButton(theme);
-                }
-            });
-        }
-        
-        // Initialize theme on page load
-        document.addEventListener('DOMContentLoaded', initTheme);
-        
-        function checkConnection() {
-            fetch('/api/status')
-                .then(response => response.json())
-                .then(data => {
-                    updateConnectionStatus(data);
-                    updateSettings(data.settings || {});
-                    updateStats(data.stats || {});
-                })
-                .catch(error => showStatus('❌ Verbindungsfehler: ' + error, 'error'));
-        }
-        
-        function updateConnectionStatus(data) {
-            const statusClass = data.connected ? 'status-connected' : 'status-disconnected';
-            const statusText = data.connected ? '✅ Drucker verbunden' : '❌ Drucker nicht verbunden';
-            
-            let statusDetails = '';
-            if (data.connected) {
-                statusDetails = `RFCOMM Prozess: ${data.rfcomm_process_running ? '✅ Läuft' : '❌ Gestoppt'}<br>`;
-                statusDetails += `Letzter Heartbeat: ${data.last_heartbeat ? new Date(data.last_heartbeat * 1000).toLocaleTimeString() : 'Nie'}`;
-            } else {
-                statusDetails = `Verbindungsversuche: ${data.connection_attempts || 0}<br>`;
-                statusDetails += `Status: ${data.status || 'unbekannt'}`;
-            }
-                
-            document.getElementById('connectionStatus').innerHTML = `
-                <div class="${data.connected ? 'success' : 'error'}">
-                    <span class="status-indicator ${statusClass}"></span>
-                    ${statusText}<br>
-                    <small>${statusDetails}</small>
+    <!-- Tabs -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('text')">📝 Text</div>
+        <div class="tab" onclick="switchTab('image')">🖼️ Bild</div>
+        <div class="tab" onclick="switchTab('settings')">⚙️ Einstellungen</div>
+    </div>
+
+    <!-- TEXT TAB -->
+    <div class="tab-content active" id="tab-text">
+        <div class="card">
+            <div class="card-body">
+                <textarea id="textInput" rows="5" placeholder="Text eingeben... Markdown: **fett**, # Überschrift&#10;QR: #qr#https://example.com#qr#&#10;Barcode: #bar#12345#bar#" oninput="debouncedTextPreview()"></textarea>
+                <div class="row" style="margin-top:12px">
+                    <div>
+                        <label style="font-size:13px;color:var(--text2)">Schriftgröße</label>
+                        <select id="fontSize" onchange="updateTextPreview()" style="width:100%">
+                            <option value="18">Klein (18)</option>
+                            <option value="22" selected>Normal (22)</option>
+                            <option value="26">Groß (26)</option>
+                            <option value="30">XL (30)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;color:var(--text2)">Ausrichtung</label>
+                        <select id="textAlignment" onchange="updateTextPreview()" style="width:100%">
+                            <option value="left">Links</option>
+                            <option value="center" selected>Zentriert</option>
+                            <option value="right">Rechts</option>
+                        </select>
+                    </div>
                 </div>
-            `;
-        }
-        
-        function updateSettings(settings) {
-            document.getElementById('xOffset').value = settings.x_offset || 40;
-            document.getElementById('yOffset').value = settings.y_offset || 0;
-            document.getElementById('ditherThreshold').value = settings.dither_threshold || 128;
-            document.getElementById('enableDitherGlobal').checked = settings.dither_enabled !== false;
-            
-            // Update slider values
-            updateDitherValue();
-            updateDitherStrengthValue();
-            updateContrastValue();
-        }
-        
-        function updateStats(stats) {
-            // Diese Funktion kann erweitert werden wenn Stats angezeigt werden sollen
-            if (stats) {
-                console.log('Stats updated:', stats);
-            }
-        }
-        
-        function saveSettings() {
-            const settings = {
-                x_offset: parseInt(document.getElementById('xOffset').value),
-                y_offset: parseInt(document.getElementById('yOffset').value),
-                dither_threshold: parseInt(document.getElementById('ditherThreshold').value),
-                dither_enabled: document.getElementById('enableDitherGlobal').checked,
-                dither_strength: parseFloat(document.getElementById('ditherStrength').value),
-                contrast_boost: parseFloat(document.getElementById('contrastBoost').value)
-            };
-            
-            fetch('/api/settings', { 
-                method: 'POST', 
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(settings)
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showStatus('✅ Einstellungen gespeichert!', 'success');
-                    } else {
-                        showStatus('❌ Fehler beim Speichern: ' + (data.error || ''), 'error');
-                    }
-                })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
-        }
-        
-        // Schieberegler-Update-Funktionen
-        function updateDitherValue() {
-            const value = document.getElementById('ditherThreshold').value;
-            document.getElementById('ditherValue').textContent = value;
-            document.getElementById('imageDitherThreshold').value = value;
-            document.getElementById('imageDitherValue').textContent = value;
-            updatePreview();
-        }
-        
-        function updateDitherStrengthValue() {
-            const value = document.getElementById('ditherStrength').value;
-            document.getElementById('ditherStrengthValue').textContent = value;
-        }
-        
-        function updateContrastValue() {
-            const value = document.getElementById('contrastBoost').value;
-            document.getElementById('contrastValue').textContent = value;
-        }
-        
-        function updateImageDitherValue() {
-            const value = document.getElementById('imageDitherThreshold').value;
-            document.getElementById('imageDitherValue').textContent = value;
-            document.getElementById('ditherThreshold').value = value;
-            document.getElementById('ditherValue').textContent = value;
-        }
-        
-        function updateImageDitherStrengthValue() {
-            const value = document.getElementById('imageDitherStrength').value;
-            document.getElementById('imageDitherStrengthValue').textContent = value;
-        }
-        
-        function toggleDitherControls() {
-            const enabled = document.getElementById('enableDitherGlobal').checked;
-            const controls = document.getElementById('ditherControls');
-            controls.style.display = enabled ? 'block' : 'none';
-            
-            // Bildbereich auch aktualisieren
-            document.getElementById('enableDither').checked = enabled;
-            toggleImageDither();
-        }
-        
-        function toggleImageDither() {
-            const enabled = document.getElementById('enableDither').checked;
-            const controls = document.getElementById('imageDitherControls');
-            controls.style.display = enabled ? 'block' : 'none';
-            updatePreview();
-        }
-        
-        // Dithering-Presets
-        function presetDither(preset) {
-            const thresholdSlider = document.getElementById('imageDitherThreshold');
-            const strengthSlider = document.getElementById('imageDitherStrength');
-            
-            switch(preset) {
-                case 'soft':
-                    thresholdSlider.value = 100;
-                    strengthSlider.value = 0.5;
-                    break;
-                case 'normal':
-                    thresholdSlider.value = 128;
-                    strengthSlider.value = 1.0;
-                    break;
-                case 'sharp':
-                    thresholdSlider.value = 150;
-                    strengthSlider.value = 1.5;
-                    break;
-                case 'high_contrast':
-                    thresholdSlider.value = 180;
-                    strengthSlider.value = 2.0;
-                    break;
-            }
-            
-            updateImageDitherValue();
-            updateImageDitherStrengthValue();
-            updatePreview();
-            showStatus(`🎨 Preset "${preset}" angewendet`, 'info');
-        }
-        
-        function uploadAndPreview() {
-            const fileInput = document.getElementById('imageFile');
-            const file = fileInput.files[0];
-            
-            if (!file) return;
-            
-            // Aktuellen Skalierungsmodus ermitteln
-            const scalingModeRadios = document.getElementsByName('scalingMode');
-            let selectedScalingMode = 'fit_aspect'; // Default
-            for (let radio of scalingModeRadios) {
-                if (radio.checked) {
-                    selectedScalingMode = radio.value;
-                    break;
-                }
-            }
-            
-            const formData = new FormData();
-            formData.append('image', file);
-            formData.append('fit_to_label', document.getElementById('fitToLabel').checked);
-            formData.append('maintain_aspect', document.getElementById('maintainAspect').checked);
-            formData.append('enable_dither', document.getElementById('enableDither').checked);
-            formData.append('dither_threshold', document.getElementById('imageDitherThreshold').value);
-            formData.append('dither_strength', document.getElementById('imageDitherStrength').value);
-            formData.append('scaling_mode', selectedScalingMode); // ← DIESER PARAMETER FEHLTE!
-            
-            showStatus('🔄 Erstelle Vorschau...', 'info');
-            
-            fetch('/api/preview-image', { method: 'POST', body: formData })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('previewPlaceholder').style.display = 'none';
-                        const previewImg = document.getElementById('previewImage');
-                        previewImg.src = 'data:image/png;base64,' + data.preview_base64;
-                        previewImg.style.display = 'block';
-                        
-                        document.getElementById('imageInfo').innerHTML = 
-                            `📏 <strong>Original:</strong> ${data.info.original_width} × ${data.info.original_height} px<br>` +
-                            `📐 <strong>Verarbeitet:</strong> ${data.info.processed_width} × ${data.info.processed_height} px<br>` +
-                            `📍 <strong>Offsets:</strong> X=${data.info.x_offset}px, Y=${data.info.y_offset}px<br>` +
-                            `🎨 <strong>Dithering:</strong> ${data.info.dither_enabled ? 'Ein' : 'Aus'} (Threshold: ${data.info.dither_threshold})`;
-                        document.getElementById('imageInfo').style.display = 'block';
-                        
-                        document.getElementById('printImageBtn').disabled = false;
-                        document.getElementById('queueImageBtn').disabled = false;
-                        currentImageData = file;
-                        showStatus('✅ Vorschau erstellt!', 'success');
-                    } else {
-                        showStatus('❌ Vorschau-Fehler: ' + (data.error || ''), 'error');
-                    }
-                })
-                .catch(error => showStatus('❌ Vorschau-Fehler: ' + error, 'error'));
-        }
-        
-        function updatePreview() {
-            if (currentImageData) {
-                uploadAndPreview();
-            }
-        }
-        
-        function printText(useQueue) {
-            const text = document.getElementById('textInput').value;
-            const fontSize = document.getElementById('fontSize').value;
-            const alignment = document.getElementById('textAlignment').value;
-            
-            if (!text.trim()) {
-                showStatus('❌ Bitte Text eingeben!', 'error');
-                return;
-            }
-            
-            const finalText = text.replace('$TIME$', new Date().toLocaleTimeString());
-            
-            const formData = new FormData();
-            formData.append('text', finalText);
-            formData.append('font_size', fontSize);
-            formData.append('alignment', alignment);
-            formData.append('immediate', useQueue ? 'false' : 'true');
-            
-            // Check if text contains QR/Barcode syntax
-            const hasQRCodes = finalText.includes('#qr#');
-            const hasBarcodes = finalText.includes('#bar#');
-            const apiEndpoint = (hasQRCodes || hasBarcodes) ? '/api/print-text-with-codes' : '/api/print-text';
-            
-            showStatus(`🖨️ Drucke Text (${alignment})...`, 'info');
-            
-            fetch(apiEndpoint, { method: 'POST', body: formData })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        const message = (hasQRCodes || hasBarcodes) ? '✅ Text mit Codes gedruckt!' : '✅ Text gedruckt!';
-                        showStatus(message, 'success');
-                    } else {
-                        showStatus('❌ Druckfehler: ' + (data.error || data.message || ''), 'error');
-                    }
-                })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
-        }
-        
-        // ==================== TEXT PREVIEW FUNCTIONS ====================
-        function updateTextPreview() {
-            const text = document.getElementById('textInput').value;
-            const fontSize = document.getElementById('fontSize').value;
-            const alignment = document.getElementById('textAlignment').value;
-            
-            // Leeren Text behandeln
-            if (!text.trim()) {
-                document.getElementById('textPreviewPlaceholder').style.display = 'block';
-                document.getElementById('textPreviewImage').style.display = 'none';
-                document.getElementById('textInfo').style.display = 'none';
-                return;
-            }
-            
-            const formData = new FormData();
-            formData.append('text', text);
-            formData.append('font_size', fontSize);
-            formData.append('alignment', alignment);
-            
-            // Check if text contains QR/Barcode syntax
-            const hasQRCodes = text.includes('#qr#');
-            const hasBarcodes = text.includes('#bar#');
-            const apiEndpoint = (hasQRCodes || hasBarcodes) ? '/api/preview-text-with-codes' : '/api/preview-text';
-            
-            fetch(apiEndpoint, { method: 'POST', body: formData })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        document.getElementById('textPreviewPlaceholder').style.display = 'none';
-                        const previewImg = document.getElementById('textPreviewImage');
-                        previewImg.src = 'data:image/png;base64,' + data.preview_base64;
-                        previewImg.style.display = 'block';
-                        
-                        let infoHTML = 
-                            `📏 <strong>Größe:</strong> ${data.info.width} × ${data.info.height} px<br>` +
-                            `📝 <strong>Text:</strong> "${data.info.text}"<br>` +
-                            `🔤 <strong>Schrift:</strong> ${data.info.font_size}px, ${data.info.alignment}<br>` +
-                            `📍 <strong>Offsets:</strong> X=${data.info.x_offset}px, Y=${data.info.y_offset}px`;
-                        
-                        // Add QR/Barcode info if present
-                        if (data.info.codes_found && data.info.codes_found > 0) {
-                            infoHTML += `<br>🔲 <strong>Codes:</strong> ${data.info.codes_found} gefunden`;
-                        }
-                        
-                        document.getElementById('textInfo').innerHTML = infoHTML;
-                        document.getElementById('textInfo').style.display = 'block';
-                    } else {
-                        showStatus('❌ Text-Vorschau Fehler: ' + (data.error || ''), 'error');
-                    }
-                })
-                .catch(error => {
-                    console.log('Text preview error:', error);
-                    // Fehler still ignorieren für bessere UX
-                });
-        }
-        
-        // Debounce-Funktion für bessere Performance
-        let textPreviewTimeout;
-        function debouncedTextPreview() {
-            clearTimeout(textPreviewTimeout);
-            textPreviewTimeout = setTimeout(updateTextPreview, 300); // 300ms Delay
-        }
-        
-        function printImage(useQueue) {
-            if (!currentImageData) {
-                showStatus('❌ Kein Bild ausgewählt!', 'error');
-                return;
-            }
-            
-            // Aktuellen Skalierungsmodus ermitteln
-            const scalingModeRadios = document.getElementsByName('scalingMode');
-            let selectedScalingMode = 'fit_aspect'; // Default
-            for (let radio of scalingModeRadios) {
-                if (radio.checked) {
-                    selectedScalingMode = radio.value;
-                    break;
-                }
-            }
-            
-            const formData = new FormData();
-            formData.append('image', currentImageData);
-            formData.append('immediate', useQueue ? 'false' : 'true');
-            formData.append('fit_to_label', document.getElementById('fitToLabel').checked);
-            formData.append('maintain_aspect', document.getElementById('maintainAspect').checked);
-            formData.append('enable_dither', document.getElementById('enableDither').checked);
-            formData.append('dither_threshold', document.getElementById('imageDitherThreshold').value);
-            formData.append('dither_strength', document.getElementById('imageDitherStrength').value);
-            formData.append('scaling_mode', selectedScalingMode); // ← DIESER PARAMETER FEHLTE AUCH HIER!
-            
-            showStatus('🖨️ Drucke Bild...', 'info');
-            
-            fetch('/api/print-image', { method: 'POST', body: formData })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showStatus('✅ Bild gedruckt!', 'success');
-                    } else {
-                        showStatus('❌ Druckfehler: ' + (data.error || ''), 'error');
-                    }
-                })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
-        }
-        
-        function forceReconnect() {
-            showStatus('🔄 Reconnect...', 'info');
-            fetch('/api/force-reconnect', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showStatus('✅ Reconnect erfolgreich!', 'success');
-                        checkConnection();
-                    } else {
-                        showStatus('❌ Reconnect fehlgeschlagen', 'error');
-                    }
-                })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
-        }
-        
-        function manualConnect() {
-            showStatus('🔧 Manuelle Verbindung...', 'info');
-            fetch('/api/manual-connect', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showStatus('✅ Manuelle Verbindung erfolgreich!', 'success');
-                        checkConnection();
-                    } else {
-                        showStatus('❌ Manuelle Verbindung fehlgeschlagen', 'error');
-                    }
-                })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
-        }
-        
-        function testOffsets() {
-            showStatus('📐 Teste Offsets...', 'info');
-            fetch('/api/test-offsets', { method: 'POST' })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showStatus('✅ Offset-Test gedruckt!', 'success');
-                    } else {
-                        showStatus('❌ Offset-Test fehlgeschlagen', 'error');
-                    }
-                })
-                .catch(error => showStatus('❌ Fehler: ' + error, 'error'));
-        }
-        
-        function showStatus(message, type) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.innerHTML = '<div class="status ' + type + '">' + message + '</div>';
-            setTimeout(() => statusDiv.innerHTML = '', 5000);
-        }
-        
-        // Hilfetext für Skalierungsmodi aktualisieren
-        function updateScalingModeHelp() {
-            const scalingModeRadios = document.getElementsByName('scalingMode');
-            const helpDiv = document.getElementById('scalingModeHelp');
-            
-            for (let radio of scalingModeRadios) {
-                if (radio.checked) {
-                    switch(radio.value) {
-                        case 'fit_aspect':
-                            helpDiv.innerHTML = '📏 Behält Seitenverhältnis bei, kann Ränder hinterlassen';
-                            break;
-                        case 'stretch_full':
-                            helpDiv.innerHTML = '🔄 Streckt Bild auf volle Label-Größe, kann verzerren';
-                            break;
-                        case 'crop_center':
-                            helpDiv.innerHTML = '✂️ Schneidet Bild zentriert zu, füllt Label vollständig';
-                            break;
-                        case 'pad_center':
-                            helpDiv.innerHTML = '🖼️ Zentriert Bild mit weißem Rand, kein Zuschnitt';
-                            break;
-                        default:
-                            helpDiv.innerHTML = '';
-                    }
-                    break;
-                }
-            }
-        }
-        
-        // Auto-load
-        window.onload = function() {
-            checkConnection();
-            
-            // Dithering-Controls initial ausblenden/anzeigen
-            toggleDitherControls();
-            toggleImageDither();
-            
-            // Slider-Werte initial setzen
-            updateDitherValue();
-            updateDitherStrengthValue();
-            updateContrastValue();
-            
-            // Hilfetext für Skalierungsmodus initial setzen
-            updateScalingModeHelp();
-            
-            // Text-Vorschau initial laden
-            setTimeout(updateTextPreview, 500); // Kurze Verzögerung für bessere UX
-            updateImageDitherValue();
-            updateImageDitherStrengthValue();
+                <div class="preview-box" id="textPreview" style="margin-top:14px">
+                    <div id="textPreviewPlaceholder">Vorschau erscheint beim Tippen</div>
+                    <img id="textPreviewImage" style="display:none">
+                    <div id="textInfo" class="preview-info" style="display:none"></div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="printText(false)">🖨️ Drucken</button>
+                    <button class="btn btn-outline" onclick="printText(true)">📤 In Queue</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        // QR/Barcode Syntax Help Function
-        async function showCodeSyntaxHelp() {
-            try {
-                const response = await fetch('/api/code-syntax-help');
-                const result = await response.json();
-                
-                if (result.success) {
-                    const helpText = result.syntax_help;
-                    const examples = result.examples;
-                    
-                    const helpWindow = window.open('', '_blank', 'width=600,height=700,scrollbars=yes');
-                    helpWindow.document.write(`
-                        <!DOCTYPE html>
-                        <html>
-                        <head>
-                            <title>QR/Barcode Syntax-Hilfe</title>
-                            <style>
-                                body { font-family: Arial, sans-serif; padding: 20px; }
-                                pre { background: #f5f5f5; padding: 15px; border-radius: 5px; overflow-x: auto; }
-                                code { background: #e8e8e8; padding: 2px 4px; border-radius: 3px; }
-                                .examples { background: #e8f4fd; padding: 15px; border-radius: 5px; margin: 15px 0; }
-                                h1 { color: #333; }
-                                h2 { color: #555; }
-                            </style>
-                        </head>
-                        <body>
-                            <h1>🔲 QR-Code & Barcode Syntax-Hilfe</h1>
-                            <pre>${helpText}</pre>
-                            
-                            <h2>📝 Beispiele zum Kopieren:</h2>
-                            <div class="examples">
-                                ${examples.map(ex => `<code>${ex}</code>`).join('<br><br>')}
-                            </div>
-                            
-                            <h2>🌐 Spezielle QR-Codes:</h2>
-                            <div class="examples">
-                                <strong>WLAN:</strong><br>
-                                <code>#qr#WIFI:S:MeinWLAN;T:WPA;P:passwort123;H:false;;#qr#</code><br><br>
-                                
-                                <strong>vCard Kontakt:</strong><br>
-                                <code>#qr#BEGIN:VCARD\\nFN:Max Mustermann\\nTEL:+49123456789\\nEMAIL:max@example.com\\nEND:VCARD#qr#</code><br><br>
-                                
-                                <strong>SMS:</strong><br>
-                                <code>#qr#SMSTO:+49123456789:Hallo#qr#</code><br><br>
-                                
-                                <strong>E-Mail:</strong><br>
-                                <code>#qr#mailto:test@example.com?subject=Betreff&body=Nachricht#qr#</code>
-                            </div>
-                            
-                            <button onclick="window.close()" style="margin-top: 20px; padding: 10px 20px; background: #2196F3; color: white; border: none; border-radius: 5px;">Schließen</button>
-                        </body>
-                        </html>
-                    `);
-                    helpWindow.document.close();
-                } else {
-                    alert('Fehler beim Laden der Syntax-Hilfe: ' + result.error);
-                }
-            } catch (error) {
-                alert('Netzwerk-Fehler beim Laden der Syntax-Hilfe: ' + error.message);
-            }
-        }
+    <!-- IMAGE TAB -->
+    <div class="tab-content" id="tab-image">
+        <div class="card">
+            <div class="card-body">
+                <input type="file" id="imageFile" accept="image/*" onchange="uploadAndPreview()">
+                <div class="preview-box" id="imagePreview" style="margin-top:14px">
+                    <div id="previewPlaceholder">📁 Bild auswählen für Vorschau</div>
+                    <img id="previewImage" style="display:none">
+                    <div id="imageInfo" class="preview-info" style="display:none"></div>
+                </div>
+                <div class="img-opts">
+                    <label><input type="checkbox" id="fitToLabel" checked onchange="updatePreview()"> An Label anpassen</label>
+                    <label><input type="checkbox" id="maintainAspect" checked onchange="updatePreview()"> Seitenverhältnis</label>
+                    <label><input type="checkbox" id="enableDither" checked onchange="updatePreview()"> Dithering</label>
+                </div>
+                <div class="row" style="margin-bottom:12px">
+                    <div>
+                        <label style="font-size:13px;color:var(--text2)">Skalierung</label>
+                        <select id="scalingMode" onchange="updatePreview()" style="width:100%">
+                            <option value="fit_aspect">Einpassen</option>
+                            <option value="stretch_full">Strecken</option>
+                            <option value="crop_center">Zuschneiden</option>
+                            <option value="pad_center">Zentriert + Rand</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:13px;color:var(--text2)">Dither Preset</label>
+                        <select id="ditherPreset" onchange="applyDitherPreset()" style="width:100%">
+                            <option value="normal">Normal</option>
+                            <option value="soft">Weich</option>
+                            <option value="sharp">Scharf</option>
+                            <option value="high_contrast">Kontrast</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="printImage(false)" id="printImageBtn" disabled>🖨️ Drucken</button>
+                    <button class="btn btn-outline" onclick="printImage(true)" id="queueImageBtn" disabled>📤 In Queue</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        };
-    </script>
+    <!-- SETTINGS TAB -->
+    <div class="tab-content" id="tab-settings">
+        <div class="card">
+            <div class="card-header">Druckeinstellungen</div>
+            <div class="card-body">
+                <div class="setting-row">
+                    <label>X-Offset (px)</label>
+                    <input type="number" id="xOffset" value="0" min="0" max="100" step="1" style="width:80px">
+                </div>
+                <div class="setting-row">
+                    <label>Y-Offset (px)</label>
+                    <input type="number" id="yOffset" value="0" min="-50" max="50" step="1" style="width:80px">
+                </div>
+                <div class="setting-row">
+                    <label>Dither Threshold</label>
+                    <input type="range" id="ditherThreshold" value="128" min="0" max="255" step="1" oninput="this.nextElementSibling.textContent=this.value">
+                    <span style="font-weight:600;min-width:30px">128</span>
+                </div>
+                <div class="setting-row">
+                    <label>Dither Stärke</label>
+                    <input type="range" id="ditherStrength" value="1.0" min="0.1" max="2.0" step="0.1" oninput="this.nextElementSibling.textContent=this.value">
+                    <span style="font-weight:600;min-width:30px">1.0</span>
+                </div>
+                <div class="setting-row">
+                    <label>Kontrast</label>
+                    <input type="range" id="contrastBoost" value="1.0" min="0.5" max="2.0" step="0.1" oninput="this.nextElementSibling.textContent=this.value">
+                    <span style="font-weight:600;min-width:30px">1.0</span>
+                </div>
+                <div class="setting-row">
+                    <label><input type="checkbox" id="enableDitherGlobal" checked> Dithering global</label>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="saveSettings()">💾 Speichern</button>
+                    <button class="btn btn-outline" onclick="testOffsets()">📐 Offsets testen</button>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">Verbindung</div>
+            <div class="card-body">
+                <div id="connDetails" style="font-size:13px;color:var(--text2)">Lade...</div>
+                <div id="queueInfo" style="display:none;margin:10px 0;padding:10px;background:var(--bg);border-radius:8px;font-size:13px">
+                    📋 <strong>Queue:</strong> <span id="queueCount">0</span> Jobs wartend
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-outline" onclick="checkConnection()">🔍 Status</button>
+                    <button class="btn btn-outline" onclick="reconnect()">🔄 Reconnect</button>
+                    <button class="btn btn-outline" onclick="manualConnect()">🔧 Manual</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+let currentImageData = null;
+let textPreviewTimeout;
+
+// === THEME ===
+function initTheme() {
+    const saved = localStorage.getItem('phomemo-theme');
+    const dark = saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme:dark)').matches);
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    document.getElementById('themeBtn').textContent = dark ? '☀️' : '🌙';
+}
+function toggleTheme() {
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const t = isDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('phomemo-theme', t);
+    document.getElementById('themeBtn').textContent = t === 'dark' ? '☀️' : '🌙';
+}
+
+// === TABS ===
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.includes(
+        name === 'text' ? 'Text' : name === 'image' ? 'Bild' : 'Einstellungen')));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+// === TOAST ===
+function toast(msg, type='info') {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'toast ' + type + ' show';
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// === CONNECTION ===
+function checkConnection() {
+    fetch('/api/status').then(r=>r.json()).then(d => {
+        const dot = document.getElementById('statusDot');
+        dot.className = 'status-dot ' + (d.connected ? 'on' : 'off');
+        dot.title = d.connected ? 'Verbunden' : 'Getrennt';
+        updateSettingsFromData(d.settings || {});
+        const det = document.getElementById('connDetails');
+        const qSize = d.queue_size || 0;
+        const badge = document.getElementById('queueBadge');
+        const qInfo = document.getElementById('queueInfo');
+        if (qSize > 0) {
+            badge.textContent = '📋 ' + qSize;
+            badge.style.display = '';
+            qInfo.style.display = '';
+            document.getElementById('queueCount').textContent = qSize;
+        } else {
+            badge.style.display = 'none';
+            qInfo.style.display = 'none';
+        }
+        if (d.connected) {
+            det.innerHTML = '✅ Verbunden<br>MAC: ' + d.mac + '<br>Heartbeat: ' +
+                (d.last_heartbeat ? new Date(d.last_heartbeat*1000).toLocaleTimeString() : '—') +
+                '<br>Jobs: ' + (d.stats?.successful_jobs||0) + ' ✓ / ' + (d.stats?.failed_jobs||0) + ' ✗';
+        } else {
+            det.innerHTML = '❌ Nicht verbunden<br>Status: ' + (d.status||'unbekannt');
+        }
+    }).catch(e => toast('Verbindungsfehler', 'error'));
+}
+function reconnect() {
+    toast('Reconnect...', 'info');
+    fetch('/api/force-reconnect', {method:'POST'}).then(r=>r.json()).then(d => {
+        toast(d.success ? '✅ Verbunden!' : '❌ Fehlgeschlagen', d.success ? 'success' : 'error');
+        checkConnection();
+    }).catch(() => toast('Fehler', 'error'));
+}
+function manualConnect() {
+    toast('Verbinde...', 'info');
+    fetch('/api/manual-connect', {method:'POST'}).then(r=>r.json()).then(d => {
+        toast(d.success ? '✅ Verbunden!' : '❌ Fehlgeschlagen', d.success ? 'success' : 'error');
+        checkConnection();
+    }).catch(() => toast('Fehler', 'error'));
+}
+
+// === SETTINGS ===
+function updateSettingsFromData(s) {
+    if (s.x_offset !== undefined) document.getElementById('xOffset').value = s.x_offset;
+    if (s.y_offset !== undefined) document.getElementById('yOffset').value = s.y_offset;
+    if (s.dither_threshold !== undefined) {
+        const el = document.getElementById('ditherThreshold'); el.value = s.dither_threshold;
+        el.nextElementSibling.textContent = s.dither_threshold;
+    }
+    if (s.dither_strength !== undefined) {
+        const el = document.getElementById('ditherStrength'); el.value = s.dither_strength;
+        el.nextElementSibling.textContent = s.dither_strength;
+    }
+    if (s.contrast_boost !== undefined) {
+        const el = document.getElementById('contrastBoost'); el.value = s.contrast_boost;
+        el.nextElementSibling.textContent = s.contrast_boost;
+    }
+    if (s.dither_enabled !== undefined) document.getElementById('enableDitherGlobal').checked = s.dither_enabled;
+}
+function saveSettings() {
+    const s = {
+        x_offset: parseInt(document.getElementById('xOffset').value),
+        y_offset: parseInt(document.getElementById('yOffset').value),
+        dither_threshold: parseInt(document.getElementById('ditherThreshold').value),
+        dither_enabled: document.getElementById('enableDitherGlobal').checked,
+        dither_strength: parseFloat(document.getElementById('ditherStrength').value),
+        contrast_boost: parseFloat(document.getElementById('contrastBoost').value)
+    };
+    fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(s)})
+        .then(r=>r.json()).then(d => toast(d.success ? '✅ Gespeichert!' : '❌ Fehler', d.success ? 'success' : 'error'))
+        .catch(() => toast('Fehler', 'error'));
+}
+function testOffsets() {
+    toast('Teste Offsets...', 'info');
+    fetch('/api/test-offsets', {method:'POST'}).then(r=>r.json())
+        .then(d => toast(d.success ? '✅ Gedruckt!' : '❌ Fehler', d.success ? 'success' : 'error'))
+        .catch(() => toast('Fehler', 'error'));
+}
+
+// === TEXT ===
+function updateTextPreview() {
+    const text = document.getElementById('textInput').value;
+    if (!text.trim()) {
+        document.getElementById('textPreviewPlaceholder').style.display = '';
+        document.getElementById('textPreviewImage').style.display = 'none';
+        document.getElementById('textInfo').style.display = 'none';
+        return;
+    }
+    const fd = new FormData();
+    fd.append('text', text);
+    fd.append('font_size', document.getElementById('fontSize').value);
+    fd.append('alignment', document.getElementById('textAlignment').value);
+    const endpoint = (text.includes('#qr#') || text.includes('#bar#')) ? '/api/preview-text-with-codes' : '/api/preview-text';
+    fetch(endpoint, {method:'POST', body:fd}).then(r=>r.json()).then(d => {
+        if (d.success) {
+            document.getElementById('textPreviewPlaceholder').style.display = 'none';
+            const img = document.getElementById('textPreviewImage');
+            img.src = 'data:image/png;base64,' + d.preview_base64;
+            img.style.display = 'block';
+            document.getElementById('textInfo').textContent = d.info.width + '×' + d.info.height + 'px | ' + d.info.font_size + 'px ' + d.info.alignment;
+            document.getElementById('textInfo').style.display = '';
+        }
+    }).catch(() => {});
+}
+function debouncedTextPreview() {
+    clearTimeout(textPreviewTimeout);
+    textPreviewTimeout = setTimeout(updateTextPreview, 300);
+}
+function printText(queue) {
+    const text = document.getElementById('textInput').value;
+    if (!text.trim()) { toast('Kein Text!', 'error'); return; }
+    const fd = new FormData();
+    fd.append('text', text.replace('$TIME$', new Date().toLocaleTimeString()));
+    fd.append('font_size', document.getElementById('fontSize').value);
+    fd.append('alignment', document.getElementById('textAlignment').value);
+    fd.append('immediate', queue ? 'false' : 'true');
+    const endpoint = (text.includes('#qr#') || text.includes('#bar#')) ? '/api/print-text-with-codes' : '/api/print-text';
+    toast('Drucke...', 'info');
+    fetch(endpoint, {method:'POST', body:fd}).then(r=>r.json())
+        .then(d => toast(d.success ? '✅ Gedruckt!' : '❌ ' + (d.error||d.message||'Fehler'), d.success ? 'success' : 'error'))
+        .catch(() => toast('Druckfehler', 'error'));
+}
+
+// === IMAGE ===
+function uploadAndPreview() {
+    const file = document.getElementById('imageFile').files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('image', file);
+    fd.append('fit_to_label', document.getElementById('fitToLabel').checked);
+    fd.append('maintain_aspect', document.getElementById('maintainAspect').checked);
+    fd.append('enable_dither', document.getElementById('enableDither').checked);
+    fd.append('scaling_mode', document.getElementById('scalingMode').value);
+    toast('Erstelle Vorschau...', 'info');
+    fetch('/api/preview-image', {method:'POST', body:fd}).then(r=>r.json()).then(d => {
+        if (d.success) {
+            document.getElementById('previewPlaceholder').style.display = 'none';
+            const img = document.getElementById('previewImage');
+            img.src = 'data:image/png;base64,' + d.preview_base64;
+            img.style.display = 'block';
+            document.getElementById('imageInfo').textContent =
+                d.info.original_width + '×' + d.info.original_height + ' → ' +
+                d.info.processed_width + '×' + d.info.processed_height + 'px';
+            document.getElementById('imageInfo').style.display = '';
+            document.getElementById('printImageBtn').disabled = false;
+            document.getElementById('queueImageBtn').disabled = false;
+            currentImageData = file;
+            toast('✅ Vorschau fertig', 'success');
+        } else { toast('❌ ' + (d.error||''), 'error'); }
+    }).catch(e => toast('Fehler: ' + e, 'error'));
+}
+function updatePreview() { if (currentImageData) { document.getElementById('imageFile').files = new DataTransfer().files; currentImageData && uploadAndPreview(); } }
+function applyDitherPreset() {
+    const p = document.getElementById('ditherPreset').value;
+    const presets = { soft:[100,.5], normal:[128,1], sharp:[150,1.5], high_contrast:[180,2] };
+    if (presets[p]) {
+        document.getElementById('ditherThreshold').value = presets[p][0];
+        document.getElementById('ditherThreshold').nextElementSibling.textContent = presets[p][0];
+        document.getElementById('ditherStrength').value = presets[p][1];
+        document.getElementById('ditherStrength').nextElementSibling.textContent = presets[p][1];
+    }
+    if (currentImageData) uploadAndPreview();
+}
+function printImage(queue) {
+    if (!currentImageData) { toast('Kein Bild!', 'error'); return; }
+    const fd = new FormData();
+    fd.append('image', currentImageData);
+    fd.append('immediate', queue ? 'false' : 'true');
+    fd.append('fit_to_label', document.getElementById('fitToLabel').checked);
+    fd.append('maintain_aspect', document.getElementById('maintainAspect').checked);
+    fd.append('enable_dither', document.getElementById('enableDither').checked);
+    fd.append('scaling_mode', document.getElementById('scalingMode').value);
+    toast('Drucke Bild...', 'info');
+    fetch('/api/print-image', {method:'POST', body:fd}).then(r=>r.json())
+        .then(d => toast(d.success ? '✅ Gedruckt!' : '❌ ' + (d.error||''), d.success ? 'success' : 'error'))
+        .catch(() => toast('Druckfehler', 'error'));
+}
+
+// === INIT ===
+initTheme();
+checkConnection();
+setInterval(checkConnection, 10000);
+</script>
 </body>
 </html>
 '''
