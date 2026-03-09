@@ -357,18 +357,18 @@ python3 main.py
 ## 📈 Roadmap & Geplante Features
 
 ### 🚧 **In Entwicklung / Geplant:**
-- [ ] **🔳 QR-Code Generation** - Automatische QR-Code-Erstellung für URLs und Text
+- [x] **🔳 QR-Code Generation** - Automatische QR-Code-Erstellung für URLs und Text ✅
 - [ ] **📦 Batch-Druck von Bildern** - Mehrere Bilder in einem Vorgang drucken
 - [ ] **📋 Template-System für Labels** - Vordefinierte Label-Layouts und Vorlagen
 - [ ] **🔌 REST API für externe Integration** - Vollständige API für Drittanbieter-Software
 - [ ] **🖨️ Multi-Drucker-Support** - Verwaltung mehrerer Phomemo-Drucker gleichzeitig
 - [ ] **💾 Job-Persistenz** - Druckjobs überleben Server-Neustarts
-- [ ] ** Print Queue ** - Wenn gedruckt wird wenn der Drucker aus/nicht errreichbar ist werde die Drucke nach neu verbinden gesendet
+- [x] **🔄 Print Queue** - Jobs werden gepuffert und nach Reconnect gesendet ✅
 - [ ] **🎨 Erweiterte Bildfilter** - Zusätzliche Bildbearbeitungsoptionen
 - [ ] **📊 Export-Funktionen** - Statistiken und Logs exportieren
 - [ ] **🌐 Multi-Language Support** - Internationalisierung des Web-Interface
 - [ ] ** Homeassistant Integration** - Docker Container oder als Addon direkt Installieren
-- [ ] Log handling - Aufpassen das der Log nicht zu groß wird
+- [x] Log Handling - Log-Rotation implementiert ✅
 - [ ] 
 
 ### 🎯 **Nächste Releases:**
