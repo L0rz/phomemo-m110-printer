@@ -1,18 +1,15 @@
-#!/usr/bin/env python3
 """
-Rueckwaertskompatibilitaets-Wrapper fuer printer_controller.
-
-Alle Funktionalitaet wurde in das 'printer' Package aufgeteilt.
-Dieses Modul re-exportiert alle oeffentlichen Symbole, damit bestehende
-Imports wie `from printer_controller import EnhancedPhomemoM110` weiterhin
-funktionieren.
+Phomemo M110 Printer Package.
+Re-exportiert alle oeffentlichen Symbole fuer Rueckwaertskompatibilitaet.
 """
 
-from printer import (
+from .models import (
     ConnectionStatus,
     TransmissionSpeed,
     PrintJob,
     ImageProcessingResult,
+)
+from .controller import (
     EnhancedPhomemoM110,
     RobustPhomemoM110,
     HAS_CODE_GENERATOR,
