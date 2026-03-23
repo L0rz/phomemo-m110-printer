@@ -1,403 +1,120 @@
-# Phomemo M110 Printer Controller
+# 🏷️ Phomemo M110 Printer Controller
 
-## 🎯 Übersicht der Implementierten Features
+Web-basierter Druckserver für den Phomemo M110 Thermodrucker auf Raspberry Pi via Bluetooth.
 
-Diese Anwendung erweitert Ihren Phomemo M110 Drucker um folgende **tatsächlich implementierte** Features:
+## Features
 
-### ✨ Hauptfeatures
+### 🖨️ Drucken
+- **Bilder**: PNG, JPEG, BMP, GIF, WebP — mit Live-Vorschau vor dem Druck
+- **Text**: Konfigurierbarer Font, Größe und Ausrichtung
+- **QR-Codes & Barcodes**: Inline via `#qr#Inhalt#qr#` und `#bar#Inhalt#bar#` Syntax
+- **Print Queue**: Asynchrone Job-Verarbeitung mit Auto-Retry
 
-1. **🖼️ Schwarz-Weiß-Bildvorschau**
-   - Live-Vorschau vor dem Drucken mit Base64-kodierter Anzeige
-   - Floyd-Steinberg Dithering für bessere Graustufen-Konvertierung
-   - Konfigurierbare Dithering-Schwellenwerte (0-255)
-   - Dithering-Stärke-Anpassung (0.1-2.0)
-   - Kontrast-Verstärkung (0.5-2.0)
-   - Automatische Label-Anpassung auf 40×30mm (320×240px)
+### 📐 Label-Konfiguration
+- **Label-Größen-Selector** im Web-UI: 40×30mm, 30×40mm, 50×30mm, 50×80mm, 25×25mm, etc.
+- **X/Y-Offset Kalibrierung** mit persistenter Speicherung
+- **Kalibrierungs-Muster** zum Ausrichten (Rand, Gitter, Ecken)
+- Max. Druckbreite: 50mm (384px bei 203 DPI)
 
-2. **📐 X/Y-Offset Konfiguration**
-   - Konfigurierbare horizontale Verschiebung (0-100 Pixel)
-   - Konfigurierbare vertikale Verschiebung (-50 bis +50 Pixel)
-   - Standard: 0 Pixel für beide Achsen
-   - Persistente Speicherung in JSON-Datei
-   - Live-Test der Offset-Einstellungen mit Kalibrierungs-Mustern
+### 🎨 Bildverarbeitung
+- Floyd-Steinberg Dithering (Threshold + Stärke konfigurierbar)
+- Kontrast-Verstärkung
+- Automatische Label-Anpassung mit Seitenverhältnis-Erhaltung
+- QR-Code Aspect Ratio Korrektur für korrekte Quadrate auf dem Thermaldruck
 
-3. **⚙️ Erweiterte Einstellungen**
-   - Persistente Konfiguration in `printer_settings.json`
-   - Verschiedene Bildanpassungs-Modi:
-     - An Label anpassen (Seitenverhältnis beibehalten)
-     - Volle Label-Größe (stretchen)
-     - Zentriert zuschneiden
-     - Zentriert mit Rand
-   - Auto-Connect-Optionen für zuverlässige Bluetooth-Verbindung
+### ⚡ Adaptive Druckübertragung
+- **Line-by-Line Transfer**: Jede 48-Byte-Zeile einzeln gesendet
+- **Adaptive Pausen**: Bit-Dichte pro Zeile bestimmt die Wartezeit — verhindert Bluetooth Buffer Overrun bei komplexen Bildern
+- Auto-Reconnect bei Verbindungsabbruch
 
-4. **🎯 Kalibrierungs-Tools**
-   - Multiple Kalibrierungs-Muster verfügbar:
-     - Vollständiger Test (Rand + Gitter)
-     - Nur Rand-Test
-     - Nur Gitter-Test
-     - Eck-Test für Positionierung
-   - Quick-Test für aktuelle Offset-Einstellungen
-   - Offset zurücksetzen auf 0/0
+## Hardware
 
-5. **🔄 Robuste Print-Queue**
-   - Asynchrone Druckjob-Verarbeitung
-   - Auto-Retry bei Fehlern (bis zu 3 Versuche)
-   - Detaillierte Job-Statistiken
-   - Immediate-Print und Queue-Modus
+| Komponente | Details |
+|---|---|
+| Drucker | Phomemo M110 (Thermodruck, 203 DPI) |
+| Verbindung | Bluetooth RFCOMM |
+| Host | Raspberry Pi |
+| Druckkopf | 384px breit, 48 Bytes/Zeile |
 
-## 📂 Dateistruktur
+## Installation
 
-```
-/
-├── main.py              # Hauptserver mit Enhanced Features
-├── printer_controller.py # Erweiterte Printer-Logik mit Bildverarbeitung
-├── api_routes.py        # REST API mit Bildvorschau
-├── web_template.py      # Modernes Web-Interface
-├── config.py            # Erweiterte Konfiguration
-├── calibration_tool.py           # Kalibrierungs-Muster-Generator
-├── calibration_api.py            # Kalibrierungs-API (separates Modul)
-├── install.sh           # Installations-Skript
-└── printer_settings.json         # Persistente Einstellungen (wird automatisch erstellt)
-```
-
-## 🚀 Installation
-
-### Schnelle Installation
 ```bash
-chmod +x install.sh
-./install.sh
-```
-
-### Manuelle Installation
-```bash
-# Dependencies installieren
+# Dependencies
 sudo apt install python3 python3-pip bluetooth bluez python3-dev libjpeg-dev
 
-# Python-Pakete installieren
-pip3 install flask pillow
-
-# Optional für erweiterte Bildverarbeitung
-pip3 install numpy
+# Python-Pakete
+pip3 install flask pillow qrcode python-barcode
 
 # MAC-Adresse in config.py anpassen
 nano config.py
-# Ändern Sie: PRINTER_MAC = "12:7E:5A:E9:E5:22"  # IHRE MAC-ADRESSE!
 
-# Server starten
+# Starten
 python3 main.py
 ```
 
-## 🎛️ Konfiguration
+Web-UI: `http://<pi-ip>:8080`
 
-### Standard-Einstellungen
+## API
 
-| Setting | Standard | Bereich | Beschreibung |
-|---------|----------|---------|--------------|
-| `x_offset` | 0 | 0-100 | Horizontale Verschiebung (Pixel) |
-| `y_offset` | 0 | -50 bis +50 | Vertikale Verschiebung (Pixel) |
-| `dither_threshold` | 128 | 0-255 | SW-Konvertierungs-Schwelle |
-| `dither_enabled` | true | bool | Floyd-Steinberg Dithering |
-| `dither_strength` | 1.0 | 0.1-2.0 | Dithering-Intensität |
-| `contrast_boost` | 1.0 | 0.5-2.0 | Kontrast-Verstärkung |
-| `fit_to_label_default` | true | bool | Auto-Label-Anpassung |
-| `maintain_aspect_default` | true | bool | Seitenverhältnis beibehalten |
+| Endpoint | Methode | Beschreibung |
+|---|---|---|
+| `/api/status` | GET | Verbindungsstatus |
+| `/api/settings` | GET/POST | Einstellungen lesen/schreiben |
+| `/api/print-image` | POST | Bild drucken (FormData: image) |
+| `/api/print-text` | POST | Text drucken (FormData: text) |
+| `/api/print-text-with-codes` | POST | Text mit QR/Barcodes drucken |
+| `/api/preview-image` | POST | Vorschau generieren |
+| `/api/print-calibration` | POST | Kalibrierungsmuster drucken |
+| `/api/label-sizes` | GET | Verfügbare Label-Größen |
 
-### Konfigurationsdatei (printer_settings.json)
+### QR-Code & Barcode Syntax
+
+```
+#qr#https://example.com#qr#           → QR-Code
+#qr:150#https://example.com#qr#       → QR-Code mit 150px Größe
+#bar#1234567890128#bar#                → Barcode (EAN13)
+#bar:code128#ABC-123#bar#              → Barcode (Code128)
+```
+
+## Konfiguration
+
+Einstellungen werden in `printer_settings.json` persistent gespeichert:
+
 ```json
 {
-  "x_offset": 0,
+  "label_size": "40x30",
+  "x_offset": 36,
   "y_offset": 0,
   "dither_threshold": 128,
   "dither_enabled": true,
   "dither_strength": 1.0,
-  "contrast_boost": 1.0,
-  "fit_to_label_default": true,
-  "maintain_aspect_default": true,
-  "auto_connect": true
+  "contrast_boost": 1.0
 }
 ```
 
-## 🖼️ Bildverarbeitung
+## Dateistruktur
 
-### Unterstützte Formate
-- PNG, JPEG, JPG, BMP, GIF, WebP
-- Maximum: 10MB Upload-Größe
-
-### Verarbeitungs-Pipeline
-1. **Upload**: Datei-Validierung und Größenprüfung
-2. **Skalierung**: Anpassung nach gewähltem Modus
-3. **Konvertierung**: RGB → Schwarz-Weiß mit konfigurierbarem Dithering
-4. **Offset**: Anwendung von X/Y-Verschiebungen
-5. **Vorschau**: Base64-kodierte Vorschau für Web-Interface
-6. **Druck**: Konvertierung zu Drucker-Format mit Byte-Array
-
-### Bildanpassungs-Modi
-- **fit_aspect**: An Label anpassen (Seitenverhältnis beibehalten)
-- **stretch_full**: Volle Label-Größe (stretchen)
-- **crop_center**: Zentriert zuschneiden (volle Größe)
-- **pad_center**: Zentriert mit Rand (volle Größe)
-
-## 📐 Offset-System
-
-### X-Offset (Horizontal)
-- **Zweck**: Korrigiert horizontale Position
-- **Standard**: 0 Pixel (keine Verschiebung)
-- **Bereich**: 0-100 Pixel
-- **Anwendung**: Verschiebt gesamtes Druckbild nach rechts
-
-### Y-Offset (Vertikal)
-- **Zweck**: Korrigiert vertikale Position
-- **Standard**: 0 Pixel
-- **Bereich**: -50 bis +50 Pixel
-- **Anwendung**: Verschiebt Druckbild nach oben (+) oder unten (-)
-
-### Kalibrierung
-1. **Test drucken**: "Offsets testen" Button verwenden
-2. **Messung**: Abweichung mit Lineal messen
-3. **Anpassung**: X/Y-Offsets entsprechend justieren
-4. **Speichern**: "💾 Einstellungen speichern" klicken
-
-## 🔌 API-Endpoints
-
-### Implementierte Endpoints
-
-#### `GET /api/status`
-Gibt Verbindungsstatus und Drucker-Info zurück
-
-#### `GET /api/settings`
-Gibt aktuelle Einstellungen zurück
-```json
-{
-  "success": true,
-  "settings": {
-    "x_offset": 0,
-    "y_offset": 0,
-    "dither_threshold": 128,
-    "dither_enabled": true
-  }
-}
+```
+├── main.py               # Flask Server
+├── printer_controller.py # Drucklogik + Bitmap-Übertragung
+├── api_routes.py         # REST API Endpunkte
+├── code_generator.py     # QR-Code & Barcode Generator
+├── config.py             # Konfiguration + Label-Größen
+├── web_template.py       # Web-Interface
+├── calibration_tool.py   # Kalibrierungsmuster
+└── printer_settings.json # Persistente Einstellungen
 ```
 
-#### `POST /api/settings`
-Aktualisiert Drucker-Einstellungen
-```javascript
-{
-  "x_offset": 40,
-  "y_offset": 0,
-  "dither_threshold": 128,
-  "dither_enabled": true,
-  "dither_strength": 1.0
-}
+## Druckprotokoll
+
+```
+ESC @ (0x1B 0x40)        → Drucker Reset
+GS v 0 (0x1D 0x76 0x30)  → Raster Bitmap Header
+  + width_bytes (2B LE)   → 48 (0x30 0x00)
+  + height (2B LE)        → z.B. 240 (0xF0 0x00)
+  + image_data            → height × 48 Bytes (zeilenweise, adaptiv)
 ```
 
-#### `POST /api/preview-image`
-Erstellt Schwarz-Weiß-Vorschau eines Bildes
-```javascript
-FormData: {
-  image: File,
-  fit_to_label: "true",
-  maintain_aspect: "true",
-  enable_dither: "true",
-  dither_threshold: "128",
-  dither_strength: "1.0",
-  scaling_mode: "fit_aspect"
-}
-```
+## Lizenz
 
-#### `POST /api/print-image`
-Druckt ein Bild mit Vorschau-Verarbeitung
-```javascript
-FormData: {
-  image: File,
-  immediate: "false",
-  fit_to_label: "true",
-  maintain_aspect: "true",
-  enable_dither: "true",
-  dither_threshold: "128",
-  scaling_mode: "fit_aspect"
-}
-```
-
-#### `POST /api/print-text`
-Druckt Text mit konfigurierbarer Ausrichtung
-```javascript
-FormData: {
-  text: "Hello World",
-  font_size: "22",
-  immediate: "false",
-  alignment: "center"  // left, center, right
-}
-```
-
-#### `POST /api/print-calibration`
-Druckt Kalibrierungs-Muster
-```javascript
-FormData: {
-  pattern: "full",  // full, border, grid, corners
-  width: "320",
-  height: "240",
-  immediate: "true"
-}
-```
-
-#### `POST /api/test-offsets`
-Testet aktuelle Offset-Einstellungen
-
-#### `POST /api/reset-offsets`
-Setzt X/Y-Offsets auf 0 zurück
-
-## 🎨 Web-Interface Features
-
-### Sections
-1. **Konfigurationsbereich**: 
-   - X/Y-Offset-Einstellungen mit Schiebereglern
-   - Dithering-Optionen und Schwellenwerte
-   - Bildanpassungs-Modi
-
-2. **Bildvorschau**: 
-   - Live-Vorschau mit Verarbeitungsinfo
-   - Before/After-Vergleich
-   - Detaillierte Bildstatistiken
-
-3. **Kalibrierungs-Tools**: 
-   - Verschiedene Testmuster
-   - Quick-Test für Offsets
-   - Reset-Funktionen
-
-4. **Job-Queue**: 
-   - Live-Anzeige der Druckjobs
-   - Retry-Status und Fehlerinfo
-   - Detaillierte Statistiken
-
-### Keyboard Shortcuts
-- `Ctrl+Enter`: Text sofort drucken
-- `Ctrl+Shift+Enter`: Text in Queue einreihen
-- `F5`: Verbindungsstatus aktualisieren
-
-## 🔧 Fehlerbehebung
-
-### Bildvorschau funktioniert nicht
-```bash
-# Pillow mit JPEG-Support neu installieren
-pip3 install --upgrade pillow
-
-# System-Dependencies prüfen
-sudo apt install python3-dev libjpeg-dev zlib1g-dev
-```
-
-### Offsets werden nicht angewendet
-1. Einstellungen mit "💾 Einstellungen speichern" speichern
-2. `printer_settings.json` überprüfen: `cat printer_settings.json`
-3. Bei Problemen Datei löschen: `rm printer_settings.json`
-
-### Dithering-Probleme
-- Schwellenwert anpassen (Standard: 128)
-- Dithering-Stärke reduzieren (Standard: 1.0)
-- Für einfache SW-Bilder Dithering deaktivieren
-
-### Bluetooth-Verbindungsprobleme
-```bash
-# Bluetooth-Service neu starten
-sudo systemctl restart bluetooth
-
-# RFCOMM-Device prüfen
-ls -la /dev/rfcomm*
-
-# Pairing-Status prüfen
-bluetoothctl devices
-```
-
-## 📊 Monitoring
-
-### Health Check
-```bash
-curl http://localhost:8080/health
-```
-Gibt Status, Verbindung, Queue-Größe und Uptime zurück
-
-### Service-Logs
-```bash
-# Entwicklungs-Logs
-tail -f phomemo_server.log
-
-# Wenn als Systemd-Service installiert
-sudo journalctl -u phomemo-enhanced -f
-```
-
-## 🎯 Best Practices
-
-### Bildoptimierung
-- Verwenden Sie kontrastreiche Bilder
-- Testen Sie verschiedene Dithering-Schwellenwerte (100-150 für dunkle Bilder, 128-180 für helle)
-- Für Line-Art Dithering deaktivieren
-
-### Offset-Kalibrierung
-1. Drucken Sie "Vollständiger Test" für erste Kalibrierung
-2. Messen Sie Abweichung mit Lineal (1mm ≈ 8 Pixel bei 203 DPI)
-3. Adjustieren Sie Offsets entsprechend
-4. Wiederholen Sie bis optimale Position erreicht
-
-### Performance
-- Nutzen Sie Queue-Modus für mehrere Jobs
-- Auto-Connect für zuverlässige Verbindung aktivieren
-- Bei großen Bildern Qualität vor Upload reduzieren
-
-## 🔄 Updates
-
-```bash
-# Git Repository aktualisieren
-git pull origin main
-
-# Server neu starten
-sudo systemctl restart phomemo-enhanced
-# oder bei manueller Ausführung
-python3 main.py
-```
-
-## 📈 Roadmap & Geplante Features
-
-### 🚧 **In Entwicklung / Geplant:**
-- [ ] **🔳 QR-Code Generation** - Automatische QR-Code-Erstellung für URLs und Text
-- [ ] **📦 Batch-Druck von Bildern** - Mehrere Bilder in einem Vorgang drucken
-- [ ] **📋 Template-System für Labels** - Vordefinierte Label-Layouts und Vorlagen
-- [ ] **🔌 REST API für externe Integration** - Vollständige API für Drittanbieter-Software
-- [ ] **🖨️ Multi-Drucker-Support** - Verwaltung mehrerer Phomemo-Drucker gleichzeitig
-- [ ] **💾 Job-Persistenz** - Druckjobs überleben Server-Neustarts
-- [ ] ** Print Queue ** - Wenn gedruckt wird wenn der Drucker aus/nicht errreichbar ist werde die Drucke nach neu verbinden gesendet
-- [ ] **🎨 Erweiterte Bildfilter** - Zusätzliche Bildbearbeitungsoptionen
-- [ ] **📊 Export-Funktionen** - Statistiken und Logs exportieren
-- [ ] **🌐 Multi-Language Support** - Internationalisierung des Web-Interface
-- [ ] ** Homeassistant Integration** - Docker Container oder als Addon direkt Installieren
-- [ ] Log handling - Aufpassen das der Log nicht zu groß wird
-- [ ] 
-
-### 🎯 **Nächste Releases:**
-- **v1.1**: QR-Code Generation und Template-System
-- **v1.2**: Batch-Druck und erweiterte API
-- **v1.3**: Multi-Drucker-Support
-- **v2.0**: Vollständige Überarbeitung mit Plugin-System
-
-### 💡 **Feature-Requests**
-Haben Sie Ideen für neue Features? Erstellen Sie ein GitHub Issue oder kontaktieren Sie uns!
-
-## 📞 Support
-
-Bei Problemen:
-1. **Logs prüfen**: `tail -f phomemo_server.log`
-2. **Verbindung testen**: "🔧 Test Bluetooth" im Web-Interface
-3. **Health Check**: `curl http://localhost:8080/health`
-4. **GitHub Issues**: Melden Sie Bugs mit detailliertem Log-Output
-
-## 📈 Technische Details
-
-### Bildverarbeitung
-- **DPI**: 203 (Label-Standard)
-- **Label-Größe**: 40×30mm = 320×240 Pixel
-- **Drucker-Breite**: 384 Pixel (48 Bytes pro Zeile)
-- **Dithering**: Floyd-Steinberg Algorithmus
-- **Formate**: PIL-kompatible Bildformate
-
-### Offset-Berechnung
-- **1mm** ≈ **8 Pixel** bei 203 DPI
-- **X-Offset**: Verschiebt nach rechts (0-100px = 0-12.5mm)
-- **Y-Offset**: Verschiebt vertikal (-50 bis +50px = -6.25 bis +6.25mm)
+MIT
