@@ -30,6 +30,14 @@ INTER_CHUNK_SLEEP_MS = 2
 # BLOCK_WRITE_RETRIES: how many attempts to try writing a block before failing.
 BLOCK_WRITE_RETRIES = 2
 
+# Adaptive line timing for image printing
+# Sends each 48-byte line individually with a delay proportional to bit density,
+# preventing Bluetooth buffer overrun on complex (dark) lines.
+ADAPTIVE_LINE_TIMING = True
+ADAPTIVE_LINE_BASE_DELAY_MS = 2    # Base delay per line (ms)
+ADAPTIVE_LINE_MAX_EXTRA_MS = 15    # Max extra delay at 100% black (ms)
+ADAPTIVE_LINE_DENSITY_THRESHOLD = 0.30  # Density above which extra delay kicks in
+
 # DEFAULT_BLOCK_DELAY_MS: additional delay (ms) to wait after each block is
 # written. The adaptive speed controller may override this via timing_multiplier.
 DEFAULT_BLOCK_DELAY_MS = 0

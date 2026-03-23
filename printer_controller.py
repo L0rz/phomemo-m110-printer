@@ -1269,160 +1269,177 @@ class EnhancedPhomemoM110:
     
     def send_bitmap(self, image_data: bytes, height: int) -> bool:
         """
-        ADAPTIVE SPEED Bitmap-Übertragung basierend auf Datenkomplexität
-        LÖSUNG: Automatische Geschwindigkeitsanpassung verhindert Bluetooth-Timing-Probleme
+        Adaptive line-by-line Bitmap-Uebertragung.
+        Sendet jede 48-Byte-Zeile einzeln mit adaptiver Pause basierend auf
+        Bit-Dichte, um Bluetooth Buffer Overrun bei komplexen Zeilen zu verhindern.
         """
         try:
             width_bytes = self.bytes_per_line  # Immer 48 Bytes
-            
-            logger.info(f"📤 ADAPTIVE BITMAP TRANSMISSION: {len(image_data)} bytes, {height} lines")
-            
-            # Validierung: Daten müssen exakt height * 48 Bytes sein
+
+            logger.info(f"ADAPTIVE BITMAP TRANSMISSION: {len(image_data)} bytes, {height} lines")
+
+            # Validierung
             expected_size = height * width_bytes
             if len(image_data) != expected_size:
-                logger.error(f"❌ DATA SIZE ERROR: Got {len(image_data)}, expected {expected_size}")
+                logger.error(f"DATA SIZE ERROR: Got {len(image_data)}, expected {expected_size}")
                 return False
-            
-            # ========== ADAPTIVE SPEED ANALYSIS ==========
+
+            # Adaptive Speed Analysis (for init/header/post delays)
             speed, timing_config = self.analyze_and_determine_speed(image_data)
-            logger.info(f"🚀 Using {timing_config['description']}")
-            
-            # Anti-Drift: Mindestabstand zwischen Druckvorgängen
+            logger.info(f"Using {timing_config['description']}")
+
+            # Anti-Drift: Mindestabstand zwischen Druckvorgaengen
             if hasattr(self, 'last_print_time'):
                 time_since_last = time.time() - self.last_print_time
-                min_delay = max(0.15, timing_config['post_delay'] * 2)  # Mindestens 150ms oder 2x post_delay
+                min_delay = max(0.15, timing_config['post_delay'] * 2)
                 if time_since_last < min_delay:
                     time.sleep(min_delay - time_since_last)
-            
-            # 1. Drucker initialisieren (adaptive Geschwindigkeit)
-            logger.info("🔄 Step 1: Initialize printer")
+
+            # 1. Drucker initialisieren
+            logger.info("Step 1: Initialize printer")
             if not self.send_command(b'\x1b\x40'):  # ESC @ - Reset
-                logger.error("❌ Failed to initialize printer")
+                logger.error("Failed to initialize printer")
                 return False
-            time.sleep(timing_config['init_delay'])  # Adaptive Init-Delay
-            
-            # 2. Raster-Bitmap-Header senden (adaptive Geschwindigkeit)
-            logger.info("🔄 Step 2: Send bitmap header")
+            time.sleep(timing_config['init_delay'])
+
+            # 2. Raster-Bitmap-Header senden
+            logger.info("Step 2: Send bitmap header")
             m = 0  # Normal mode
             header = bytes([
-                0x1D, 0x76, 0x30, m,                    # GS v 0 - Print raster bitmap
-                width_bytes & 0xFF, (width_bytes >> 8) & 0xFF,  # Width in bytes (48)
-                height & 0xFF, (height >> 8) & 0xFF             # Height in lines
+                0x1D, 0x76, 0x30, m,
+                width_bytes & 0xFF, (width_bytes >> 8) & 0xFF,
+                height & 0xFF, (height >> 8) & 0xFF
             ])
-            
+
             if not self.send_command(header):
-                logger.error("❌ Failed to send bitmap header")
+                logger.error("Failed to send bitmap header")
                 return False
-            time.sleep(timing_config['header_delay'])  # Adaptive Header-Delay
-            
-            # 3. ADAPTIVE BILDÜBERTRAGUNG
-            logger.info(f"🔄 Step 3: Adaptive image transmission ({speed.value})")
-            
-            # Für sehr kleine/einfache Bilder: Direkt senden
-            if len(image_data) <= 1024 and speed in [TransmissionSpeed.ULTRA_FAST, TransmissionSpeed.FAST]:
-                logger.info("📦 DIRECT TRANSFER: Sending complete simple image at once")
-                success = self.send_command(image_data)
-                if not success:
-                    logger.error("❌ Direct transfer failed")
-                    return False
+            time.sleep(timing_config['header_delay'])
+
+            # 3. Adaptive line-by-line image transmission
+            logger.info(f"Step 3: Image transmission ({speed.value})")
+
+            use_line_timing = ADAPTIVE_LINE_TIMING
+            base_delay_s = ADAPTIVE_LINE_BASE_DELAY_MS / 1000.0
+            max_extra_s = ADAPTIVE_LINE_MAX_EXTRA_MS / 1000.0
+            density_threshold = ADAPTIVE_LINE_DENSITY_THRESHOLD
+            total_bits_per_line = width_bytes * 8
+
+            success = True
+
+            if use_line_timing:
+                logger.info(f"ADAPTIVE LINE-BY-LINE TRANSFER: {height} lines, "
+                            f"base_delay={ADAPTIVE_LINE_BASE_DELAY_MS}ms, "
+                            f"max_extra={ADAPTIVE_LINE_MAX_EXTRA_MS}ms, "
+                            f"threshold={density_threshold}")
+
+                complex_lines = 0
+                with self._comm_lock:
+                    try:
+                        with open(self.rfcomm_device, 'wb') as printer_fd:
+                            for line_idx in range(height):
+                                offset = line_idx * width_bytes
+                                line = image_data[offset:offset + width_bytes]
+
+                                # Write the 48-byte line
+                                written = 0
+                                total = len(line)
+                                try_count = 0
+                                ok = False
+                                while try_count < int(BLOCK_WRITE_RETRIES) and not ok:
+                                    try:
+                                        while written < total:
+                                            n = printer_fd.write(line[written:])
+                                            if n is None:
+                                                n = total - written
+                                            written += n
+                                        printer_fd.flush()
+                                        ok = True
+                                    except Exception as e:
+                                        logger.warning(f"Write error on line {line_idx}: {e}")
+                                        try_count += 1
+                                        written = 0
+                                        time.sleep(0.02)
+
+                                if not ok:
+                                    logger.error(f"Line {line_idx} failed after retries")
+                                    success = False
+                                    break
+
+                                # Adaptive delay based on line bit density
+                                bits_set = bin(int.from_bytes(line, 'big')).count('1')
+                                bit_density = bits_set / total_bits_per_line
+
+                                if bit_density > density_threshold:
+                                    extra_delay = bit_density * max_extra_s
+                                    complex_lines += 1
+                                else:
+                                    extra_delay = 0.0
+
+                                time.sleep(base_delay_s + extra_delay)
+
+                                if line_idx > 0 and line_idx % 50 == 0:
+                                    logger.debug(f"Line {line_idx}/{height} sent")
+
+                        logger.info(f"Line transfer done: {height} lines, {complex_lines} complex "
+                                    f"(>{density_threshold*100:.0f}% density)")
+                    except Exception as e:
+                        logger.error(f"Error opening/writing device: {e}")
+                        success = False
             else:
-                # Adaptive Block-Übertragung
-                logger.info("📦 ADAPTIVE BLOCK TRANSFER")
-                
-                # Block-Größe basierend auf Geschwindigkeit anpassen
-                if speed == TransmissionSpeed.ULTRA_FAST:
-                    BLOCK_SIZE = 2400  # 50 Zeilen (2400 bytes)
-                elif speed == TransmissionSpeed.FAST:
-                    BLOCK_SIZE = 1440  # 30 Zeilen (1440 bytes)
-                elif speed == TransmissionSpeed.NORMAL:
-                    BLOCK_SIZE = 960   # 20 Zeilen (960 bytes)
-                elif speed == TransmissionSpeed.SLOW:
-                    BLOCK_SIZE = 480   # 10 Zeilen (480 bytes)
-                else:  # ULTRA_SLOW
-                    BLOCK_SIZE = 240   # 5 Zeilen (240 bytes)
-                
-                # Stelle sicher, dass Blockgröße ein Vielfaches von 48 ist
+                # Fallback: old block transfer
+                logger.info("BLOCK TRANSFER (adaptive line timing disabled)")
+                BLOCK_SIZE = 480
                 lines_per_block = BLOCK_SIZE // width_bytes
                 actual_block_size = lines_per_block * width_bytes
-                
-                logger.info(f"📦 Block size: {actual_block_size} bytes ({lines_per_block} lines)")
-                
-                success = True
-                total_blocks = (len(image_data) + actual_block_size - 1) // actual_block_size
-                
-                # Open device once and write all blocks under comm lock to avoid partial writes/races
+
                 with self._comm_lock:
                     try:
                         with open(self.rfcomm_device, 'wb') as printer_fd:
                             for i in range(0, len(image_data), actual_block_size):
                                 block_num = i // actual_block_size + 1
                                 block = image_data[i:i + actual_block_size]
-
-                                logger.debug(f"📦 Sending block {block_num}/{total_blocks}: {len(block)} bytes")
-
-                                # robust write for this block
                                 written = 0
                                 total = len(block)
-                                try_count = 0
-                                ok = False
-                                # configurable retries and chunk pacing
-                                MAX_RETRIES = int(BLOCK_WRITE_RETRIES)
                                 CHUNK_SIZE = int(CHUNK_SIZE_BYTES)
                                 INTER_CHUNK_SLEEP = float(INTER_CHUNK_SLEEP_MS) / 1000.0
-                                while try_count < MAX_RETRIES and not ok:
-                                    try:
-                                        while written < total:
-                                            chunk = block[written:written+CHUNK_SIZE]
-                                            n = printer_fd.write(chunk)
-                                            if n is None:
-                                                n = len(chunk)
-                                            written += n
-                                            printer_fd.flush()
-                                            # small sleep between HCI-sized chunks
-                                            if INTER_CHUNK_SLEEP > 0:
-                                                time.sleep(INTER_CHUNK_SLEEP)
-                                        ok = True
-                                    except Exception as e:
-                                        logger.warning(f"⚠️ Write error on block {block_num}: {e}")
-                                        try_count += 1
-                                        written = 0
-                                        # Back off before retrying (respect adaptive block_delay + optional default)
-                                        backoff = timing_config.get('block_delay', 0.02) * 2 + (DEFAULT_BLOCK_DELAY_MS / 1000.0)
-                                        time.sleep(backoff)
-
-                                # Log successful write details
-                                if ok:
-                                    logger.info(f"✅ Block {block_num} written: {written}/{total} bytes (tries={try_count+1})")
-
-                                if not ok:
-                                    logger.error(f"❌ Block {block_num} failed after retry")
+                                try:
+                                    while written < total:
+                                        chunk = block[written:written+CHUNK_SIZE]
+                                        n = printer_fd.write(chunk)
+                                        if n is None:
+                                            n = len(chunk)
+                                        written += n
+                                        printer_fd.flush()
+                                        if INTER_CHUNK_SLEEP > 0:
+                                            time.sleep(INTER_CHUNK_SLEEP)
+                                except Exception as e:
+                                    logger.error(f"Block {block_num} write error: {e}")
                                     success = False
                                     break
-
-                                # Adaptive Pause zwischen Blöcken
-                                if i + actual_block_size < len(image_data):  # Nicht nach dem letzten Block
+                                if i + actual_block_size < len(image_data):
                                     time.sleep(timing_config['block_delay'])
                     except Exception as e:
-                        logger.error(f"❌ Error opening/writing device: {e}")
+                        logger.error(f"Error opening/writing device: {e}")
                         success = False
-            
+
             # 4. Adaptive Abschluss
-            time.sleep(timing_config['post_delay'])  # Adaptive Post-Processing
+            time.sleep(timing_config['post_delay'])
             self.last_print_time = time.time()
-            
+
             if success:
-                logger.info(f"✅ ADAPTIVE BITMAP SENT SUCCESSFULLY using {speed.value}")
+                logger.info(f"ADAPTIVE BITMAP SENT SUCCESSFULLY using {speed.value}")
             else:
-                logger.error("❌ ADAPTIVE BITMAP TRANSMISSION FAILED")
-            
+                logger.error("ADAPTIVE BITMAP TRANSMISSION FAILED")
+
             return success
-            
+
         except Exception as e:
-            logger.error(f"❌ Adaptive bitmap transmission error: {e}")
+            logger.error(f"Adaptive bitmap transmission error: {e}")
             import traceback
-            logger.error(f"❌ Full traceback: {traceback.format_exc()}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return False
-    
+
     def create_text_image_with_offsets(self, text, font_size, alignment='center'):
         """Erstellt Text-Bild mit Offsets und Ausrichtung - MIT MARKDOWN SUPPORT"""
         try:
