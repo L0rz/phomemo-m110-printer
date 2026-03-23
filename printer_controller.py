@@ -1993,6 +1993,7 @@ class EnhancedPhomemoM110:
     def _print_image_direct(self, img: Image.Image) -> bool:
         """Druckt ein PIL Image direkt (ohne Queue)"""
         try:
+            # image_to_printer_format handles the 384px resize, just pass through
             logger.info(f"🔄 Converting image to printer format...")
             image_data = self.image_to_printer_format(img)
             if image_data:

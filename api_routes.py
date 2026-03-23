@@ -16,6 +16,21 @@ from werkzeug.utils import secure_filename
 from config import SUPPORTED_IMAGE_FORMATS, MAX_UPLOAD_SIZE
 from io import BytesIO
 from PIL import Image, UnidentifiedImageError
+# ---- Watcher MQTT Notification ----
+def notify_watcher(title, body, icon='ok', priority=1):
+    try:
+        import paho.mqtt.publish as pub
+        pub.single(
+            'openclaw/companion/notify',
+            f'{"title":"{title}","body":"{body}","icon":"{icon}","priority":{priority}}',
+            hostname='192.168.130.3',
+            auth={'username': 'mqtt', 'password': 'cw&LR8d8'},
+            keepalive=5
+        )
+    except Exception as e:
+        logger.warning(f'Watcher notify failed: {e}')
+
+
 
 # ---- Helpers: Upload holen & Bildformat aus Bytes erkennen ----
 def _get_uploaded_file() -> "FileStorage|None":
@@ -269,6 +284,8 @@ def setup_api_routes(app, printer):
             
             if immediate:
                 result = printer.print_text_immediate(text, font_size, alignment)
+                if result.get("success"):
+                    notify_watcher("Drucker", "Druck fertig ✓", "ok", 1)
                 return jsonify(result)
             else:
                 job_id = printer.queue_print_job('text', {
@@ -276,6 +293,7 @@ def setup_api_routes(app, printer):
                     'font_size': font_size,
                     'alignment': alignment
                 })
+                notify_watcher('Drucker', 'Druckauftrag gesendet', 'ok', 1)
                 return jsonify({'success': True, 'job_id': job_id})
         except Exception as e:
             logger.error(f"Print text error: {e}", exc_info=True)

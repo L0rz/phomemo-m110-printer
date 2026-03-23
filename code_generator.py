@@ -28,7 +28,7 @@ class CodeGenerator:
         self.label_height_px = label_height_px
         
         # KOMPAKTE Standard-Größen für mehr Text-Platz
-        self.qr_default_size = min(70, label_width_px // 6)  # Dynamisch basierend auf Label-Breite
+        self.qr_default_size = min(self.label_width_px - 20, self.label_height_px - 20)  # fit within visible label area  # Dynamisch basierend auf Label-Breite
         self.qr_border = 2
         self.barcode_height = min(30, label_height_px // 8)  # Dynamisch basierend auf Label-Höhe
         self.barcode_width_factor = 2
@@ -41,7 +41,7 @@ class CodeGenerator:
         self.label_height_px = height_px
         
         # Standard-Größen anpassen
-        self.qr_default_size = min(70, width_px // 6)
+        self.qr_default_size = min(width_px - 20, self.label_height_px - 20)
         self.barcode_height = min(30, height_px // 8)
         
         logger.info(f"📏 CodeGenerator dimensions updated: {width_px}x{height_px}px")
@@ -58,7 +58,7 @@ class CodeGenerator:
         for i, match in enumerate(qr_matches):
             size = int(match.group(1)) if match.group(1) else self.qr_default_size
             # Größe basierend auf Label-Dimensionen begrenzen
-            max_qr_size = min(self.label_width_px // 4, self.label_height_px // 4)
+            max_qr_size = self.label_height_px - 10  # limited by label height (width gets compensated)
             size = min(size, max_qr_size)
             content = match.group(2).strip()
             
@@ -104,7 +104,7 @@ class CodeGenerator:
                 size = self.qr_default_size
             
             # Dynamische Größenbegrenzung basierend auf Label
-            max_size = min(self.label_width_px // 4, self.label_height_px // 4)
+            max_size = min(self.label_width_px - 10, self.label_height_px - 10)
             size = min(size, max_size)
             
             qr = qrcode.QRCode(
@@ -118,9 +118,22 @@ class CodeGenerator:
             qr.make(fit=True)
             
             qr_img = qr.make_image(fill_color="black", back_color="white")
-            qr_img = qr_img.resize((size, size), Image.Resampling.LANCZOS)
+            # Aspect correction: printer hardware is always 384px wide = 30mm
+            # h_res = 384/30 = 12.8 px/mm  (horizontal - fixed)
+            # v_res = label_height_px/40 px/mm (vertical)
+            # A square QR (size x size px) prints as:
+            #   width_mm  = size / 12.8
+            #   height_mm = size / v_res
+            # To get square on paper: height_px = size * (v_res / h_res)
+            # 203 DPI both ways -> pixels are square, no aspect correction needed
+            # Just resize to target size (square)
+            # Pre-compensate for 320->384px horizontal stretch in image_to_printer_format
+            # Stretch factor = 384 / label_width_px. Make QR narrower so it's square after stretch.
+            stretch_factor = 384.0 / self.label_width_px  # e.g. 384/320 = 1.2
+            compensated_width = max(1, int(size / stretch_factor))
+            qr_img = qr_img.resize((compensated_width, size), Image.Resampling.LANCZOS)
             
-            logger.info(f"📱 Generated QR for {self.label_width_px}x{self.label_height_px} label: {size}x{size}px")
+            logger.info(f"📱 Generated QR {compensated_width}x{size}px (compensated for {stretch_factor:.2f}x stretch)")
             return qr_img
             
         except Exception as e:
@@ -290,7 +303,9 @@ class CodeGenerator:
             logger.info(f"📄 Parsed into {len(parsed_lines)} lines")
             
             # Bild erstellen
-            img = Image.new('1', (self.label_width_px, self.label_height_px), 'white')
+            # Printer always prints 384px wide (hardware fixed). Height = label_height_px.
+            # Use label_width for canvas - printer_controller handles resize to 384
+            img = Image.new("1", (self.label_width_px, self.label_height_px), "white")
             draw = ImageDraw.Draw(img)
             
             # Font-System

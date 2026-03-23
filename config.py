@@ -63,6 +63,13 @@ LABEL_DPI = 203        # Dots per inch
 
 # Verfügbare Label-Größen
 LABEL_SIZES = {
+    '30x40': {
+        'name': '30x40mm (Hochformat)',
+        'description': '30mm breit x 40mm hoch',
+        'width_px': int((30 / 25.4) * LABEL_DPI),   # ~240px
+        'height_px': int((40 / 25.4) * LABEL_DPI),  # ~320px
+        'bytes_per_line': 48,
+    },
     '40x30': {
         'name': '40x30mm (Standard)',
         'width_mm': 40,

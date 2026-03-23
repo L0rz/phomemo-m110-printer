@@ -6,3 +6,5 @@ phomemo_env/
 phomemo_server.log
 printer_settings.json
 *.bin
+printer_controller.py.bak
+protocol.py
