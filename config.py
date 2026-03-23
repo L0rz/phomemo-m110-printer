@@ -102,14 +102,6 @@ LABEL_SIZES = {
         'height_px': int((80 / 25.4) * LABEL_DPI),  # ~640px
         'description': 'Großes hohes Label für viel Text'
     },
-    '80x50': {
-        'name': '80x50mm (Extra Breit)',
-        'width_mm': 80,
-        'height_mm': 50,
-        'width_px': int((80 / 25.4) * LABEL_DPI),   # ~640px (wird auf 384px begrenzt)
-        'height_px': int((50 / 25.4) * LABEL_DPI),  # ~400px
-        'description': 'Extra breites Label'
-    },
     '50x25': {
         'name': '50x25mm (Breit/Flach)',
         'width_mm': 50,

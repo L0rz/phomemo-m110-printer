@@ -228,6 +228,19 @@ WEB_INTERFACE = '''
                     <input type="number" id="yOffset" value="0" min="-50" max="50" step="1" style="width:80px">
                 </div>
                 <div class="setting-row">
+                    <label>🏷️ Label-Größe</label>
+                    <select id="labelSize" style="width:180px" onchange="labelSizeChanged()">
+                        <option value="40x30">40×30mm (Standard)</option>
+                        <option value="30x40">30×40mm (Hochformat)</option>
+                        <option value="50x30">50×30mm (Breit)</option>
+                        <option value="30x50">30×50mm (Schmal/Hoch)</option>
+                        <option value="50x80">50×80mm (Groß)</option>
+                        <option value="50x25">50×25mm (Flach)</option>
+                        <option value="25x25">25×25mm (Quadrat)</option>
+                    </select>
+                    <span id="labelInfo" style="font-size:11px;color:var(--text2);margin-left:8px"></span>
+                </div>
+                <div class="setting-row">
                     <label>Dither Threshold</label>
                     <input type="range" id="ditherThreshold" value="128" min="0" max="255" step="1" oninput="this.nextElementSibling.textContent=this.value">
                     <span style="font-weight:600;min-width:30px">128</span>
@@ -366,11 +379,26 @@ function updateSettingsFromData(s) {
         el.nextElementSibling.textContent = s.contrast_boost;
     }
     if (s.dither_enabled !== undefined) document.getElementById('enableDitherGlobal').checked = s.dither_enabled;
+    if (s.label_size !== undefined) {
+        document.getElementById('labelSize').value = s.label_size;
+        labelSizeChanged();
+    }
 }
+function labelSizeChanged() {
+    const sizes = {
+        '40x30': '320×240px', '30x40': '240×320px', '50x30': '384×240px',
+        '30x50': '240×400px', '50x80': '384×640px',
+        '50x25': '384×200px', '25x25': '200×200px'
+    };
+    const sel = document.getElementById('labelSize').value;
+    document.getElementById('labelInfo').textContent = sizes[sel] || '';
+}
+
 function saveSettings() {
     const s = {
         x_offset: parseInt(document.getElementById('xOffset').value),
         y_offset: parseInt(document.getElementById('yOffset').value),
+        label_size: document.getElementById('labelSize').value,
         dither_threshold: parseInt(document.getElementById('ditherThreshold').value),
         dither_enabled: document.getElementById('enableDitherGlobal').checked,
         dither_strength: parseFloat(document.getElementById('ditherStrength').value),
