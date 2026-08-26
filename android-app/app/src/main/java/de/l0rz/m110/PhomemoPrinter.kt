@@ -2,6 +2,7 @@ package de.l0rz.m110
 
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -27,16 +28,16 @@ object PhomemoPrinter {
     private const val DPI = 203         // Kopf-Auflösung wie Pi-Dienst
 
     /** Label-Format. Der Thermokopf ist fix 384 dot (~48 mm) breit; die Größe steuert v.a. die Höhe. */
-    data class LabelSize(val name: String, val widthMm: Int, val heightMm: Int) {
+    data class LabelSize(val nameRes: Int, val widthMm: Int, val heightMm: Int) {
         fun heightPx(): Int = (heightMm / 25.4 * DPI).toInt()
     }
 
     val LABEL_SIZES = listOf(
-        LabelSize("40 × 30 mm (Standard)", 40, 30),
-        LabelSize("50 × 30 mm", 50, 30),
-        LabelSize("30 × 50 mm (hoch)", 30, 50),
-        LabelSize("50 × 25 mm", 50, 25),
-        LabelSize("25 × 25 mm", 25, 25),
+        LabelSize(R.string.label_40x30, 40, 30),
+        LabelSize(R.string.label_50x30, 50, 30),
+        LabelSize(R.string.label_30x50, 30, 50),
+        LabelSize(R.string.label_50x25, 50, 25),
+        LabelSize(R.string.label_25x25, 25, 25),
     )
 
     /** Aktuell gewähltes Label — bestimmt die feste Render-Höhe aller Label. */
@@ -102,7 +103,7 @@ object PhomemoPrinter {
 
     /** Sendet ein bereits gepacktes 1-Bit-Bitmap (48*height Bytes). */
     private fun sendBitmap(data: ByteArray, height: Int) {
-        val o = out ?: throw IllegalStateException("Nicht verbunden")
+        val o = out ?: throw IllegalStateException("not connected")
         // 1) Reset
         o.write(byteArrayOf(0x1B, 0x40))
         o.flush()
@@ -326,7 +327,7 @@ object PhomemoPrinter {
     // ---------------------------------------------------------------- Test
 
     /** Test-Label: Rahmen + Text. */
-    fun renderTestLabel(): Bitmap {
+    fun renderTestLabel(context: Context): Bitmap {
         val h = labelHeightPx
         val bmp = Bitmap.createBitmap(WIDTH_PX, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
@@ -334,9 +335,9 @@ object PhomemoPrinter {
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; style = Paint.Style.STROKE; strokeWidth = 4f }
         c.drawRect(8f, 8f, WIDTH_PX - 8f, h - 8f, p)
         val tp = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK; textAlign = Paint.Align.CENTER; textSize = 44f; isFakeBoldText = true }
-        c.drawText("M110 OK", WIDTH_PX / 2f, h / 2f - 10f, tp)
+        c.drawText(context.getString(R.string.test_label_title), WIDTH_PX / 2f, h / 2f - 10f, tp)
         tp.textSize = 28f
-        c.drawText("Jarvis Testdruck", WIDTH_PX / 2f, h / 2f + 40f, tp)
+        c.drawText(context.getString(R.string.test_label_subtitle), WIDTH_PX / 2f, h / 2f + 40f, tp)
         return bmp
     }
 }

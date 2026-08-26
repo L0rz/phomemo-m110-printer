@@ -9,13 +9,15 @@ import signal
 import logging
 import os
 import time
-from flask import Flask, render_template_string
+import json
+from flask import Flask, render_template_string, request
 
 # Module importieren
 from printer_controller import EnhancedPhomemoM110
 from api_routes import setup_api_routes
 from web_template import WEB_INTERFACE
 from config import *
+from translations import get_translations
 
 # Logging konfigurieren
 from logging.handlers import RotatingFileHandler
@@ -42,7 +44,11 @@ setup_api_routes(app, printer)
 # Web Interface Route
 @app.route('/')
 def index():
-    return render_template_string(WEB_INTERFACE)
+    lang = request.args.get('lang', 'de')
+    if lang not in ('de', 'en'):
+        lang = 'de'
+    translations = get_translations(lang)
+    return render_template_string(WEB_INTERFACE, translations_json=json.dumps(translations))
 
 # Static Files Error Handler
 @app.errorhandler(413)

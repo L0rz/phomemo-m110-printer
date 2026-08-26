@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -21,7 +22,7 @@
                 android:text="@string/app_name" android:textSize="22sp" android:textStyle="bold" />
             <TextView android:id="@+id/statusChip"
                 android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="🔴 Nicht verbunden"
+                android:text="@string/status_not_connected"
                 android:textStyle="bold" android:textSize="13sp"
                 android:background="@drawable/chip_bg"
                 android:paddingHorizontal="14dp" android:paddingVertical="8dp"
@@ -35,55 +36,60 @@
             android:background="#11888888" android:padding="12dp">
 
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Verbindung" android:textStyle="bold" />
+                android:text="@string/language" android:textStyle="bold" />
+            <Spinner android:id="@+id/languageSpinner"
+                android:layout_width="match_parent" android:layout_height="wrap_content" />
+
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp" android:text="Label-Format:" android:textSize="13sp" />
+                android:layout_marginTop="10dp" android:text="@string/connection" android:textStyle="bold" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="6dp" android:text="@string/label_format" android:textSize="13sp" />
             <Spinner android:id="@+id/labelSpinner"
                 android:layout_width="match_parent" android:layout_height="wrap_content" />
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="8dp" android:text="Drucker (gekoppeltes BT-Gerät):" android:textSize="13sp" />
+                android:layout_marginTop="8dp" android:text="@string/device" android:textSize="13sp" />
             <Spinner android:id="@+id/deviceSpinner"
                 android:layout_width="match_parent" android:layout_height="wrap_content" />
             <Button android:id="@+id/btnConnect"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp" android:text="Verbinden" />
+                android:layout_marginTop="6dp" android:text="@string/connect" />
             <Button android:id="@+id/btnTest"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Test-Label → Vorschau" style="?android:attr/buttonBarButtonStyle" />
+                android:text="@string/test_label" style="?android:attr/buttonBarButtonStyle" />
 
             <!-- Ausrichtung -->
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="10dp" android:text="Ausrichtung" android:textStyle="bold" />
+                android:layout_marginTop="10dp" android:text="@string/alignment" android:textStyle="bold" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:gravity="center_vertical">
-                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Drehung:" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/rotation" />
                 <Spinner android:id="@+id/rotateSpinner"
                     android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
                     android:layout_marginStart="8dp" />
                 <Button android:id="@+id/btnCenterReset"
                     android:layout_width="wrap_content" android:layout_height="wrap_content"
-                    android:text="Reset" android:minWidth="0dp" android:paddingHorizontal="12dp" />
+                    android:text="@string/reset" android:minWidth="0dp" android:paddingHorizontal="12dp" />
             </LinearLayout>
             <TextView android:id="@+id/offXLabel" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:text="Versatz ⟷ horizontal: 0 dot" android:textSize="12sp" />
+                android:layout_height="wrap_content" android:text="@string/offset_x" android:textSize="12sp" />
             <SeekBar android:id="@+id/offXSeek"
                 android:layout_width="match_parent" android:layout_height="wrap_content" android:max="160" android:progress="80" />
             <TextView android:id="@+id/offYLabel" android:layout_width="match_parent"
-                android:layout_height="wrap_content" android:text="Versatz ↕ vertikal: 0 dot" android:textSize="12sp" />
+                android:layout_height="wrap_content" android:text="@string/offset_y" android:textSize="12sp" />
             <SeekBar android:id="@+id/offYSeek"
                 android:layout_width="match_parent" android:layout_height="wrap_content" android:max="160" android:progress="80" />
 
             <!-- KI-Key (einmalig) -->
             <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="10dp" android:text="KI (OpenAI)" android:textStyle="bold" />
+                android:layout_marginTop="10dp" android:text="@string/ai" android:textStyle="bold" />
             <EditText android:id="@+id/aiKeyInput"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:hint="OpenAI API-Key (einmalig eingeben)" android:inputType="textPassword" />
+                android:hint="@string/ai_key_hint" android:inputType="textPassword" />
         </LinearLayout>
 
         <!-- ===== Druckvorschau ===== -->
         <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="14dp" android:text="Druckvorschau" android:textStyle="bold" />
+            android:layout_marginTop="14dp" android:text="@string/preview" android:textStyle="bold" />
         <ImageView android:id="@+id/imagePreview"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="6dp" android:adjustViewBounds="true"
@@ -91,22 +97,21 @@
             android:background="#11888888" />
         <Button android:id="@+id/btnPrint"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" android:text="🖨  DRUCKEN" android:textStyle="bold" android:textSize="17sp" />
+            android:layout_marginTop="8dp" android:text="@string/print" android:textStyle="bold" android:textSize="17sp" />
         <TextView android:id="@+id/status"
             android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:layout_marginTop="6dp" android:text="Inhalt unten wählen → Vorschau → Drucken" android:textSize="13sp" />
+            android:layout_marginTop="6dp" android:text="@string/status_initial" android:textSize="13sp" />
 
         <!-- ===== Tabs ===== -->
         <com.google.android.material.tabs.TabLayout android:id="@+id/tabLayout"
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
-            app:tabMode="scrollable"
-            xmlns:app="http://schemas.android.com/apk/res-auto">
-            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Text" />
-            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Bild" />
-            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="QR / Barcode" />
-            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="KI" />
-            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Galerie" />
+            app:tabMode="scrollable">
+            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_text" />
+            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_image" />
+            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_code" />
+            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_ai" />
+            <com.google.android.material.tabs.TabItem android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/tab_gallery" />
         </com.google.android.material.tabs.TabLayout>
 
         <!-- Tab-Inhalte -->
@@ -115,7 +120,7 @@
             android:orientation="vertical" android:paddingTop="10dp">
             <EditText android:id="@+id/textInput"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:hint="Text fürs Label…" android:inputType="textMultiLine" android:minLines="1" />
+                android:hint="@string/text_hint" android:inputType="textMultiLine" android:minLines="1" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:layout_marginTop="4dp">
                 <Spinner android:id="@+id/textSizeSpinner" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" />
@@ -123,7 +128,7 @@
             </LinearLayout>
             <Button android:id="@+id/btnBuildText"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="6dp" android:text="Text → Vorschau" />
+                android:layout_marginTop="6dp" android:text="@string/text_to_preview" />
         </LinearLayout>
 
         <LinearLayout android:id="@+id/panelImage"
@@ -131,10 +136,10 @@
             android:orientation="vertical" android:paddingTop="10dp" android:visibility="gone">
             <CheckBox android:id="@+id/chkDither"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:checked="true" android:text="Dithering (für Fotos/Graustufen)" />
+                android:checked="true" android:text="@string/dithering" />
             <Button android:id="@+id/btnPickImage"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Bild auswählen → Vorschau" />
+                android:text="@string/image_to_preview" />
         </LinearLayout>
 
         <LinearLayout android:id="@+id/panelCode"
@@ -142,11 +147,11 @@
             android:orientation="vertical" android:paddingTop="10dp" android:visibility="gone">
             <EditText android:id="@+id/codeInput"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:hint="Inhalt (URL, Text, Nummer…)" android:inputType="text" />
+                android:hint="@string/code_hint" android:inputType="text" />
             <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                 android:orientation="horizontal" android:layout_marginTop="4dp">
-                <Button android:id="@+id/btnBuildQr" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="QR → Vorschau" />
-                <Button android:id="@+id/btnBuildBarcode" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="Barcode → Vorschau" />
+                <Button android:id="@+id/btnBuildQr" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/qr_to_preview" />
+                <Button android:id="@+id/btnBuildBarcode" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content" android:text="@string/barcode_to_preview" />
             </LinearLayout>
         </LinearLayout>
 
@@ -155,10 +160,10 @@
             android:orientation="vertical" android:paddingTop="10dp" android:visibility="gone">
             <EditText android:id="@+id/aiPromptInput"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="4dp" android:hint="Was soll drauf? z.B. „Kaffeetasse“" android:inputType="text" />
+                android:layout_marginTop="4dp" android:hint="@string/ai_prompt_hint" android:inputType="text" />
             <Button android:id="@+id/btnAiGenerate"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:layout_marginTop="4dp" android:text="Generieren → Vorschau" />
+                android:layout_marginTop="4dp" android:text="@string/generate_to_preview" />
         </LinearLayout>
 
         <LinearLayout android:id="@+id/panelGallery"
@@ -166,7 +171,7 @@
             android:orientation="vertical" android:paddingTop="10dp" android:visibility="gone">
             <TextView android:id="@+id/galleryHint"
                 android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:text="Noch keine Labels — was du druckst, landet hier. Tippen = in Vorschau laden, langes Tippen = löschen."
+                android:text="@string/gallery_hint"
                 android:textSize="13sp" />
             <GridLayout android:id="@+id/gridGallery"
                 android:layout_width="match_parent" android:layout_height="wrap_content"

@@ -1,4 +1,121 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">M110 Label</string>
+
+    <!-- Status / Connection -->
+    <string name="status_not_connected">🔴 Nicht verbunden</string>
+    <string name="connected">verbunden</string>
+    <string name="connected_fmt">🟢 %1$s</string>
+    <string name="connecting">🟡 verbinde…</string>
+    <string name="connect_failed">🔴 fehlgeschlagen</string>
+    <string name="connect_error">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="connection">Verbindung</string>
+    <string name="label_format">Label-Format:</string>
+    <string name="device">Drucker (gekoppeltes BT-Gerät):</string>
+    <string name="connect">Verbinden</string>
+    <string name="test_label">Test-Label → Vorschau</string>
+    <string name="bt_no_permission">🔴 keine BT-Berechtigung</string>
+    <string name="bt_off">🔴 Bluetooth aus</string>
+    <string name="no_devices">— keine gekoppelten Geräte —</string>
+    <string name="pair_first">Erst M110 in den Android-BT-Einstellungen koppeln</string>
+
+    <!-- Alignment -->
+    <string name="alignment">Ausrichtung</string>
+    <string name="rotation">Drehung:</string>
+    <string name="reset">Reset</string>
+    <string name="offset_x">Versatz ⟷ horizontal: 0 dot</string>
+    <string name="offset_y">Versatz ↕ vertikal: 0 dot</string>
+    <string name="offset_x_fmt">Versatz ⟷ horizontal: %1$d dot</string>
+    <string name="offset_y_fmt">Versatz ↕ vertikal: %1$d dot</string>
+
+    <!-- AI -->
+    <string name="ai">KI (OpenAI)</string>
+    <string name="ai_key_hint">OpenAI API-Key (einmalig eingeben)</string>
+    <string name="ai_prompt_hint">Was soll drauf? z.B. „Kaffeetasse“</string>
+    <string name="need_api_key">OpenAI API-Key in den Einstellungen eintragen</string>
+    <string name="enter_prompt">Prompt eingeben</string>
+    <string name="generating_ai">🎨 Generiere Piktogramm… (~20 s)</string>
+    <string name="ai_error">❌ KI-Fehler: %1$s</string>
+    <string name="generate_to_preview">Generieren → Vorschau</string>
+
+    <!-- Preview / Print -->
+    <string name="preview">Druckvorschau</string>
+    <string name="print">🖨  DRUCKEN</string>
+    <string name="status_initial">Inhalt unten wählen → Vorschau → Drucken</string>
+    <string name="generating_preview">Erzeuge Vorschau…</string>
+    <string name="preview_ready">Vorschau bereit (%1$d×%2$d px) — DRUCKEN drücken</string>
+    <string name="preview_error">❌ Vorschau-Fehler: %1$s</string>
+    <string name="need_preview">Erst eine Vorschau erzeugen</string>
+    <string name="need_connect">Erst verbinden</string>
+    <string name="printing">Drucke…</string>
+    <string name="printed_saved">✅ Gedruckt (in Galerie gespeichert)</string>
+    <string name="printed_duplicate">✅ Gedruckt (schon in Galerie)</string>
+    <string name="print_error">❌ Druckfehler: %1$s</string>
+
+    <!-- Tabs -->
+    <string name="tab_text">Text</string>
+    <string name="tab_image">Bild</string>
+    <string name="tab_code">QR / Barcode</string>
+    <string name="tab_ai">KI</string>
+    <string name="tab_gallery">Galerie</string>
+
+    <!-- Text -->
+    <string name="text_hint">Text fürs Label…</string>
+    <string name="text_to_preview">Text → Vorschau</string>
+    <string name="enter_text">Bitte Text eingeben</string>
+
+    <!-- Image -->
+    <string name="dithering">Dithering (für Fotos/Graustufen)</string>
+    <string name="image_to_preview">Bild auswählen → Vorschau</string>
+    <string name="image_unreadable">Bild nicht lesbar</string>
+
+    <!-- Code -->
+    <string name="code_hint">Inhalt (URL, Text, Nummer…)</string>
+    <string name="qr_to_preview">QR → Vorschau</string>
+    <string name="barcode_to_preview">Barcode → Vorschau</string>
+    <string name="enter_content">Bitte Inhalt eingeben</string>
+
+    <!-- Gallery -->
+    <string name="gallery_hint">Noch keine Labels — was du druckst, landet hier. Tippen = in Vorschau laden, langes Tippen = löschen.</string>
+    <string name="gallery_loaded">Aus Galerie geladen — DRUCKEN drücken</string>
+    <string name="loaded_to_preview">In Vorschau geladen</string>
+    <string name="delete_label">Dieses Label aus der Galerie löschen?</string>
+    <string name="delete">Löschen</string>
+    <string name="cancel">Abbrechen</string>
+
+    <!-- Language -->
+    <string name="language">Sprache / Language</string>
+
+    <!-- Label sizes -->
+    <string name="label_40x30">40 × 30 mm (Standard)</string>
+    <string name="label_50x30">50 × 30 mm</string>
+    <string name="label_30x50">30 × 50 mm (hoch)</string>
+    <string name="label_50x25">50 × 25 mm</string>
+    <string name="label_25x25">25 × 25 mm</string>
+
+    <!-- Errors -->
+    <string name="error_fmt">Fehler: %1$s</string>
+    <string name="image_decode_error">Bild konnte nicht dekodiert werden</string>
+
+    <!-- AI prompt / printed test label -->
+    <string name="ai_image_prompt_fmt">Minimalistisches, schwarz-weißes Piktogramm/Icon: %1$s. Klare dicke Konturen, hoher Kontrast, keine Graustufen, keine Schatten, weißer Hintergrund, zentriert, für einen Thermodrucker.</string>
+    <string name="test_label_title">M110 OK</string>
+    <string name="test_label_subtitle">Jarvis Testdruck</string>
+
+    <!-- Spinner options -->
+    <string-array name="text_sizes">
+        <item>Auto</item>
+        <item>Klein</item>
+        <item>Mittel</item>
+        <item>Groß</item>
+    </string-array>
+    <string-array name="alignments">
+        <item>Zentriert</item>
+        <item>Links</item>
+        <item>Rechts</item>
+    </string-array>
+    <string-array name="languages">
+        <item>Deutsch</item>
+        <item>English</item>
+    </string-array>
 </resources>

@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">M110 Label</string>
+
+    <!-- Status / Connection -->
+    <string name="status_not_connected">🔴 Not connected</string>
+    <string name="connected">connected</string>
+    <string name="connected_fmt">🟢 %1$s</string>
+    <string name="connecting">🟡 connecting…</string>
+    <string name="connect_failed">🔴 failed</string>
+    <string name="connect_error">Connection failed: %1$s</string>
+    <string name="connection">Connection</string>
+    <string name="label_format">Label format:</string>
+    <string name="device">Printer (paired Bluetooth device):</string>
+    <string name="connect">Connect</string>
+    <string name="test_label">Test label → preview</string>
+    <string name="bt_no_permission">🔴 no BT permission</string>
+    <string name="bt_off">🔴 Bluetooth is off</string>
+    <string name="no_devices">— no paired devices —</string>
+    <string name="pair_first">Pair the M110 in Android Bluetooth settings first</string>
+
+    <!-- Alignment -->
+    <string name="alignment">Alignment</string>
+    <string name="rotation">Rotation:</string>
+    <string name="reset">Reset</string>
+    <string name="offset_x">Offset ⟷ horizontal: 0 dot</string>
+    <string name="offset_y">Offset ↕ vertical: 0 dot</string>
+    <string name="offset_x_fmt">Offset ⟷ horizontal: %1$d dot</string>
+    <string name="offset_y_fmt">Offset ↕ vertical: %1$d dot</string>
+
+    <!-- AI -->
+    <string name="ai">AI (OpenAI)</string>
+    <string name="ai_key_hint">OpenAI API key (enter once)</string>
+    <string name="ai_prompt_hint">What should it show? e.g. “coffee cup”</string>
+    <string name="need_api_key">Enter your OpenAI API key in settings</string>
+    <string name="enter_prompt">Enter a prompt</string>
+    <string name="generating_ai">🎨 Generating pictogram… (~20 s)</string>
+    <string name="ai_error">❌ AI error: %1$s</string>
+    <string name="generate_to_preview">Generate → preview</string>
+
+    <!-- Preview / Print -->
+    <string name="preview">Print preview</string>
+    <string name="print">🖨  PRINT</string>
+    <string name="status_initial">Choose content below → preview → print</string>
+    <string name="generating_preview">Generating preview…</string>
+    <string name="preview_ready">Preview ready (%1$d×%2$d px) — press PRINT</string>
+    <string name="preview_error">❌ Preview error: %1$s</string>
+    <string name="need_preview">Create a preview first</string>
+    <string name="need_connect">Connect first</string>
+    <string name="printing">Printing…</string>
+    <string name="printed_saved">✅ Printed (saved to gallery)</string>
+    <string name="printed_duplicate">✅ Printed (already in gallery)</string>
+    <string name="print_error">❌ Print error: %1$s</string>
+
+    <!-- Tabs -->
+    <string name="tab_text">Text</string>
+    <string name="tab_image">Image</string>
+    <string name="tab_code">QR / Barcode</string>
+    <string name="tab_ai">AI</string>
+    <string name="tab_gallery">Gallery</string>
+
+    <!-- Text -->
+    <string name="text_hint">Text for the label…</string>
+    <string name="text_to_preview">Text → preview</string>
+    <string name="enter_text">Please enter some text</string>
+
+    <!-- Image -->
+    <string name="dithering">Dithering (for photos/grayscale)</string>
+    <string name="image_to_preview">Choose image → preview</string>
+    <string name="image_unreadable">Image not readable</string>
+
+    <!-- Code -->
+    <string name="code_hint">Content (URL, text, number…)</string>
+    <string name="qr_to_preview">QR → preview</string>
+    <string name="barcode_to_preview">Barcode → preview</string>
+    <string name="enter_content">Please enter content</string>
+
+    <!-- Gallery -->
+    <string name="gallery_hint">No labels yet — everything you print lands here. Tap = load into preview, long-press = delete.</string>
+    <string name="gallery_loaded">Loaded from gallery — press PRINT</string>
+    <string name="loaded_to_preview">Loaded into preview</string>
+    <string name="delete_label">Delete this label from the gallery?</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- Language -->
+    <string name="language">Language / Sprache</string>
+
+    <!-- Label sizes -->
+    <string name="label_40x30">40 × 30 mm (Standard)</string>
+    <string name="label_50x30">50 × 30 mm</string>
+    <string name="label_30x50">30 × 50 mm (tall)</string>
+    <string name="label_50x25">50 × 25 mm</string>
+    <string name="label_25x25">25 × 25 mm</string>
+
+    <!-- Errors -->
+    <string name="error_fmt">Error: %1$s</string>
+    <string name="image_decode_error">Image could not be decoded</string>
+
+    <!-- AI prompt / printed test label -->
+    <string name="ai_image_prompt_fmt">Minimalist black-and-white pictogram/icon: %1$s. Clean thick outlines, high contrast, no grayscale, no shadows, white background, centered, for a thermal printer.</string>
+    <string name="test_label_title">M110 OK</string>
+    <string name="test_label_subtitle">Jarvis test print</string>
+
+    <!-- Spinner options -->
+    <string-array name="text_sizes">
+        <item>Auto</item>
+        <item>Small</item>
+        <item>Medium</item>
+        <item>Large</item>
+    </string-array>
+    <string-array name="alignments">
+        <item>Center</item>
+        <item>Left</item>
+        <item>Right</item>
+    </string-array>
+    <string-array name="languages">
+        <item>Deutsch</item>
+        <item>English</item>
+    </string-array>
+</resources>

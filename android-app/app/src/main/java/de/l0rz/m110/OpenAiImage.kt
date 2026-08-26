@@ -1,5 +1,6 @@
 package de.l0rz.m110
 
+import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -15,10 +16,8 @@ import java.net.URL
 object OpenAiImage {
 
     /** Gibt ein quadratisches Bitmap zurück oder wirft eine Exception mit lesbarer Meldung. */
-    fun generatePictogram(apiKey: String, prompt: String): Bitmap {
-        val fullPrompt = "Minimalistisches, schwarz-weißes Piktogramm/Icon: $prompt. " +
-            "Klare dicke Konturen, hoher Kontrast, keine Graustufen, keine Schatten, " +
-            "weißer Hintergrund, zentriert, für einen Thermodrucker."
+    fun generatePictogram(context: Context, apiKey: String, prompt: String): Bitmap {
+        val fullPrompt = context.getString(R.string.ai_image_prompt_fmt, prompt)
 
         val body = JSONObject()
             .put("model", "gpt-image-1")
@@ -56,6 +55,6 @@ object OpenAiImage {
             URL(url).openStream().use { it.readBytes() }
         }
         return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
-            ?: throw RuntimeException("Bild konnte nicht dekodiert werden")
+            ?: throw RuntimeException(context.getString(R.string.image_decode_error))
     }
 }

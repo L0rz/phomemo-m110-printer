@@ -23,6 +23,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var statusChip: TextView
     private lateinit var settingsPanel: View
+    private lateinit var languageSpinner: Spinner
     private lateinit var deviceSpinner: Spinner
     private lateinit var labelSpinner: Spinner
     private lateinit var textInput: EditText
@@ -54,12 +55,19 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.GetContent()
     ) { uri: Uri? -> if (uri != null) onImagePicked(uri) }
 
+    override fun attachBaseContext(newBase: Context) {
+        val lang = newBase.getSharedPreferences(LocaleHelper.PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(LocaleHelper.KEY_LANG, LocaleHelper.LANG_DE) ?: LocaleHelper.LANG_DE
+        super.attachBaseContext(LocaleHelper.wrap(newBase, lang))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         status = findViewById(R.id.status)
         statusChip = findViewById(R.id.statusChip)
         settingsPanel = findViewById(R.id.settingsPanel)
+        languageSpinner = findViewById(R.id.languageSpinner)
         deviceSpinner = findViewById(R.id.deviceSpinner)
         labelSpinner = findViewById(R.id.labelSpinner)
         textInput = findViewById(R.id.textInput)
@@ -81,6 +89,7 @@ class MainActivity : AppCompatActivity() {
             findViewById(R.id.panelGallery)
         )
 
+        setupLanguageSpinner()
         setupSpinners()
         setupAlignment()
         setupTabs()
@@ -91,7 +100,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<Button>(R.id.btnConnect).setOnClickListener { connect(devices.getOrNull(deviceSpinner.selectedItemPosition)) }
         findViewById<Button>(R.id.btnPrint).setOnClickListener { doPrint() }
-        findViewById<Button>(R.id.btnTest).setOnClickListener { build { PhomemoPrinter.renderTestLabel() } }
+        findViewById<Button>(R.id.btnTest).setOnClickListener { build { PhomemoPrinter.renderTestLabel(this@MainActivity) } }
         findViewById<Button>(R.id.btnBuildText).setOnClickListener { buildText() }
         findViewById<Button>(R.id.btnPickImage).setOnClickListener { pickImage.launch("image/*") }
         findViewById<Button>(R.id.btnBuildQr).setOnClickListener { buildCode(qr = true) }
@@ -107,6 +116,26 @@ class MainActivity : AppCompatActivity() {
         aiKeyInput.setText(prefs.getString("openai_key", ""))
         updateConnStatus()
         ensurePerms()
+    }
+
+    private fun setupLanguageSpinner() {
+        languageSpinner.adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_spinner_dropdown_item,
+            resources.getStringArray(R.array.languages)
+        )
+        val saved = prefs.getString(LocaleHelper.KEY_LANG, LocaleHelper.LANG_DE)
+        languageSpinner.setSelection(if (saved == LocaleHelper.LANG_EN) 1 else 0)
+        languageSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(p: AdapterView<*>?, v: View?, pos: Int, id: Long) {
+                val lang = if (pos == 1) LocaleHelper.LANG_EN else LocaleHelper.LANG_DE
+                if (lang != prefs.getString(LocaleHelper.KEY_LANG, LocaleHelper.LANG_DE)) {
+                    prefs.edit().putString(LocaleHelper.KEY_LANG, lang).apply()
+                    recreate()
+                }
+            }
+            override fun onNothingSelected(p: AdapterView<*>?) {}
+        }
     }
 
     private fun setupTabs() {
@@ -147,14 +176,14 @@ class MainActivity : AppCompatActivity() {
                 val full = LabelStore.loadFull(f) ?: return@setOnClickListener
                 currentLabel = full; lastBuilder = null
                 imagePreview.setImageBitmap(full)
-                status.text = "Aus Galerie geladen — DRUCKEN drücken"
-                toast("In Vorschau geladen")
+                status.text = getString(R.string.gallery_loaded)
+                toast(getString(R.string.loaded_to_preview))
             }
             iv.setOnLongClickListener {
                 androidx.appcompat.app.AlertDialog.Builder(this)
-                    .setMessage("Dieses Label aus der Galerie löschen?")
-                    .setPositiveButton("Löschen") { _, _ -> LabelStore.delete(f); refreshGallery() }
-                    .setNegativeButton("Abbrechen", null).show()
+                    .setMessage(getString(R.string.delete_label))
+                    .setPositiveButton(getString(R.string.delete)) { _, _ -> LabelStore.delete(f); refreshGallery() }
+                    .setNegativeButton(getString(R.string.cancel), null).show()
                 true
             }
             grid.addView(iv)
@@ -163,7 +192,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupSpinners() {
         labelSpinner.adapter = ArrayAdapter(this,
-            android.R.layout.simple_spinner_dropdown_item, PhomemoPrinter.LABEL_SIZES.map { it.name })
+            android.R.layout.simple_spinner_dropdown_item,
+            PhomemoPrinter.LABEL_SIZES.map { getString(it.nameRes) })
         labelSpinner.setSelection(prefs.getInt("label_idx", 0).coerceIn(0, PhomemoPrinter.LABEL_SIZES.size - 1))
         PhomemoPrinter.labelSize = PhomemoPrinter.LABEL_SIZES[labelSpinner.selectedItemPosition]
         labelSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
@@ -174,9 +204,9 @@ class MainActivity : AppCompatActivity() {
             override fun onNothingSelected(p: AdapterView<*>?) {}
         }
         textSizeSpinner.adapter = ArrayAdapter(this,
-            android.R.layout.simple_spinner_dropdown_item, listOf("Auto", "Klein", "Mittel", "Groß"))
+            android.R.layout.simple_spinner_dropdown_item, resources.getStringArray(R.array.text_sizes))
         textAlignSpinner.adapter = ArrayAdapter(this,
-            android.R.layout.simple_spinner_dropdown_item, listOf("Zentriert", "Links", "Rechts"))
+            android.R.layout.simple_spinner_dropdown_item, resources.getStringArray(R.array.alignments))
     }
 
     private val rotations = listOf(0, 90, 180, 270)
@@ -208,8 +238,8 @@ class MainActivity : AppCompatActivity() {
     private fun applyOffsets(save: Boolean) {
         val ox = offXSeek.progress - 80; val oy = offYSeek.progress - 80
         PhomemoPrinter.offsetX = ox; PhomemoPrinter.offsetY = oy
-        offXLabel.text = "Versatz ⟷ horizontal: $ox dot"
-        offYLabel.text = "Versatz ↕ vertikal: $oy dot"
+        offXLabel.text = getString(R.string.offset_x_fmt, ox)
+        offYLabel.text = getString(R.string.offset_y_fmt, oy)
         if (save) prefs.edit().putInt("off_x", ox).putInt("off_y", oy).apply()
     }
 
@@ -217,38 +247,46 @@ class MainActivity : AppCompatActivity() {
 
     private fun build(builder: () -> Bitmap) {
         lastBuilder = builder
-        status.text = "Erzeuge Vorschau…"
+        status.text = getString(R.string.generating_preview)
         Thread {
             try {
                 val bmp = PhomemoPrinter.orient(builder())
                 runOnUiThread {
                     currentLabel = bmp
                     imagePreview.setImageBitmap(bmp)
-                    status.text = "Vorschau bereit (${bmp.width}×${bmp.height} px) — DRUCKEN drücken"
+                    status.text = getString(R.string.preview_ready, bmp.width, bmp.height)
                 }
-            } catch (e: Exception) { runOnUiThread { status.text = "❌ Vorschau-Fehler: ${e.message}" } }
+            } catch (e: Exception) { runOnUiThread { status.text = getString(R.string.preview_error, e.message) } }
         }.start()
     }
 
     private fun rebuild() { lastBuilder?.let { build(it) } }
 
     private fun doPrint() {
-        val bmp = currentLabel ?: run { toast("Erst eine Vorschau erzeugen"); return }
-        if (!PhomemoPrinter.isConnected) { toast("Erst verbinden"); settingsPanel.visibility = View.VISIBLE; return }
-        status.text = "Drucke…"
+        val bmp = currentLabel ?: run { toast(getString(R.string.need_preview)); return }
+        if (!PhomemoPrinter.isConnected) { toast(getString(R.string.need_connect)); settingsPanel.visibility = View.VISIBLE; return }
+        status.text = getString(R.string.printing)
         Thread {
             try {
                 PhomemoPrinter.printBitmap(PhomemoPrinter.applyPrintOffset(bmp))
                 val saved = try { LabelStore.save(this, bmp, System.currentTimeMillis()) } catch (_: Exception) { false }
-                runOnUiThread { status.text = if (saved) "✅ Gedruckt (in Galerie gespeichert)" else "✅ Gedruckt (schon in Galerie)" }
+                runOnUiThread {
+                    status.text = getString(if (saved) R.string.printed_saved else R.string.printed_duplicate)
+                }
             }
-            catch (e: Exception) { runOnUiThread { status.text = "❌ Druckfehler: ${e.message}" } }
+            catch (e: IllegalStateException) {
+                runOnUiThread {
+                    status.text = getString(R.string.status_not_connected)
+                    toast(getString(R.string.need_connect))
+                }
+            }
+            catch (e: Exception) { runOnUiThread { status.text = getString(R.string.print_error, e.message) } }
         }.start()
     }
 
     private fun buildText() {
         val t = textInput.text.toString().trim()
-        if (t.isEmpty()) { toast("Bitte Text eingeben"); return }
+        if (t.isEmpty()) { toast(getString(R.string.enter_text)); return }
         val size = when (textSizeSpinner.selectedItemPosition) { 1 -> 34f; 2 -> 52f; 3 -> 76f; else -> 0f }
         val align = when (textAlignSpinner.selectedItemPosition) {
             1 -> PhomemoPrinter.Align.LEFT; 2 -> PhomemoPrinter.Align.RIGHT; else -> PhomemoPrinter.Align.CENTER
@@ -258,30 +296,30 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildCode(qr: Boolean) {
         val c = codeInput.text.toString().trim()
-        if (c.isEmpty()) { toast("Bitte Inhalt eingeben"); return }
+        if (c.isEmpty()) { toast(getString(R.string.enter_content)); return }
         build { if (qr) PhomemoPrinter.renderQr(c) else PhomemoPrinter.renderBarcode(c) }
     }
 
     private fun onImagePicked(uri: Uri) {
         try {
             val raw = contentResolver.openInputStream(uri).use { BitmapFactory.decodeStream(it) }
-                ?: run { toast("Bild nicht lesbar"); return }
+                ?: run { toast(getString(R.string.image_unreadable)); return }
             build { PhomemoPrinter.renderImage(raw, chkDither.isChecked) }
-        } catch (e: Exception) { toast("Fehler: ${e.message}") }
+        } catch (e: Exception) { toast(getString(R.string.error_fmt, e.message)) }
     }
 
     private fun aiGenerate() {
         val key = aiKeyInput.text.toString().trim()
         val prompt = aiPromptInput.text.toString().trim()
-        if (key.isEmpty()) { toast("OpenAI API-Key in den Einstellungen eintragen"); settingsPanel.visibility = View.VISIBLE; return }
-        if (prompt.isEmpty()) { toast("Prompt eingeben"); return }
+        if (key.isEmpty()) { toast(getString(R.string.need_api_key)); settingsPanel.visibility = View.VISIBLE; return }
+        if (prompt.isEmpty()) { toast(getString(R.string.enter_prompt)); return }
         prefs.edit().putString("openai_key", key).apply()
-        status.text = "🎨 Generiere Piktogramm… (~20 s)"
+        status.text = getString(R.string.generating_ai)
         Thread {
             try {
-                val raw = OpenAiImage.generatePictogram(key, prompt)
+                val raw = OpenAiImage.generatePictogram(this@MainActivity, key, prompt)
                 runOnUiThread { build { PhomemoPrinter.renderImage(raw, chkDither.isChecked) } }
-            } catch (e: Exception) { runOnUiThread { status.text = "❌ KI-Fehler: ${e.message}" } }
+            } catch (e: Exception) { runOnUiThread { status.text = getString(R.string.ai_error, e.message) } }
         }.start()
     }
 
@@ -299,15 +337,15 @@ class MainActivity : AppCompatActivity() {
     private fun ensurePerms() { if (hasPerms()) loadDevices() else reqPerms.launch(neededPerms()) }
 
     private fun loadDevices() {
-        if (!hasPerms()) { statusChip.text = "🔴 keine BT-Berechtigung"; return }
+        if (!hasPerms()) { statusChip.text = getString(R.string.bt_no_permission); return }
         val mgr = getSystemService(BLUETOOTH_SERVICE) as BluetoothManager
         val adapter: BluetoothAdapter? = mgr.adapter
-        if (adapter == null || !adapter.isEnabled) { statusChip.text = "🔴 Bluetooth aus"; return }
+        if (adapter == null || !adapter.isEnabled) { statusChip.text = getString(R.string.bt_off); return }
         try { devices = adapter.bondedDevices.toList() }
-        catch (e: SecurityException) { statusChip.text = "🔴 keine BT-Berechtigung"; return }
+        catch (e: SecurityException) { statusChip.text = getString(R.string.bt_no_permission); return }
         val names = devices.map { d -> try { "${d.name ?: "?"} (${d.address})" } catch (e: SecurityException) { d.address } }
         deviceSpinner.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item,
-            if (names.isEmpty()) listOf("— keine gekoppelten Geräte —") else names)
+            if (names.isEmpty()) listOf(getString(R.string.no_devices)) else names)
         val lastAddr = prefs.getString("last_device", null)
         val idx = (if (lastAddr != null) devices.indexOfFirst { it.address == lastAddr } else -1)
             .let { if (it >= 0) it else names.indexOfFirst { n -> n.contains("M110", true) || n.contains("Phomemo", true) } }
@@ -317,24 +355,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun connect(d: BluetoothDevice?) {
-        if (d == null) { toast("Erst M110 in den Android-BT-Einstellungen koppeln"); return }
-        statusChip.text = "🟡 verbinde…"
+        if (d == null) { toast(getString(R.string.pair_first)); return }
+        statusChip.text = getString(R.string.connecting)
         Thread {
             try {
                 PhomemoPrinter.connect(d)
                 prefs.edit().putString("last_device", d.address).apply()
                 runOnUiThread { updateConnStatus(); settingsPanel.visibility = View.GONE }
             } catch (e: Exception) {
-                runOnUiThread { statusChip.text = "🔴 fehlgeschlagen"; settingsPanel.visibility = View.VISIBLE; toast("Verbindung fehlgeschlagen: ${e.message}") }
+                runOnUiThread {
+                    statusChip.text = getString(R.string.connect_failed)
+                    settingsPanel.visibility = View.VISIBLE
+                    toast(getString(R.string.connect_error, e.message))
+                }
             }
         }.start()
     }
 
     private fun updateConnStatus() {
         if (PhomemoPrinter.isConnected) {
-            statusChip.text = "🟢 " + (PhomemoPrinter.connectedName ?: "verbunden")
+            statusChip.text = getString(R.string.connected_fmt, PhomemoPrinter.connectedName ?: getString(R.string.connected))
         } else {
-            statusChip.text = "🔴 Nicht verbunden"
+            statusChip.text = getString(R.string.status_not_connected)
         }
     }
 

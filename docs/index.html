@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phomemo M110 Drucker - Dokumentation</title>
+    <title>Phomemo M110 Printer - Documentation</title>
     <style>
         * {
             margin: 0;
@@ -213,6 +213,7 @@
         <div class="header">
             <h1>🖨️ Phomemo M110 Drucker</h1>
             <p class="subtitle">Web-Interface für Label-Drucker mit präziser Kalibrierung</p>
+            <button class="btn secondary language-toggle" id="languageToggle" type="button" onclick="toggleLanguage()">🇬🇧 English</button>
             <div class="badges">
                 <a href="https://github.com/L0rz/phomemo-m110-printer" class="badge github">📁 GitHub</a>
                 <a href="#" class="badge python">🐍 Python</a>
@@ -333,6 +334,7 @@
                 <h2>📥 Download & Links</h2>
                 <p>Laden Sie das komplette Projekt herunter:</p>
                 
+                <a href="https://github.com/L0rz/phomemo-m110-printer/releases/latest" class="btn">📱 APK herunterladen</a>
                 <a href="https://github.com/L0rz/phomemo-m110-printer/archive/refs/heads/main.zip" class="btn">📦 ZIP Download</a>
                 <a href="https://github.com/L0rz/phomemo-m110-printer" class="btn secondary">📁 GitHub Repository</a>
                 
@@ -367,5 +369,76 @@ sudo rfcomm bind 0 12:7E:5A:E9:E5:22
             <p>🔗 <a href="https://github.com/L0rz" style="color: rgba(255,255,255,0.8);">GitHub: L0rz</a></p>
         </div>
     </div>
+
+    <script>
+        const translations = {
+            de: {
+                title: 'Phomemo M110 Drucker - Dokumentation',
+                heading: '🖨️ Phomemo M110 Drucker',
+                subtitle: 'Web-Interface für Label-Drucker mit präziser Kalibrierung',
+                features: '✨ Features',
+                web: '🌐 Web-Interface', webText: 'Benutzerfreundliche Bedienung über jeden Browser',
+                calibration: '🎯 Y-Offset Kalibrierung', calibrationText: 'Präzise vertikale Positionierung für perfekte Label',
+                textImages: '📝 Text & Bilder', textImagesText: 'Druckt Text und Bilder auf 40×30mm Labels',
+                segmented: '📏 Segmentierter Volltest', segmentedText: 'Nutzt komplette 30mm Label-Höhe optimal',
+                hardware: '⚙️ Hardware-optimiert', hardwareText: 'Speziell für M110 Hardware-Limits angepasst',
+                bluetooth: '🔵 Bluetooth', bluetoothText: 'Stabile Verbindung über rfcomm',
+                quickStart: '🚀 Schnellstart', install: '1. Installation:', bluetoothConnection: '2. Bluetooth-Verbindung:',
+                startServer: '3. Server starten:', openInterface: '4. Web-Interface öffnen:', fullGuide: '📖 Vollständige Anleitung',
+                specs: '⚙️ Technische Daten', specification: 'Spezifikation', value: 'Wert', labelSize: 'Label-Größe', resolution: 'Auflösung', hardwareSpec: 'Hardware', connection: 'Verbindung', segmentation: 'Segmentierung',
+                api: '🔌 API Endpoints', download: '📥 Download & Links', downloadText: 'Laden Sie das komplette Projekt herunter:', apk: '📱 APK herunterladen', zip: '📦 ZIP Download', repo: '📁 GitHub Repository', clone: 'Direkter Git Clone:',
+                troubleshooting: '🔧 Fehlerbehebung', bluetoothProblems: 'Bluetooth-Probleme:', checkConnection: 'Verbindung prüfen', reconnect: 'Neuverbindung', misplaced: 'Labels zu weit links/rechts:', adjust: 'X-Offset im Web-Interface anpassen', test: 'Kalibrierungs-Test drucken', save: 'Einstellungen speichern',
+                apiWeb: 'Web-Interface', apiText: 'Text drucken', apiImage: 'Bild drucken', apiCalibration: 'Kalibrierungs-Test', apiFullHeight: 'Volltest (30mm)', apiSave: 'Kalibrierung speichern', apiStatus: 'Drucker-Status',
+                footer: '📄 MIT License | 🛠️ Erstellt für Phomemo M110 Label Drucker', toggle: '🇬🇧 English'
+            },
+            en: {
+                title: 'Phomemo M110 Printer - Documentation',
+                heading: '🖨️ Phomemo M110 Printer',
+                subtitle: 'Web interface for label printing with precise calibration',
+                features: '✨ Features', web: '🌐 Web Interface', webText: 'Easy-to-use control from any browser',
+                calibration: '🎯 Y-Offset Calibration', calibrationText: 'Precise vertical positioning for perfect labels',
+                textImages: '📝 Text & Images', textImagesText: 'Prints text and images on 40×30mm labels',
+                segmented: '📏 Segmented Full Test', segmentedText: 'Makes optimal use of the full 30mm label height',
+                hardware: '⚙️ Hardware Optimized', hardwareText: 'Designed specifically for M110 hardware limits',
+                bluetooth: '🔵 Bluetooth', bluetoothText: 'Stable connection over rfcomm',
+                quickStart: '🚀 Quick Start', install: '1. Installation:', bluetoothConnection: '2. Bluetooth connection:', startServer: '3. Start the server:', openInterface: '4. Open the web interface:', fullGuide: '📖 Full guide',
+                specs: '⚙️ Technical Specifications', specification: 'Specification', value: 'Value', labelSize: 'Label size', resolution: 'Resolution', hardwareSpec: 'Hardware', connection: 'Connection', segmentation: 'Segmentation',
+                api: '🔌 API Endpoints', download: '📥 Download & Links', downloadText: 'Download the complete project:', apk: '📱 Download APK', zip: '📦 ZIP download', repo: '📁 GitHub repository', clone: 'Direct Git clone:',
+                troubleshooting: '🔧 Troubleshooting', bluetoothProblems: 'Bluetooth problems:', checkConnection: 'Check connection', reconnect: 'Reconnect', misplaced: 'Labels too far left/right:', adjust: 'Adjust the X offset in the web interface', test: 'Print a calibration test', save: 'Save settings',
+                apiWeb: 'Web interface', apiText: 'Print text', apiImage: 'Print image', apiCalibration: 'Calibration test', apiFullHeight: 'Full-height test (30mm)', apiSave: 'Save calibration', apiStatus: 'Printer status',
+                footer: '📄 MIT License | 🛠️ Built for the Phomemo M110 label printer', toggle: '🇩🇪 Deutsch'
+            }
+        };
+        const languageSelectors = {
+            heading: '.header h1', subtitle: '.header .subtitle', features: '.features h2', web: '.feature:nth-child(1) h3', webText: '.feature:nth-child(1) p', calibration: '.feature:nth-child(2) h3', calibrationText: '.feature:nth-child(2) p', textImages: '.feature:nth-child(3) h3', textImagesText: '.feature:nth-child(3) p', segmented: '.feature:nth-child(4) h3', segmentedText: '.feature:nth-child(4) p', hardware: '.feature:nth-child(5) h3', hardwareText: '.feature:nth-child(5) p', bluetooth: '.feature:nth-child(6) h3', bluetoothText: '.feature:nth-child(6) p', quickStart: '.card:nth-child(2) h2', specs: '.card:nth-child(3) h2', api: '.card:nth-child(4) h2', download: '.card:nth-child(5) h2', downloadText: '.card:nth-child(5) p', apk: '.card:nth-child(5) .btn', zip: '.card:nth-child(5) .btn:nth-of-type(2)', repo: '.card:nth-child(5) .btn:nth-of-type(3)', clone: '.card:nth-child(5) p:nth-of-type(2)', troubleshooting: '.card:nth-child(6) h2', bluetoothProblems: '.card:nth-child(6) p:nth-of-type(1)', misplaced: '.card:nth-child(6) p:nth-of-type(2)', footer: '.footer p:first-child'
+        };
+        function applyLanguage(language) {
+            const t = translations[language];
+            document.documentElement.lang = language;
+            document.title = t.title;
+            Object.entries(languageSelectors).forEach(([key, selector]) => { const element = document.querySelector(selector); if (element) element.textContent = t[key]; });
+            const quickStart = document.querySelector('.card:nth-child(2)');
+            quickStart.querySelectorAll('p strong')[0].textContent = t.install;
+            quickStart.querySelectorAll('p strong')[1].textContent = t.bluetoothConnection;
+            quickStart.querySelectorAll('p strong')[2].textContent = t.startServer;
+            quickStart.querySelectorAll('p strong')[3].textContent = t.openInterface;
+            quickStart.querySelector('.btn').textContent = t.fullGuide;
+            const specs = document.querySelector('.card:nth-child(3)');
+            specs.querySelectorAll('th')[0].textContent = t.specification;
+            specs.querySelectorAll('th')[1].textContent = t.value;
+            const specLabels = specs.querySelectorAll('td:nth-child(1)');
+            [t.labelSize, t.resolution, t.hardwareSpec, t.connection, t.segmentation].forEach((text, index) => { specLabels[index].textContent = text; });
+            const apiLabels = [t.apiWeb, t.apiText, t.apiImage, t.apiCalibration, t.apiFullHeight, t.apiSave, t.apiStatus];
+            document.querySelectorAll('.api-endpoint').forEach((endpoint, index) => { const code = endpoint.querySelector('strong').textContent; const method = endpoint.querySelector('.method').outerHTML; endpoint.innerHTML = `${method} <strong>${code}</strong> - ${apiLabels[index]}`; });
+            const troubleshooting = document.querySelector('.card:nth-child(6)');
+            troubleshooting.querySelector('.code-block').innerHTML = language === 'en' ? '# Check connection\nls -la /dev/rfcomm0\n\n# Reconnect\nsudo rfcomm release 0\nsudo rfcomm bind 0 12:7E:5A:E9:E5:22' : '# Verbindung prüfen\nls -la /dev/rfcomm0\n\n# Neuverbindung\nsudo rfcomm release 0\nsudo rfcomm bind 0 12:7E:5A:E9:E5:22';
+            const troubleshootingItems = troubleshooting.querySelectorAll('li');
+            [t.adjust, t.test, t.save].forEach((text, index) => { troubleshootingItems[index].textContent = text; });
+            document.getElementById('languageToggle').textContent = t.toggle;
+            localStorage.setItem('phomemo-docs-language', language);
+        }
+        function toggleLanguage() { applyLanguage((localStorage.getItem('phomemo-docs-language') || 'de') === 'de' ? 'en' : 'de'); }
+        applyLanguage(localStorage.getItem('phomemo-docs-language') || 'de');
+    </script>
 </body>
 </html>

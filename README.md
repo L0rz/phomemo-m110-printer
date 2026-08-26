@@ -1,5 +1,7 @@
 # 🏷️ Phomemo M110 Printer Controller
 
+**[🇩🇪 Deutsch](README.md)** • [🇬🇧 English](README.en.md)
+
 Web-basierter Druckserver für den Phomemo M110 Thermodrucker auf Raspberry Pi via Bluetooth.
 
 ## Features

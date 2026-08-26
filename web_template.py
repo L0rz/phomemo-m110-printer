@@ -106,6 +106,12 @@ WEB_INTERFACE = '''
         .row { display: flex; gap: 12px; flex-wrap: wrap; }
         .row > * { flex: 1; min-width: 140px; }
 
+        /* Language selector */
+        .lang-select { background: none; border: 1px solid var(--border); color: var(--text); padding: 4px 8px;
+            border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; }
+        .lang-select:hover { border-color: var(--accent); color: var(--accent); }
+        .lang-select option { background: var(--card); color: var(--text); }
+
         /* Responsive */
         @media (max-width: 600px) {
             .wrap { padding: 8px; }
@@ -120,8 +126,12 @@ WEB_INTERFACE = '''
     <div class="header">
         <h1>🖨️ Phomemo M110</h1>
         <div class="header-right">
-            <span class="status-dot off" id="statusDot" title="Nicht verbunden"></span>
-            <span id="queueBadge" style="display:none;background:var(--warn);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer" onclick="switchTab('settings')" title="Jobs in Queue"></span>
+            <select class="lang-select" id="langSelect" onchange="setLanguage(this.value)">
+                <option value="de">🇩🇪 DE</option>
+                <option value="en">🇬🇧 EN</option>
+            </select>
+            <span class="status-dot off" id="statusDot"></span>
+            <span id="queueBadge" style="display:none;background:var(--warn);color:#000;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;cursor:pointer" onclick="switchTab('settings')"></span>
             <button class="icon-btn" onclick="reconnect()" title="Reconnect">🔄</button>
             <button class="icon-btn" onclick="toggleTheme()" id="themeBtn" title="Theme">🌙</button>
         </div>
@@ -129,9 +139,9 @@ WEB_INTERFACE = '''
 
     <!-- Tabs -->
     <div class="tabs">
-        <div class="tab active" onclick="switchTab('text')">📝 Text</div>
-        <div class="tab" onclick="switchTab('image')">🖼️ Bild</div>
-        <div class="tab" onclick="switchTab('settings')">⚙️ Einstellungen</div>
+        <div class="tab active" data-tab="text" onclick="switchTab('text')"></div>
+        <div class="tab" data-tab="image" onclick="switchTab('image')"></div>
+        <div class="tab" data-tab="settings" onclick="switchTab('settings')"></div>
     </div>
 
     <!-- TEXT TAB -->
@@ -288,6 +298,71 @@ WEB_INTERFACE = '''
 let currentImageData = null;
 let textPreviewTimeout;
 
+// === I18N ===
+const T = {{ translations_json | safe }};
+function t(key) { return T[key] || key; }
+
+function applyTranslations() {
+    document.querySelectorAll('.tab[data-tab]').forEach(tab => {
+        tab.textContent = t('tab_' + tab.dataset.tab);
+    });
+    document.getElementById('textInput').placeholder = t('text_placeholder');
+    document.querySelectorAll('#tab-text .row div:nth-child(1) label')[0].textContent = t('font_size');
+    document.getElementById('fontSize').options[0].textContent = t('font_small') + ' (18)';
+    document.getElementById('fontSize').options[1].textContent = t('font_normal') + ' (22)';
+    document.getElementById('fontSize').options[2].textContent = t('font_large') + ' (26)';
+    document.querySelectorAll('#tab-text .row div:nth-child(2) label')[0].textContent = t('alignment');
+    document.getElementById('textAlignment').options[0].textContent = t('align_left');
+    document.getElementById('textAlignment').options[1].textContent = t('align_center');
+    document.getElementById('textAlignment').options[2].textContent = t('align_right');
+    document.getElementById('textPreviewPlaceholder').textContent = t('preview_appears');
+    document.querySelector('#tab-text .btn-primary').textContent = t('print');
+    document.querySelector('#tab-text .btn-outline').textContent = t('to_queue');
+    document.getElementById('previewPlaceholder').textContent = t('select_image');
+    document.querySelectorAll('#tab-image .img-opts label')[0].lastChild.textContent = ' ' + t('fit_to_label');
+    document.querySelectorAll('#tab-image .img-opts label')[1].lastChild.textContent = ' ' + t('maintain_aspect');
+    document.querySelectorAll('#tab-image .img-opts label')[2].lastChild.textContent = ' ' + t('dithering');
+    document.querySelectorAll('#tab-image .row label')[0].textContent = t('scaling');
+    document.getElementById('scalingMode').options[0].textContent = t('scale_fit');
+    document.getElementById('scalingMode').options[1].textContent = t('scale_stretch');
+    document.getElementById('scalingMode').options[2].textContent = t('scale_crop');
+    document.getElementById('scalingMode').options[3].textContent = t('scale_pad');
+    document.querySelectorAll('#tab-image .row label')[1].textContent = t('dither_preset');
+    document.getElementById('ditherPreset').options[0].textContent = t('preset_normal');
+    document.getElementById('ditherPreset').options[1].textContent = t('preset_soft');
+    document.getElementById('ditherPreset').options[2].textContent = t('preset_sharp');
+    document.getElementById('ditherPreset').options[3].textContent = t('preset_contrast');
+    document.getElementById('printImageBtn').textContent = t('print');
+    document.getElementById('queueImageBtn').textContent = t('to_queue');
+    document.querySelector('#tab-settings .card-header').textContent = t('print_settings');
+    document.querySelector('#tab-settings .setting-row:nth-child(5) label').textContent = t('label_size');
+    document.getElementById('labelSize').options[0].textContent = t('label_standard');
+    document.getElementById('labelSize').options[1].textContent = t('label_portrait');
+    document.getElementById('labelSize').options[2].textContent = t('label_wide');
+    document.getElementById('labelSize').options[3].textContent = t('label_narrow');
+    document.getElementById('labelSize').options[4].textContent = t('label_large');
+    document.getElementById('labelSize').options[5].textContent = t('label_flat');
+    document.getElementById('labelSize').options[6].textContent = t('label_square');
+    document.querySelector('#tab-settings .setting-row:nth-child(6) label').textContent = t('dither_threshold');
+    document.querySelector('#tab-settings .setting-row:nth-child(7) label').textContent = t('dither_strength');
+    document.querySelector('#tab-settings .setting-row:nth-child(8) label').textContent = t('contrast');
+    document.querySelector('#tab-settings .setting-row:nth-child(9) label').textContent = t('dithering_global');
+    document.querySelector('#tab-settings .btn-row .btn-primary').textContent = t('save');
+    document.querySelector('#tab-settings .btn-row .btn-outline').textContent = t('test_offsets');
+    document.querySelectorAll('#tab-settings .card')[1].querySelector('.card-header').textContent = t('connection');
+    document.getElementById('connDetails').textContent = t('loading');
+    document.querySelectorAll('#tab-settings .card:last-child .btn-outline')[0].textContent = t('status_btn');
+    document.querySelectorAll('#tab-settings .card:last-child .btn-outline')[1].textContent = t('reconnect_btn');
+    document.querySelectorAll('#tab-settings .card:last-child .btn-outline')[2].textContent = t('manual_btn');
+    document.getElementById('langSelect').value = localStorage.getItem('phomemo-lang') || 'de';
+    document.getElementById('queueInfo').innerHTML = t('queue_jobs');
+}
+
+function setLanguage(lang) {
+    localStorage.setItem('phomemo-lang', lang);
+    location.reload();
+}
+
 // === THEME ===
 function initTheme() {
     const saved = localStorage.getItem('phomemo-theme');
@@ -305,8 +380,7 @@ function toggleTheme() {
 
 // === TABS ===
 function switchTab(name) {
-    document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.includes(
-        name === 'text' ? 'Text' : name === 'image' ? 'Bild' : 'Einstellungen')));
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.toggle('active', tab.dataset.tab === name));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
 }
@@ -323,7 +397,7 @@ function checkConnection() {
     fetch('/api/status').then(r=>r.json()).then(d => {
         const dot = document.getElementById('statusDot');
         dot.className = 'status-dot ' + (d.connected ? 'on' : 'off');
-        dot.title = d.connected ? 'Verbunden' : 'Getrennt';
+        dot.title = d.connected ? t('status_connected') : t('status_disconnected_short');
         updateSettingsFromData(d.settings || {});
         const det = document.getElementById('connDetails');
         const qSize = d.queue_size || 0;
@@ -339,27 +413,27 @@ function checkConnection() {
             qInfo.style.display = 'none';
         }
         if (d.connected) {
-            det.innerHTML = '✅ Verbunden<br>MAC: ' + d.mac + '<br>Heartbeat: ' +
+            det.innerHTML = t('connected_text') + '<br>MAC: ' + d.mac + '<br>' + t('heartbeat') + ': ' +
                 (d.last_heartbeat ? new Date(d.last_heartbeat*1000).toLocaleTimeString() : '—') +
                 '<br>Jobs: ' + (d.stats?.successful_jobs||0) + ' ✓ / ' + (d.stats?.failed_jobs||0) + ' ✗';
         } else {
-            det.innerHTML = '❌ Nicht verbunden<br>Status: ' + (d.status||'unbekannt');
+            det.innerHTML = t('not_connected_text') + '<br>Status: ' + (d.status||t('status_unknown'));
         }
-    }).catch(e => toast('Verbindungsfehler', 'error'));
+    }).catch(e => toast(t('error'), 'error'));
 }
 function reconnect() {
-    toast('Reconnect...', 'info');
+    toast(t('reconnecting'), 'info');
     fetch('/api/force-reconnect', {method:'POST'}).then(r=>r.json()).then(d => {
-        toast(d.success ? '✅ Verbunden!' : '❌ Fehlgeschlagen', d.success ? 'success' : 'error');
+        toast(d.success ? t('connected') : t('failed'), d.success ? 'success' : 'error');
         checkConnection();
-    }).catch(() => toast('Fehler', 'error'));
+    }).catch(() => toast(t('error'), 'error'));
 }
 function manualConnect() {
-    toast('Verbinde...', 'info');
+    toast(t('connecting'), 'info');
     fetch('/api/manual-connect', {method:'POST'}).then(r=>r.json()).then(d => {
-        toast(d.success ? '✅ Verbunden!' : '❌ Fehlgeschlagen', d.success ? 'success' : 'error');
+        toast(d.success ? t('connected') : t('failed'), d.success ? 'success' : 'error');
         checkConnection();
-    }).catch(() => toast('Fehler', 'error'));
+    }).catch(() => toast(t('error'), 'error'));
 }
 
 // === SETTINGS ===
@@ -405,14 +479,14 @@ function saveSettings() {
         contrast_boost: parseFloat(document.getElementById('contrastBoost').value)
     };
     fetch('/api/settings', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(s)})
-        .then(r=>r.json()).then(d => toast(d.success ? '✅ Gespeichert!' : '❌ Fehler', d.success ? 'success' : 'error'))
-        .catch(() => toast('Fehler', 'error'));
+        .then(r=>r.json()).then(d => toast(d.success ? t('saved') : t('error'), d.success ? 'success' : 'error'))
+        .catch(() => toast(t('error'), 'error'));
 }
 function testOffsets() {
-    toast('Teste Offsets...', 'info');
+    toast(t('testing_offsets'), 'info');
     fetch('/api/test-offsets', {method:'POST'}).then(r=>r.json())
-        .then(d => toast(d.success ? '✅ Gedruckt!' : '❌ Fehler', d.success ? 'success' : 'error'))
-        .catch(() => toast('Fehler', 'error'));
+        .then(d => toast(d.success ? t('printed_ok') : t('error'), d.success ? 'success' : 'error'))
+        .catch(() => toast(t('error'), 'error'));
 }
 
 // === TEXT ===
@@ -446,17 +520,17 @@ function debouncedTextPreview() {
 }
 function printText(queue) {
     const text = document.getElementById('textInput').value;
-    if (!text.trim()) { toast('Kein Text!', 'error'); return; }
+    if (!text.trim()) { toast(t('no_text'), 'error'); return; }
     const fd = new FormData();
     fd.append('text', text.replace('$TIME$', new Date().toLocaleTimeString()));
     fd.append('font_size', document.getElementById('fontSize').value);
     fd.append('alignment', document.getElementById('textAlignment').value);
     fd.append('immediate', queue ? 'false' : 'true');
     const endpoint = (text.includes('#qr#') || text.includes('#bar#')) ? '/api/print-text-with-codes' : '/api/print-text';
-    toast('Drucke...', 'info');
+    toast(t('printing'), 'info');
     fetch(endpoint, {method:'POST', body:fd}).then(r=>r.json())
-        .then(d => toast(d.success ? '✅ Gedruckt!' : '❌ ' + (d.error||d.message||'Fehler'), d.success ? 'success' : 'error'))
-        .catch(() => toast('Druckfehler', 'error'));
+        .then(d => toast(d.success ? t('printed') : '❌ ' + (d.error||d.message||t('error')), d.success ? 'success' : 'error'))
+        .catch(() => toast(t('print_error'), 'error'));
 }
 
 // === IMAGE ===
@@ -469,7 +543,7 @@ function uploadAndPreview() {
     fd.append('maintain_aspect', document.getElementById('maintainAspect').checked);
     fd.append('enable_dither', document.getElementById('enableDither').checked);
     fd.append('scaling_mode', document.getElementById('scalingMode').value);
-    toast('Erstelle Vorschau...', 'info');
+    toast(t('creating_preview'), 'info');
     fetch('/api/preview-image', {method:'POST', body:fd}).then(r=>r.json()).then(d => {
         if (d.success) {
             document.getElementById('previewPlaceholder').style.display = 'none';
@@ -483,9 +557,9 @@ function uploadAndPreview() {
             document.getElementById('printImageBtn').disabled = false;
             document.getElementById('queueImageBtn').disabled = false;
             currentImageData = file;
-            toast('✅ Vorschau fertig', 'success');
+            toast(t('preview_ready'), 'success');
         } else { toast('❌ ' + (d.error||''), 'error'); }
-    }).catch(e => toast('Fehler: ' + e, 'error'));
+    }).catch(e => toast(t('error') + ': ' + e, 'error'));
 }
 function updatePreview() { if (currentImageData) { document.getElementById('imageFile').files = new DataTransfer().files; currentImageData && uploadAndPreview(); } }
 function applyDitherPreset() {
@@ -500,7 +574,7 @@ function applyDitherPreset() {
     if (currentImageData) uploadAndPreview();
 }
 function printImage(queue) {
-    if (!currentImageData) { toast('Kein Bild!', 'error'); return; }
+    if (!currentImageData) { toast(t('no_image'), 'error'); return; }
     const fd = new FormData();
     fd.append('image', currentImageData);
     fd.append('immediate', queue ? 'false' : 'true');
@@ -508,13 +582,14 @@ function printImage(queue) {
     fd.append('maintain_aspect', document.getElementById('maintainAspect').checked);
     fd.append('enable_dither', document.getElementById('enableDither').checked);
     fd.append('scaling_mode', document.getElementById('scalingMode').value);
-    toast('Drucke Bild...', 'info');
+    toast(t('printing_image'), 'info');
     fetch('/api/print-image', {method:'POST', body:fd}).then(r=>r.json())
-        .then(d => toast(d.success ? '✅ Gedruckt!' : '❌ ' + (d.error||''), d.success ? 'success' : 'error'))
-        .catch(() => toast('Druckfehler', 'error'));
+        .then(d => toast(d.success ? t('printed') : '❌ ' + (d.error||''), d.success ? 'success' : 'error'))
+        .catch(() => toast(t('print_error'), 'error'));
 }
 
 // === INIT ===
+applyTranslations();
 initTheme();
 checkConnection();
 setInterval(checkConnection, 10000);

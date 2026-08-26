@@ -7,12 +7,17 @@ android {
     namespace 'de.l0rz.m110'
     compileSdk 34
 
+    def baseVersionCode = 11
+    def runNumber = project.findProperty("buildNumber")?.toString() ?: System.getenv("GITHUB_RUN_NUMBER")
+    def appVersionCode = runNumber ? (baseVersionCode + runNumber.toInteger()) : baseVersionCode
+    def appVersionName = runNumber ? "0.11.${runNumber}" : "0.11"
+
     defaultConfig {
         applicationId "de.l0rz.m110"
         minSdk 24
         targetSdk 34
-        versionCode 11
-        versionName "0.11"
+        versionCode appVersionCode
+        versionName appVersionName
     }
 
     buildTypes {
